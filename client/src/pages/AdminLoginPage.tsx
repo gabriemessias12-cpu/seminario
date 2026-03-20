@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">E-mail administrativo</label>
-            <input type="email" className="form-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@vinhanova.com" required />
+            <input type="email" className="form-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="ralfer@vinhanova.com" required />
           </div>
           <div className="form-group">
             <label className="form-label">Senha</label>

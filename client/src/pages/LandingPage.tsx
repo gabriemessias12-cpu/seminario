@@ -96,7 +96,7 @@ export default function LandingPage() {
     {
       icon: 'shield' as const,
       title: 'Conducao pastoral',
-      description: 'Curadoria e acompanhamento do seminario com responsabilidade pastoral sob a lideranca do Pastor Ralf.'
+      description: 'Curadoria e acompanhamento do seminario com responsabilidade pastoral sob a lideranca do Pastor Ralfer.'
     },
     {
       icon: 'library' as const,
@@ -159,14 +159,14 @@ export default function LandingPage() {
               <span className="section-kicker">
                 Igreja Vinha Nova
               </span>
-              <h1>Seminario Teologico Vinha Nova com Pr. Ralf.</h1>
+              <h1>Seminario Teologico Vinha Nova com Pr. Ralfer.</h1>
               <p className="landing-lead">
                 Formacao biblica online da Igreja Vinha Nova, com aulas organizadas, materiais de apoio,
                 revisoes e acompanhamento pastoral em um unico ambiente.
               </p>
 
               <div className="landing-hero-badges">
-                <span className="landing-inline-pill">Pastor responsavel: Pr. Ralf</span>
+                <span className="landing-inline-pill">Pastor responsavel: Pr. Ralfer</span>
                 <span className="landing-inline-pill">Nova Friburgo, RJ</span>
               </div>
 
@@ -219,7 +219,7 @@ export default function LandingPage() {
             <img
               className="landing-hero-pastor-image"
               src={pastorImage}
-              alt="Foto original do Pastor Ralf"
+              alt="Foto original do Pastor Ralfer"
             />
           </div>
 

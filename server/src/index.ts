@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import alunoRoutes from './routes/alunos.js';
 import adminRoutes from './routes/admin.js';
 import { getAIConfig } from './services/ai-mock.js';
+import { ensureSystemAccounts } from './services/system-accounts.js';
 
 loadEnvFiles();
 
@@ -50,6 +51,15 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Seminario Vinha Nova API running on http://localhost:${PORT}`);
+async function startServer() {
+  await ensureSystemAccounts();
+
+  app.listen(PORT, () => {
+    console.log(`Seminario Vinha Nova API running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Erro ao iniciar servidor:', error);
+  process.exit(1);
 });

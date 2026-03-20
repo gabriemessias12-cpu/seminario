@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       isAdmin: user?.papel === 'admin' || user?.papel === 'pastor',
-      isAluno: user?.papel === 'aluno'
+      isAluno: user?.papel === 'aluno' || user?.papel === 'admin' || user?.papel === 'pastor'
     }}>
       {children}
     </AuthContext.Provider>

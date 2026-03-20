@@ -23,6 +23,7 @@ async function main() {
 
   const senhaAluno = await bcrypt.hash('123456', 10);
   const senhaAdmin = await bcrypt.hash('admin123', 10);
+  const senhaRalfer = await bcrypt.hash('ralfer123', 10);
 
   // Create admin users
   const pastor = await prisma.user.create({
@@ -43,6 +44,17 @@ async function main() {
       senhaHash: senhaAdmin,
       papel: 'admin',
       telefone: '(11) 99999-0002',
+      ultimoAcesso: new Date()
+    }
+  });
+
+  await prisma.user.create({
+    data: {
+      nome: 'Ralfer',
+      email: 'ralfer@vinhanova.com',
+      senhaHash: senhaRalfer,
+      papel: 'admin',
+      telefone: '(11) 99999-0003',
       ultimoAcesso: new Date()
     }
   });
@@ -268,6 +280,7 @@ async function main() {
   console.log('Credentials:');
   console.log('   Pastor:  pastor@vinhanova.com / admin123');
   console.log('   Admin:   admin@vinhanova.com / admin123');
+  console.log('   Admin:   ralfer@vinhanova.com / ralfer123');
   console.log('   Alunos:  aluno1@vinhanova.com / 123456');
   console.log('            aluno2@vinhanova.com / 123456');
   console.log('            aluno3@vinhanova.com / 123456');
