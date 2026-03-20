@@ -1,0 +1,63 @@
+import { FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
+import BrandMark from '../components/BrandMark';
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setLoading(true);
+
+    const result = await login(email, senha);
+    setLoading(false);
+
+    if (result.success) navigate('/dashboard');
+    else setError(result.error || 'Erro ao fazer login');
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <div className="logo-circle">
+            <BrandMark className="brand-mark brand-mark-login" />
+          </div>
+          <h1>Seminario Vinha Nova</h1>
+          <p>Acesse sua area de estudos</p>
+        </div>
+
+        {error && <div className="login-error">{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">E-mail</label>
+            <input type="email" className="form-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="seu@email.com" required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Senha</label>
+            <input type="password" className="form-input" value={senha} onChange={(event) => setSenha(event.target.value)} placeholder="Digite sua senha" required />
+          </div>
+          <button className="btn btn-accent w-full btn-lg" type="submit" disabled={loading}>
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
+
+        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          <button className="text-link-button" type="button" onClick={() => navigate('/')}>
+            <AppIcon name="arrow-left" size={14} />
+            <span>Voltar ao site</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

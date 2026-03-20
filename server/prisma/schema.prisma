@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  nome          String
+  email         String    @unique
+  senhaHash     String
+  papel         String    @default("aluno")
+  foto          String?
+  telefone      String?
+  ativo         Boolean   @default(true)
+  criadoEm      DateTime  @default(now())
+  ultimoAcesso  DateTime?
+  compartilhaDadosIA   Boolean   @default(false)
+  aiCreditosDisponiveis Int      @default(3)
+  aiCreditosUltimaRecarga DateTime @default(now())
+
+  progressos     ProgressoAluno[]
+  resultadosQuiz ResultadoQuiz[]
+  notificacoes   Notificacao[]
+  anotacoes      AnotacaoAluno[]
+  loginHistorico LoginHistorico[]
+  presencas      Presenca[]
+  interacoesIA   InteracaoIA[]
+}
+
+model Modulo {
+  id        String   @id @default(uuid())
+  titulo    String
+  descricao String?
+  capaUrl   String?
+  ordem     Int      @default(0)
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+  aulas     Aula[]
+}
+
+model Aula {
+  id              String    @id @default(uuid())
+  moduloId        String
+  titulo          String
+  descricao       String?
+  urlVideo        String?
+  thumbnail       String?
+  duracaoSegundos Int       @default(0)
+  publicado       Boolean   @default(false)
+  dataPublicacao  DateTime?
+  transcricao     String?
+  resumo          String?
+  pontosChave     String?
+  versiculos      String?
+  glossario       String?
+  statusIA        String    @default("pendente")
+  criadoEm        DateTime  @default(now())
+
+  modulo         Modulo           @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  quizzes        Quiz[]
+  progressos     ProgressoAluno[]
+  resultadosQuiz ResultadoQuiz[]
+  anotacoes      AnotacaoAluno[]
+  presencas      Presenca[]
+  materiaisAula  MaterialAula[]
+  interacoesIA   InteracaoIA[]
+}
+
+model Quiz {
+  id       String @id @default(uuid())
+  aulaId   String
+  questoes String
+  aula     Aula   @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+}
+
+model ProgressoAluno {
+  id                   String    @id @default(uuid())
+  alunoId              String
+  aulaId               String
+  percentualAssistido  Float     @default(0)
+  tempoTotalSegundos   Int       @default(0)
+  concluido            Boolean   @default(false)
+  dataInicio           DateTime  @default(now())
+  dataConclusao        DateTime?
+  posicaoAtualSegundos Float     @default(0)
+  vezesQueParou        Int       @default(0)
+  sessoes              Int       @default(0)
+
+  aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  @@unique([alunoId, aulaId])
+}
+
+model ResultadoQuiz {
+  id            String   @id @default(uuid())
+  alunoId       String
+  aulaId        String
+  respostas     String
+  pontuacao     Int
+  totalQuestoes Int
+  feitoEm       DateTime @default(now())
+
+  aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+}
+
+model Material {
+  id              String   @id @default(uuid())
+  titulo          String
+  descricao       String?
+  urlArquivo      String
+  tipo            String   @default("pdf")
+  categoria       String   @default("geral")
+  permiteDownload Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  materiaisAula   MaterialAula[]
+}
+
+model MaterialAula {
+  id         String @id @default(uuid())
+  materialId String
+  aulaId     String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  aula       Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+  @@unique([materialId, aulaId])
+}
+
+model Presenca {
+  id           String   @id @default(uuid())
+  alunoId      String
+  aulaId       String
+  status       String   @default("ausente") // "presente", "parcial", "ausente"
+  metodo       String   @default("digital") // "presencial", "meet", "digital"
+  percentual   Float    @default(0)
+  registradoEm DateTime @default(now())
+  aluno        User     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  aula         Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+  @@unique([alunoId, aulaId])
+}
+
+model Notificacao {
+  id       String   @id @default(uuid())
+  alunoId  String
+  titulo   String
+  mensagem String
+  lida     Boolean  @default(false)
+  criadaEm DateTime @default(now())
+  aluno    User     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+}
+
+model AnotacaoAluno {
+  id           String   @id @default(uuid())
+  alunoId      String
+  aulaId       String
+  conteudo     String   @default("")
+  atualizadoEm DateTime @default(now())
+  aluno        User     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  aula         Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+  @@unique([alunoId, aulaId])
+}
+
+model LoginHistorico {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  ip          String?
+  dispositivo String?
+  dataHora    DateTime @default(now())
+  sucesso     Boolean  @default(true)
+  usuario     User     @relation(fields: [usuarioId], references: [id])
+}
+
+model InteracaoIA {
+  id       String   @id @default(uuid())
+  alunoId  String
+  aulaId   String?
+  pergunta String
+  resposta String
+  criadoEm DateTime @default(now())
+
+  aluno User  @relation(fields: [alunoId], references: [id])
+  aula  Aula? @relation(fields: [aulaId], references: [id])
+}

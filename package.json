@@ -1,0 +1,18 @@
+{
+  "name": "seminario-vinha-nova",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace client && npm run build --workspace server",
+    "build:client": "npm run build --workspace client",
+    "build:server": "npm run build --workspace server",
+    "db:push": "npx prisma db push --schema server/prisma/schema.prisma",
+    "dev:client": "npm run dev --workspace client",
+    "dev:server": "npm run dev --workspace server",
+    "seed": "npm run seed --workspace server",
+    "typecheck": "client\\node_modules\\.bin\\tsc.cmd --noEmit -p client/tsconfig.json && server\\node_modules\\.bin\\tsc.cmd --noEmit -p server/tsconfig.json"
+  }
+}
