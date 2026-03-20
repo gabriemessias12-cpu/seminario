@@ -1,6 +1,8 @@
-FROM node:20-alpine AS build
+FROM node:20-alpine
 
 WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3001
 
 COPY package*.json ./
 COPY prisma ./prisma
@@ -9,18 +11,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 
-RUN npm run build
-
-FROM node:20-alpine AS runtime
-
-WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3001
-
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/dist ./dist
+RUN npm run build && test -f dist/index.js
 
 RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos
 
