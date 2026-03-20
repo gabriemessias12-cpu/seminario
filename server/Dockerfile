@@ -1,7 +1,6 @@
 FROM node:20-alpine
 
 WORKDIR /app
-ENV NODE_ENV=production
 ENV PORT=3001
 
 COPY package*.json ./
@@ -12,6 +11,7 @@ COPY tsconfig.json ./
 COPY src ./src
 
 RUN npm run build && test -f dist/index.js
+ENV NODE_ENV=production
 
 RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos
 
