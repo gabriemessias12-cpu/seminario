@@ -53,7 +53,7 @@ router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void>
 
     const progressos = await prisma.progressoAluno.findMany();
     const taxaConclusao = progressos.length > 0
-      ? Math.round(progressos.filter(p => p.concluido).length / progressos.length * 100)
+      ? Math.round(progressos.filter((p: { concluido: boolean }) => p.concluido).length / progressos.length * 100)
       : 0;
 
     // Students needing attention (< 20% progress)
@@ -63,13 +63,19 @@ router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void>
     });
 
     const alunosAtencao = alunos
-      .map(a => {
+      .map((a: {
+        id: string;
+        nome: string;
+        email: string;
+        foto: string | null;
+        progressos: Array<{ percentualAssistido: number }>;
+      }) => {
         const avg = a.progressos.length > 0
-          ? a.progressos.reduce((s, p) => s + p.percentualAssistido, 0) / a.progressos.length
+          ? a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / a.progressos.length
           : 0;
         return { id: a.id, nome: a.nome, email: a.email, foto: a.foto, progressoMedio: Math.round(avg) };
       })
-      .filter(a => a.progressoMedio < 20)
+      .filter((a: { progressoMedio: number }) => a.progressoMedio < 20)
       .slice(0, 10);
 
     // Recent activity
@@ -86,12 +92,16 @@ router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void>
       orderBy: { criadoEm: 'asc' }
     });
 
-    const aulasStats = aulas.map(a => ({
+    const aulasStats = aulas.map((a: {
+      id: string;
+      titulo: string;
+      progressos: Array<{ percentualAssistido: number }>;
+    }) => ({
       id: a.id,
       titulo: a.titulo,
       totalAlunos: a.progressos.length,
       mediaConclusao: a.progressos.length > 0
-        ? Math.round(a.progressos.reduce((s, p) => s + p.percentualAssistido, 0) / a.progressos.length)
+        ? Math.round(a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / a.progressos.length)
         : 0
     }));
 
@@ -119,11 +129,21 @@ router.get('/alunos', async (_req: AuthRequest, res: Response): Promise<void> =>
       orderBy: { criadoEm: 'desc' }
     });
 
-    const result = alunos.map(a => {
+    const result = alunos.map((a: {
+      id: string;
+      nome: string;
+      email: string;
+      foto: string | null;
+      telefone: string | null;
+      ativo: boolean;
+      criadoEm: Date;
+      ultimoAcesso: Date | null;
+      progressos: Array<{ concluido: boolean; percentualAssistido: number }>;
+    }) => {
       const totalAulas = a.progressos.length;
-      const conc = a.progressos.filter(p => p.concluido).length;
+      const conc = a.progressos.filter((p: { concluido: boolean }) => p.concluido).length;
       const avg = totalAulas > 0
-        ? Math.round(a.progressos.reduce((s, p) => s + p.percentualAssistido, 0) / totalAulas)
+        ? Math.round(a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / totalAulas)
         : 0;
       return {
         id: a.id,
@@ -625,7 +645,7 @@ router.post('/notificacao', async (req: AuthRequest, res: Response): Promise<voi
     } else {
       // All students
       const alunos = await prisma.user.findMany({ where: { papel: 'aluno' }, select: { id: true } });
-      const data = alunos.map(a => ({ alunoId: a.id, titulo, mensagem }));
+      const data = alunos.map((a: { id: string }) => ({ alunoId: a.id, titulo, mensagem }));
       await prisma.notificacao.createMany({ data });
     }
 
@@ -646,15 +666,20 @@ router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void
       orderBy: { criadoEm: 'asc' }
     });
 
-    const engajamento = aulas.map(a => ({
+    const engajamento = aulas.map((a: {
+      id: string;
+      titulo: string;
+      progressos: Array<{ percentualAssistido: number }>;
+      resultadosQuiz: Array<{ pontuacao: number; totalQuestoes: number }>;
+    }) => ({
       id: a.id,
       titulo: a.titulo,
       totalVisualizacoes: a.progressos.length,
       mediaConclusao: a.progressos.length > 0
-        ? Math.round(a.progressos.reduce((s, p) => s + p.percentualAssistido, 0) / a.progressos.length)
+        ? Math.round(a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / a.progressos.length)
         : 0,
       mediaQuiz: a.resultadosQuiz.length > 0
-        ? Math.round(a.resultadosQuiz.reduce((s, r) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / a.resultadosQuiz.length)
+        ? Math.round(a.resultadosQuiz.reduce((s: number, r: { pontuacao: number; totalQuestoes: number }) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / a.resultadosQuiz.length)
         : 0,
       totalQuizzes: a.resultadosQuiz.length
     }));

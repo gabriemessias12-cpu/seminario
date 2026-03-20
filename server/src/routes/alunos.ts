@@ -10,6 +10,14 @@ import { aiCreditSettings, consumeAICredit, syncDailyAICredits, updateAIConsent 
 const router = Router();
 const prisma = new PrismaClient();
 
+type ModuloComAulas = {
+  aulas: Array<{
+    presencas: Array<{ status: string; metodo: string; percentual: number }>;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+};
+
 function readString(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -143,10 +151,10 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
 
     const totalAulas = await prisma.aula.count({ where: { publicado: true } });
     const progressos = await prisma.progressoAluno.findMany({ where: { alunoId: userId } });
-    const aulasConc = progressos.filter(p => p.concluido).length;
+    const aulasConc = progressos.filter((p: { concluido: boolean }) => p.concluido).length;
     const resultados = await prisma.resultadoQuiz.findMany({ where: { alunoId: userId } });
     const mediaQuiz = resultados.length > 0
-      ? Math.round(resultados.reduce((s, r) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / resultados.length)
+      ? Math.round(resultados.reduce((s: number, r: { pontuacao: number; totalQuestoes: number }) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / resultados.length)
       : 0;
 
     const notificacoes = await prisma.notificacao.findMany({
@@ -156,7 +164,9 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
     });
 
     // Next lesson: first published lesson not completed
-    const completedIds = progressos.filter(p => p.concluido).map(p => p.aulaId);
+    const completedIds = progressos
+      .filter((p: { concluido: boolean }) => p.concluido)
+      .map((p: { aulaId: string }) => p.aulaId);
     const proximaAula = await prisma.aula.findFirst({
       where: { publicado: true, id: { notIn: completedIds } },
       include: { modulo: true },
@@ -215,9 +225,9 @@ router.get('/aulas', async (req: AuthRequest, res: Response): Promise<void> => {
     });
 
     res.json(
-      modulos.map((modulo) => ({
+      modulos.map((modulo: ModuloComAulas) => ({
         ...modulo,
-        aulas: modulo.aulas.map((aula) => {
+        aulas: modulo.aulas.map((aula: ModuloComAulas['aulas'][number]) => {
           const presenca = aula.presencas[0] || null;
           return {
             ...aula,
@@ -779,7 +789,7 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
       pontosChave: parseJSONArray<string>(aula.pontosChave),
       versiculos: parseJSONArray<{ referencia: string; texto: string }>(aula.versiculos),
       glossario: parseJSONArray<{ termo: string; definicao: string }>(aula.glossario),
-      materiais: aula.materiaisAula.map((item) => ({
+      materiais: aula.materiaisAula.map((item: { material: { titulo: string; descricao: string | null } }) => ({
         titulo: item.material.titulo,
         descricao: item.material.descricao
       }))
