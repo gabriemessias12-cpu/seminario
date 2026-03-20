@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
+import { apiUrl } from '../../lib/api';
 
 type AssistantMessage = {
   id: string;
@@ -451,7 +452,7 @@ export default function StudentAulaPlayer() {
               {!demoMode ? (
                 <video
                   ref={videoRef}
-                  src={aula.videoStreamUrl || undefined}
+                  src={aula.videoStreamUrl ? apiUrl(aula.videoStreamUrl) : undefined}
                   controlsList="nodownload noremoteplayback nofullscreen"
                   disablePictureInPicture
                   disableRemotePlayback
@@ -626,12 +627,12 @@ export default function StudentAulaPlayer() {
                             <p>{material.descricao}</p>
                           </div>
                           <div className="resource-actions">
-                            <a className="btn btn-outline btn-sm" href={material.urlArquivo} target="_blank" rel="noreferrer">
+                            <a className="btn btn-outline btn-sm" href={apiUrl(material.urlArquivo)} target="_blank" rel="noreferrer">
                               <AppIcon name="external" size={14} />
                               <span>Abrir</span>
                             </a>
                             {material.permiteDownload && (
-                              <a className="btn btn-primary btn-sm" href={material.urlArquivo} download>
+                              <a className="btn btn-primary btn-sm" href={apiUrl(material.urlArquivo)} download>
                                 <AppIcon name="download" size={14} />
                                 <span>Download</span>
                               </a>

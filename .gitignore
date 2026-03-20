@@ -2,6 +2,7 @@ node_modules/
 dist/
 build/
 *.log
+*.tsbuildinfo
 .chrome-debug/
 .chrome-headless/
 client/node_modules/

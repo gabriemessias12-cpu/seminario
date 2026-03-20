@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
+import { apiUrl } from '../../lib/api';
 
 export default function StudentMateriais() {
   const [materiais, setMateriais] = useState<any[]>([]);
@@ -117,12 +118,12 @@ export default function StudentMateriais() {
                         <p>{materialSelecionado.descricao}</p>
                       </div>
                       <div className="resource-actions">
-                        <a className="btn btn-outline btn-sm" href={materialSelecionado.urlArquivo} target="_blank" rel="noreferrer">
+                        <a className="btn btn-outline btn-sm" href={apiUrl(materialSelecionado.urlArquivo)} target="_blank" rel="noreferrer">
                           <AppIcon name="external" size={14} />
                           <span>Nova guia</span>
                         </a>
                         {materialSelecionado.permiteDownload && (
-                          <a className="btn btn-primary btn-sm" href={materialSelecionado.urlArquivo} download>
+                          <a className="btn btn-primary btn-sm" href={apiUrl(materialSelecionado.urlArquivo)} download>
                             <AppIcon name="download" size={14} />
                             <span>Download</span>
                           </a>
@@ -133,7 +134,7 @@ export default function StudentMateriais() {
                     {materialSelecionado.tipo === 'pdf' ? (
                       <iframe
                         title={materialSelecionado.titulo}
-                        src={materialSelecionado.urlArquivo}
+                        src={apiUrl(materialSelecionado.urlArquivo)}
                         className="material-preview-frame"
                       />
                     ) : (

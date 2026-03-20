@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiUrl } from '../lib/api';
 
 interface User {
   id: string;
@@ -19,8 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const API = '/api';
-
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refreshToken');
   if (!refreshToken) {
@@ -28,7 +27,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   try {
-    const res = await fetch(`${API}/auth/refresh`, {
+    const res = await fetch(apiUrl('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken })
@@ -64,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        let res = await fetch(`${API}/auth/me`, {
+        let res = await fetch(apiUrl('/api/auth/me'), {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -75,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          res = await fetch(`${API}/auth/me`, {
+          res = await fetch(apiUrl('/api/auth/me'), {
             headers: { Authorization: `Bearer ${token}` }
           });
         }
@@ -102,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, senha: string) => {
     try {
-      const res = await fetch(`${API}/auth/login`, {
+      const res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, senha })
@@ -124,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    void fetch(`${API}/auth/logout`, {
+    void fetch(apiUrl('/api/auth/logout'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: localStorage.getItem('refreshToken') })
