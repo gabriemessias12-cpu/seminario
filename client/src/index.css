@@ -4728,6 +4728,7 @@ body {
 .landing-carousel-visual {
   position: relative;
   min-height: 560px;
+  height: 560px;
   overflow: hidden;
   border-radius: 26px;
   background: rgba(0, 0, 0, 0.28);
