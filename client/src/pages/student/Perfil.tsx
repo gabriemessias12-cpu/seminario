@@ -124,6 +124,7 @@ export default function StudentPerfil() {
   const mediaAtividades = typeof perfil?.relatorioAcademico?.entregasResumo?.mediaNotas === 'number'
     ? perfil.relatorioAcademico.entregasResumo.mediaNotas.toFixed(1)
     : 'N/A';
+  const boletimPorModulo = perfil?.relatorioAcademico?.boletimPorModulo || [];
 
   return (
     <div className="layout student-layout">
@@ -143,6 +144,12 @@ export default function StudentPerfil() {
               <span>Imprimir boletim</span>
             </button>
           </div>
+        </section>
+
+        <section className="print-report-header print-only">
+          <p>IBVN - Instituto Biblico Vinha Nova</p>
+          <h2>Boletim academico do aluno</h2>
+          <span>{user?.nome} | {user?.email}</span>
         </section>
 
         {feedback && <div className="inline-feedback success">{feedback}</div>}
@@ -246,12 +253,16 @@ export default function StudentPerfil() {
                       <AppIcon name="quiz" size={14} />
                     </div>
                     <div className="lesson-list-content">
+                      {(() => {
+                        const esconderResultadoObjetivo = entrega.avaliacao?.formato === 'objetiva' && entrega.avaliacao?.resultadoImediato === false;
+                        return (
+                          <>
                       <strong>{entrega.avaliacao?.titulo}</strong>
                       <div className="lesson-list-meta">
-                        <span>{typeof entrega.nota === 'number' ? `${entrega.nota}/${entrega.avaliacao?.notaMaxima}` : entrega.status}</span>
+                        <span>{esconderResultadoObjetivo ? entrega.status : typeof entrega.nota === 'number' ? `${entrega.nota}/${entrega.avaliacao?.notaMaxima}` : entrega.status}</span>
                         <span>{entrega.avaliacao?.modulo?.titulo || entrega.avaliacao?.aula?.titulo || 'Sem vinculo'}</span>
                       </div>
-                      <p>{entrega.comentarioCorrecao || 'Aguardando comentario da equipe.'}</p>
+                      <p>{esconderResultadoObjetivo ? 'Resultado detalhado sera liberado pela equipe academica.' : entrega.comentarioCorrecao || 'Aguardando comentario da equipe.'}</p>
                       {entrega.arquivoUrl && (
                         <button
                           className="text-link-button"
@@ -266,6 +277,9 @@ export default function StudentPerfil() {
                           <span>Baixar arquivo enviado</span>
                         </button>
                       )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </article>
                 ))
@@ -277,6 +291,47 @@ export default function StudentPerfil() {
               )}
             </div>
           </div>
+        </section>
+
+        <section className="panel-card">
+          <div className="student-section-header compact">
+            <div>
+              <span className="section-kicker">Boletim</span>
+              <h2>Resumo academico por materia</h2>
+            </div>
+          </div>
+
+          {boletimPorModulo.length ? (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Materia</th>
+                    <th>Atividades</th>
+                    <th>Corrigidas</th>
+                    <th>Pendentes</th>
+                    <th>Media</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boletimPorModulo.map((item: any) => (
+                    <tr key={item.modulo}>
+                      <td style={{ fontWeight: 500 }}>{item.modulo}</td>
+                      <td>{item.atividades}</td>
+                      <td>{item.corrigidas}</td>
+                      <td>{item.pendentes}</td>
+                      <td>{item.mediaNotas == null ? 'N/A' : item.mediaNotas}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-panel">
+              <AppIcon name="reports" size={20} />
+              <p>Seu boletim academico sera montado conforme as correcoes forem sendo publicadas.</p>
+            </div>
+          )}
         </section>
 
         <section className="panel-card">

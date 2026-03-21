@@ -6,9 +6,15 @@ import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, AuthRequest, generateVideoToken, verifyVideoToken } from '../middleware/auth.js';
-import { buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
+import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { askLessonAssistant, getAIConfig } from '../services/ai-mock.js';
 import { aiCreditSettings, consumeAICredit, syncDailyAICredits, updateAIConsent } from '../services/ai-credits.js';
+import {
+  gradeObjectiveAnswers,
+  parseObjectiveAnswers,
+  parseObjectiveQuestions,
+  sanitizeObjectiveQuestions
+} from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
 import { getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
 
@@ -698,10 +704,29 @@ router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void>
       ]
     });
 
-    res.json(avaliacoes.map((avaliacao) => ({
-      ...avaliacao,
-      entregaAtual: avaliacao.entregas[0] || null
-    })));
+    res.json(avaliacoes.map((avaliacao) => {
+      const entregaAtual = avaliacao.entregas[0] || null;
+      const questoesObjetivas = parseObjectiveQuestions(avaliacao.questoesObjetivas);
+      const respostasObjetivas = parseObjectiveAnswers(entregaAtual?.respostasObjetivas, questoesObjetivas.length);
+      const review = entregaAtual && questoesObjetivas.length
+        ? gradeObjectiveAnswers(questoesObjetivas, respostasObjetivas, avaliacao.notaMaxima)
+        : null;
+
+      return {
+        ...avaliacao,
+        quantidadeQuestoes: questoesObjetivas.length,
+        questoesObjetivas: sanitizeObjectiveQuestions(questoesObjetivas),
+        entregaAtual,
+        resultadoObjetivo: review && avaliacao.resultadoImediato && entregaAtual?.status === 'corrigido'
+          ? {
+              totalQuestoes: review.totalQuestoes,
+              acertosObjetivos: review.acertosObjetivos,
+              percentualObjetivo: review.percentualObjetivo,
+              respostas: review.respostas
+            }
+          : null
+      };
+    }));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao carregar avaliacoes' });
@@ -714,6 +739,7 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
     const userId = req.user!.userId;
     const avaliacaoId = readString(req.params.id);
     const respostaTexto = readString(req.body.respostaTexto);
+    const respostasObjetivasPayload = readString(req.body.respostasObjetivas);
     const arquivo = req.file;
 
     if (!avaliacaoId) {
@@ -733,6 +759,93 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       return;
     }
 
+    const questoesObjetivas = parseObjectiveQuestions(avaliacao.questoesObjetivas);
+
+    if (avaliacao.formato === 'objetiva') {
+      if (arquivo || respostaTexto?.trim()) {
+        res.status(400).json({ error: 'Esta prova deve ser respondida pelo questionario objetivo da plataforma.' });
+        return;
+      }
+
+      if (!questoesObjetivas.length) {
+        res.status(400).json({ error: 'A prova objetiva nao possui questoes validas cadastradas.' });
+        return;
+      }
+    }
+
+    const entregaExistente = await prisma.entregaAvaliacao.findUnique({
+      where: {
+        avaliacaoId_alunoId: {
+          avaliacaoId,
+          alunoId: userId
+        }
+      }
+    });
+
+    const arquivoAnterior = entregaExistente?.arquivoUrl;
+
+    if (avaliacao.formato === 'objetiva') {
+      if (entregaExistente?.enviadoEm) {
+        res.status(409).json({ error: 'Esta prova objetiva ja foi enviada e nao aceita nova tentativa.' });
+        return;
+      }
+
+      const respostasObjetivas = parseObjectiveAnswers(respostasObjetivasPayload, questoesObjetivas.length);
+      if (respostasObjetivas.length !== questoesObjetivas.length || respostasObjetivas.some((item) => item === null)) {
+        res.status(400).json({ error: 'Responda todas as questoes antes de enviar a prova.' });
+        return;
+      }
+
+      const resultado = gradeObjectiveAnswers(questoesObjetivas, respostasObjetivas, avaliacao.notaMaxima);
+      const entregaObjetiva = await prisma.entregaAvaliacao.upsert({
+        where: {
+          avaliacaoId_alunoId: {
+            avaliacaoId,
+            alunoId: userId
+          }
+        },
+        update: {
+          respostaTexto: null,
+          arquivoUrl: null,
+          respostasObjetivas: JSON.stringify(respostasObjetivas),
+          status: 'corrigido',
+          nota: resultado.nota,
+          totalQuestoes: resultado.totalQuestoes,
+          acertosObjetivos: resultado.acertosObjetivos,
+          percentualObjetivo: resultado.percentualObjetivo,
+          comentarioCorrecao: `Correcao automatica: ${resultado.acertosObjetivos}/${resultado.totalQuestoes} questoes corretas.`,
+          enviadoEm: new Date(),
+          corrigidoEm: new Date()
+        },
+        create: {
+          avaliacaoId,
+          alunoId: userId,
+          respostasObjetivas: JSON.stringify(respostasObjetivas),
+          status: 'corrigido',
+          nota: resultado.nota,
+          totalQuestoes: resultado.totalQuestoes,
+          acertosObjetivos: resultado.acertosObjetivos,
+          percentualObjetivo: resultado.percentualObjetivo,
+          comentarioCorrecao: `Correcao automatica: ${resultado.acertosObjetivos}/${resultado.totalQuestoes} questoes corretas.`,
+          enviadoEm: new Date(),
+          corrigidoEm: new Date()
+        }
+      });
+
+      res.json({
+        ...entregaObjetiva,
+        resultadoObjetivo: avaliacao.resultadoImediato
+          ? {
+              totalQuestoes: resultado.totalQuestoes,
+              acertosObjetivos: resultado.acertosObjetivos,
+              percentualObjetivo: resultado.percentualObjetivo,
+              respostas: resultado.respostas
+            }
+          : null
+      });
+      return;
+    }
+
     if (!avaliacao.permiteArquivo && arquivo) {
       res.status(400).json({ error: 'Esta atividade nao aceita arquivo.' });
       return;
@@ -747,17 +860,6 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       res.status(400).json({ error: 'Envie um arquivo, uma resposta em texto ou ambos.' });
       return;
     }
-
-    const entregaExistente = await prisma.entregaAvaliacao.findUnique({
-      where: {
-        avaliacaoId_alunoId: {
-          avaliacaoId,
-          alunoId: userId
-        }
-      }
-    });
-
-    const arquivoAnterior = entregaExistente?.arquivoUrl;
 
     const entrega = await prisma.entregaAvaliacao.upsert({
       where: {
@@ -872,6 +974,9 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
             id: true,
             titulo: true,
             tipo: true,
+            formato: true,
+            resultadoImediato: true,
+            questoesObjetivas: true,
             notaMaxima: true,
             modulo: { select: { titulo: true } },
             aula: { select: { titulo: true } }
@@ -904,7 +1009,8 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
       entregasAvaliacao,
       relatorioAcademico: {
         frequenciaPorModulo: buildModuleFrequencyReport(modulos),
-        entregasResumo: buildDeliverySummary(entregasAvaliacao)
+        entregasResumo: buildDeliverySummary(entregasAvaliacao),
+        boletimPorModulo: buildBulletinByModule(entregasAvaliacao)
       },
       ia: iaStatus
     });

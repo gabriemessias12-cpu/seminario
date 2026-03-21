@@ -1,17 +1,28 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import AppIcon from '../../components/AppIcon';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
+import {
+  buildObjectiveReview,
+  createEmptyObjectiveQuestion,
+  ObjectiveQuestion,
+  parseStoredObjectiveAnswers
+} from '../../lib/objective-assessment';
 
 type Avaliacao = {
   id: string;
   titulo: string;
   descricao?: string | null;
   tipo: string;
+  formato: 'discursiva' | 'objetiva';
   dataLimite?: string | null;
   notaMaxima: number;
   publicado: boolean;
   permiteArquivo: boolean;
   permiteTexto: boolean;
+  resultadoImediato: boolean;
+  tempoLimiteMinutos?: number | null;
+  quantidadeQuestoes: number;
+  questoesObjetivas?: ObjectiveQuestion[] | null;
   modulo?: { id: string; titulo: string } | null;
   aula?: { id: string; titulo: string } | null;
   resumoEntregas?: {
@@ -30,13 +41,25 @@ type Entrega = {
   comentarioCorrecao?: string | null;
   respostaTexto?: string | null;
   arquivoUrl?: string | null;
+  respostasObjetivas?: string | null;
   enviadoEm?: string | null;
+  totalQuestoes?: number | null;
+  acertosObjetivos?: number | null;
+  percentualObjetivo?: number | null;
   aluno: {
     id: string;
     nome: string;
     email: string;
   };
 };
+
+type DetailedAvaliacao = Avaliacao & {
+  entregas: Entrega[];
+};
+
+function buildInitialQuestions() {
+  return [createEmptyObjectiveQuestion(0)];
+}
 
 export default function AdminAvaliacoes() {
   const token = localStorage.getItem('accessToken');
@@ -46,7 +69,7 @@ export default function AdminAvaliacoes() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedAvaliacao, setSelectedAvaliacao] = useState<(Avaliacao & { entregas: Entrega[] }) | null>(null);
+  const [selectedAvaliacao, setSelectedAvaliacao] = useState<DetailedAvaliacao | null>(null);
   const [feedback, setFeedback] = useState('');
   const [savingCorrectionId, setSavingCorrectionId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -56,6 +79,7 @@ export default function AdminAvaliacoes() {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [tipo, setTipo] = useState('trabalho');
+  const [formato, setFormato] = useState<'discursiva' | 'objetiva'>('discursiva');
   const [moduloId, setModuloId] = useState('');
   const [aulaId, setAulaId] = useState('');
   const [dataLimite, setDataLimite] = useState('');
@@ -63,6 +87,9 @@ export default function AdminAvaliacoes() {
   const [publicado, setPublicado] = useState(true);
   const [permiteArquivo, setPermiteArquivo] = useState(true);
   const [permiteTexto, setPermiteTexto] = useState(false);
+  const [resultadoImediato, setResultadoImediato] = useState(true);
+  const [tempoLimiteMinutos, setTempoLimiteMinutos] = useState('');
+  const [questoesObjetivas, setQuestoesObjetivas] = useState<ObjectiveQuestion[]>(buildInitialQuestions());
 
   const [correcoes, setCorrecoes] = useState<Record<string, { nota: string; comentarioCorrecao: string; status: string }>>({});
 
@@ -102,6 +129,7 @@ export default function AdminAvaliacoes() {
     setTitulo('');
     setDescricao('');
     setTipo('trabalho');
+    setFormato('discursiva');
     setModuloId('');
     setAulaId('');
     setDataLimite('');
@@ -109,6 +137,22 @@ export default function AdminAvaliacoes() {
     setPublicado(true);
     setPermiteArquivo(true);
     setPermiteTexto(false);
+    setResultadoImediato(true);
+    setTempoLimiteMinutos('');
+    setQuestoesObjetivas(buildInitialQuestions());
+  };
+
+  const fetchAvaliacaoDetail = async (avaliacaoId: string) => {
+    const response = await fetch(`/api/admin/avaliacao/${avaliacaoId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Nao foi possivel carregar a avaliacao.');
+    }
+
+    return data as DetailedAvaliacao;
   };
 
   const handleCreate = async (event: FormEvent) => {
@@ -126,44 +170,58 @@ export default function AdminAvaliacoes() {
           titulo,
           descricao,
           tipo,
+          formato,
           moduloId: moduloId || null,
           aulaId: aulaId || null,
           dataLimite: dataLimite || null,
           notaMaxima,
           publicado,
           permiteArquivo,
-          permiteTexto
+          permiteTexto,
+          resultadoImediato,
+          tempoLimiteMinutos: tempoLimiteMinutos || null,
+          questoesObjetivas: formato === 'objetiva' ? questoesObjetivas : []
         })
       });
 
       const data = await response.json();
       if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel criar a avaliacao.');
+        setFeedback(data.error || 'Nao foi possivel salvar a avaliacao.');
         return;
       }
 
       resetForm();
       setShowForm(false);
       loadData();
+      setFeedback(editingId ? 'Avaliacao atualizada com sucesso.' : 'Avaliacao criada com sucesso.');
     } catch {
       setFeedback('Erro ao comunicar com o servidor.');
     }
   };
 
-  const handleEdit = (avaliacao: Avaliacao) => {
-    setEditingId(avaliacao.id);
-    setTitulo(avaliacao.titulo);
-    setDescricao(avaliacao.descricao || '');
-    setTipo(avaliacao.tipo);
-    setModuloId(avaliacao.modulo?.id || '');
-    setAulaId(avaliacao.aula?.id || '');
-    setDataLimite(avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toISOString().slice(0, 16) : '');
-    setNotaMaxima(String(avaliacao.notaMaxima));
-    setPublicado(avaliacao.publicado);
-    setPermiteArquivo(avaliacao.permiteArquivo);
-    setPermiteTexto(avaliacao.permiteTexto);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleEdit = async (avaliacao: Avaliacao) => {
+    try {
+      const detail = await fetchAvaliacaoDetail(avaliacao.id);
+      setEditingId(detail.id);
+      setTitulo(detail.titulo);
+      setDescricao(detail.descricao || '');
+      setTipo(detail.tipo);
+      setFormato(detail.formato);
+      setModuloId(detail.modulo?.id || '');
+      setAulaId(detail.aula?.id || '');
+      setDataLimite(detail.dataLimite ? new Date(detail.dataLimite).toISOString().slice(0, 16) : '');
+      setNotaMaxima(String(detail.notaMaxima));
+      setPublicado(detail.publicado);
+      setPermiteArquivo(detail.permiteArquivo);
+      setPermiteTexto(detail.permiteTexto);
+      setResultadoImediato(detail.resultadoImediato);
+      setTempoLimiteMinutos(detail.tempoLimiteMinutos ? String(detail.tempoLimiteMinutos) : '');
+      setQuestoesObjetivas(detail.questoesObjetivas?.length ? detail.questoesObjetivas : buildInitialQuestions());
+      setShowForm(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel carregar a avaliacao para edicao.');
+    }
   };
 
   const handleDelete = async (avaliacaoId: string) => {
@@ -193,6 +251,7 @@ export default function AdminAvaliacoes() {
         setShowForm(false);
       }
 
+      setFeedback('Avaliacao excluida com sucesso.');
       loadData();
     } catch {
       setFeedback('Erro ao excluir a avaliacao.');
@@ -201,21 +260,23 @@ export default function AdminAvaliacoes() {
 
   const loadAvaliacao = async (avaliacaoId: string) => {
     setSelectedId(avaliacaoId);
-    const response = await fetch(`/api/admin/avaliacao/${avaliacaoId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await response.json();
-    setSelectedAvaliacao(data);
-    setCorrecoes(Object.fromEntries(
-      (data.entregas || []).map((entrega: Entrega) => [
-        entrega.id,
-        {
-          nota: typeof entrega.nota === 'number' ? String(entrega.nota) : '',
-          comentarioCorrecao: entrega.comentarioCorrecao || '',
-          status: 'corrigido'
-        }
-      ])
-    ));
+
+    try {
+      const data = await fetchAvaliacaoDetail(avaliacaoId);
+      setSelectedAvaliacao(data);
+      setCorrecoes(Object.fromEntries(
+        (data.entregas || []).map((entrega: Entrega) => [
+          entrega.id,
+          {
+            nota: typeof entrega.nota === 'number' ? String(entrega.nota) : '',
+            comentarioCorrecao: entrega.comentarioCorrecao || '',
+            status: 'corrigido'
+          }
+        ])
+      ));
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel carregar as entregas.');
+    }
   };
 
   const handleSaveCorrection = async (entregaId: string) => {
@@ -241,6 +302,7 @@ export default function AdminAvaliacoes() {
       if (selectedId) {
         await loadAvaliacao(selectedId);
       }
+      setFeedback('Correcao salva com sucesso.');
       loadData();
     } catch {
       setFeedback('Erro ao salvar a correcao.');
@@ -249,12 +311,73 @@ export default function AdminAvaliacoes() {
     }
   };
 
+  const handleFormatChange = (nextFormat: 'discursiva' | 'objetiva') => {
+    setFormato(nextFormat);
+
+    if (nextFormat === 'objetiva') {
+      setPermiteArquivo(false);
+      setPermiteTexto(false);
+      if (!questoesObjetivas.length) {
+        setQuestoesObjetivas(buildInitialQuestions());
+      }
+      return;
+    }
+
+    setResultadoImediato(true);
+    setTempoLimiteMinutos('');
+    setPermiteArquivo(true);
+    setPermiteTexto(false);
+  };
+
+  const handleQuestionChange = (index: number, field: keyof ObjectiveQuestion, value: string | number) => {
+    setQuestoesObjetivas((current) => current.map((question, questionIndex) => {
+      if (questionIndex !== index) {
+        return question;
+      }
+
+      return {
+        ...question,
+        [field]: value
+      };
+    }));
+  };
+
+  const handleOptionChange = (questionIndex: number, optionIndex: number, value: string) => {
+    setQuestoesObjetivas((current) => current.map((question, currentIndex) => {
+      if (currentIndex !== questionIndex) {
+        return question;
+      }
+
+      return {
+        ...question,
+        opcoes: question.opcoes.map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? value : option)
+      };
+    }));
+  };
+
+  const handleAddQuestion = () => {
+    setQuestoesObjetivas((current) => [...current, createEmptyObjectiveQuestion(current.length)]);
+  };
+
+  const handleRemoveQuestion = (index: number) => {
+    setQuestoesObjetivas((current) => {
+      if (current.length === 1) {
+        return current;
+      }
+
+      return current.filter((_, questionIndex) => questionIndex !== index)
+        .map((question, questionIndex) => ({ ...question, id: `questao-${questionIndex + 1}` }));
+    });
+  };
+
+  const isObjective = formato === 'objetiva';
+
   return (
     <>
       <div className="page-header page-header-split">
         <div>
           <h1>Avaliacoes</h1>
-          <p>Cadastre provas e trabalhos, receba entregas e lance nota com comentario individual.</p>
+          <p>Cadastre provas discursivas ou objetivas, receba entregas e acompanhe correcao e desempenho.</p>
         </div>
         <div className="page-header-actions">
           <button
@@ -275,7 +398,7 @@ export default function AdminAvaliacoes() {
         </div>
       </div>
 
-      {feedback && <div className="inline-feedback warning">{feedback}</div>}
+      {feedback && <div className={`inline-feedback ${feedback.includes('sucesso') ? 'success' : 'warning'}`}>{feedback}</div>}
 
       {showForm && (
         <div className="card content-form-card mb-3">
@@ -292,10 +415,17 @@ export default function AdminAvaliacoes() {
 
             <div className="form-row form-row-compact">
               <div className="form-group">
-                <label className="form-label">Tipo</label>
+                <label className="form-label">Tipo academico</label>
                 <select className="form-select" value={tipo} onChange={(event) => setTipo(event.target.value)}>
                   <option value="trabalho">Trabalho</option>
                   <option value="prova">Prova</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Formato</label>
+                <select className="form-select" value={formato} onChange={(event) => handleFormatChange(event.target.value as 'discursiva' | 'objetiva')}>
+                  <option value="discursiva">Discursiva / envio</option>
+                  <option value="objetiva">Objetiva na plataforma</option>
                 </select>
               </div>
               <div className="form-group">
@@ -334,15 +464,118 @@ export default function AdminAvaliacoes() {
                 <input checked={publicado} onChange={(event) => setPublicado(event.target.checked)} type="checkbox" />
                 <span className="form-label checkbox-label">Publicar agora</span>
               </label>
-              <label className="checkbox-row">
-                <input checked={permiteArquivo} onChange={(event) => setPermiteArquivo(event.target.checked)} type="checkbox" />
-                <span className="form-label checkbox-label">Permitir arquivo</span>
-              </label>
-              <label className="checkbox-row">
-                <input checked={permiteTexto} onChange={(event) => setPermiteTexto(event.target.checked)} type="checkbox" />
-                <span className="form-label checkbox-label">Permitir texto</span>
-              </label>
+
+              {isObjective ? (
+                <label className="checkbox-row">
+                  <input checked={resultadoImediato} onChange={(event) => setResultadoImediato(event.target.checked)} type="checkbox" />
+                  <span className="form-label checkbox-label">Mostrar resultado imediato</span>
+                </label>
+              ) : (
+                <>
+                  <label className="checkbox-row">
+                    <input checked={permiteArquivo} onChange={(event) => setPermiteArquivo(event.target.checked)} type="checkbox" />
+                    <span className="form-label checkbox-label">Permitir arquivo</span>
+                  </label>
+                  <label className="checkbox-row">
+                    <input checked={permiteTexto} onChange={(event) => setPermiteTexto(event.target.checked)} type="checkbox" />
+                    <span className="form-label checkbox-label">Permitir texto</span>
+                  </label>
+                </>
+              )}
             </div>
+
+            {isObjective && (
+              <div className="assessment-builder">
+                <div className="form-row form-row-compact">
+                  <div className="form-group">
+                    <label className="form-label">Tempo limite em minutos</label>
+                    <input
+                      className="form-input"
+                      min={1}
+                      placeholder="Opcional"
+                      type="number"
+                      value={tempoLimiteMinutos}
+                      onChange={(event) => setTempoLimiteMinutos(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="student-section-header compact">
+                  <div>
+                    <span className="section-kicker">Construtor</span>
+                    <h2>Questoes objetivas</h2>
+                  </div>
+                  <button className="btn btn-outline btn-sm" onClick={handleAddQuestion} type="button">
+                    Adicionar questao
+                  </button>
+                </div>
+
+                <div className="assessment-question-builder-list">
+                  {questoesObjetivas.map((questao, questionIndex) => (
+                    <article className="assessment-question-builder-card" key={questao.id}>
+                      <div className="assessment-question-builder-head">
+                        <strong>Questao {questionIndex + 1}</strong>
+                        {questoesObjetivas.length > 1 && (
+                          <button className="btn btn-outline btn-sm" onClick={() => handleRemoveQuestion(questionIndex)} type="button">
+                            Remover
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Enunciado</label>
+                        <textarea
+                          className="form-textarea"
+                          rows={3}
+                          value={questao.enunciado}
+                          onChange={(event) => handleQuestionChange(questionIndex, 'enunciado', event.target.value)}
+                        />
+                      </div>
+
+                      <div className="assessment-option-grid">
+                        {questao.opcoes.map((opcao, optionIndex) => (
+                          <div className="form-group" key={`${questao.id}-${optionIndex}`}>
+                            <label className="form-label">Opcao {String.fromCharCode(65 + optionIndex)}</label>
+                            <input
+                              className="form-input"
+                              value={opcao}
+                              onChange={(event) => handleOptionChange(questionIndex, optionIndex, event.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="form-row form-row-compact">
+                        <div className="form-group">
+                          <label className="form-label">Alternativa correta</label>
+                          <select
+                            className="form-select"
+                            value={questao.correta}
+                            onChange={(event) => handleQuestionChange(questionIndex, 'correta', Number(event.target.value))}
+                          >
+                            {questao.opcoes.map((_, optionIndex) => (
+                              <option key={`${questao.id}-correta-${optionIndex}`} value={optionIndex}>
+                                {String.fromCharCode(65 + optionIndex)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">Explicacao da resposta</label>
+                          <textarea
+                            className="form-textarea"
+                            rows={3}
+                            value={questao.explicacao || ''}
+                            onChange={(event) => handleQuestionChange(questionIndex, 'explicacao', event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="content-form-actions">
               <button className="btn btn-primary" type="submit">{editingId ? 'Salvar alteracoes' : 'Salvar avaliacao'}</button>
@@ -392,7 +625,10 @@ export default function AdminAvaliacoes() {
             <article className="assessment-card" key={avaliacao.id}>
               <div className="assessment-card-head">
                 <div>
-                  <span className={`badge ${avaliacao.tipo === 'prova' ? 'badge-warning' : 'badge-info'}`}>{avaliacao.tipo}</span>
+                  <div className="assessment-badge-row">
+                    <span className={`badge ${avaliacao.tipo === 'prova' ? 'badge-warning' : 'badge-info'}`}>{avaliacao.tipo}</span>
+                    <span className={`badge ${avaliacao.formato === 'objetiva' ? 'badge-purple' : 'badge-info'}`}>{avaliacao.formato}</span>
+                  </div>
                   <h3>{avaliacao.titulo}</h3>
                   <p>{avaliacao.descricao || 'Sem descricao cadastrada.'}</p>
                 </div>
@@ -406,6 +642,12 @@ export default function AdminAvaliacoes() {
                 <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Nao vinculada'}</span>
                 <span><strong>Prazo:</strong> {avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toLocaleString('pt-BR') : 'Sem prazo'}</span>
                 <span><strong>Nota maxima:</strong> {avaliacao.notaMaxima}</span>
+                {avaliacao.formato === 'objetiva' && (
+                  <>
+                    <span><strong>Questoes:</strong> {avaliacao.quantidadeQuestoes}</span>
+                    <span><strong>Tempo:</strong> {avaliacao.tempoLimiteMinutos ? `${avaliacao.tempoLimiteMinutos} min` : 'Livre'}</span>
+                  </>
+                )}
               </div>
 
               <div className="assessment-result-grid">
@@ -443,86 +685,158 @@ export default function AdminAvaliacoes() {
             <div>
               <span className="section-kicker">Correcao</span>
               <h2>{selectedAvaliacao.titulo}</h2>
+              <p className="student-page-subtitle">
+                {selectedAvaliacao.formato === 'objetiva'
+                  ? `Prova objetiva com ${selectedAvaliacao.questoesObjetivas?.length || 0} questoes.`
+                  : 'Atividade por envio de arquivo e/ou resposta em texto.'}
+              </p>
             </div>
           </div>
 
+          {selectedAvaliacao.formato === 'objetiva' && selectedAvaliacao.questoesObjetivas?.length ? (
+            <div className="assessment-text-response mb-3">
+              <strong>Gabarito cadastrado</strong>
+              <div className="assessment-review-list">
+                {selectedAvaliacao.questoesObjetivas.map((questao, index) => (
+                  <article className="assessment-review-item" key={questao.id}>
+                    <h4>{index + 1}. {questao.enunciado}</h4>
+                    <ul className="assessment-option-list">
+                      {questao.opcoes.map((opcao, optionIndex) => (
+                        <li className={optionIndex === questao.correta ? 'correct' : ''} key={`${questao.id}-${optionIndex}`}>
+                          <span>{String.fromCharCode(65 + optionIndex)}</span>
+                          <p>{opcao}</p>
+                        </li>
+                      ))}
+                    </ul>
+                    {questao.explicacao && <p className="assessment-answer-explanation">{questao.explicacao}</p>}
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {selectedAvaliacao.entregas.length ? (
             <div className="assessment-submission-list">
-              {selectedAvaliacao.entregas.map((entrega) => (
-                <article className="assessment-submission-card" key={entrega.id}>
-                  <div className="assessment-card-head">
-                    <div>
-                      <h3>{entrega.aluno.nome}</h3>
-                      <p>{entrega.aluno.email}</p>
-                    </div>
-                    <span className={`badge ${entrega.status === 'corrigido' ? 'badge-success' : 'badge-warning'}`}>{entrega.status}</span>
-                  </div>
+              {selectedAvaliacao.entregas.map((entrega) => {
+                const objectiveReview = selectedAvaliacao.formato === 'objetiva' && selectedAvaliacao.questoesObjetivas?.length
+                  ? buildObjectiveReview(
+                      selectedAvaliacao.questoesObjetivas,
+                      parseStoredObjectiveAnswers(entrega.respostasObjetivas)
+                    )
+                  : [];
 
-                  <div className="assessment-meta">
-                    <span><strong>Enviado em:</strong> {entrega.enviadoEm ? new Date(entrega.enviadoEm).toLocaleString('pt-BR') : 'Nao informado'}</span>
-                    {entrega.arquivoUrl && (
-                      <button
-                        className="text-link-button"
-                        onClick={() => {
-                          void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
-                            setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
-                          });
-                        }}
-                        type="button"
-                      >
-                        Abrir arquivo enviado
-                      </button>
+                return (
+                  <article className="assessment-submission-card" key={entrega.id}>
+                    <div className="assessment-card-head">
+                      <div>
+                        <h3>{entrega.aluno.nome}</h3>
+                        <p>{entrega.aluno.email}</p>
+                      </div>
+                      <span className={`badge ${entrega.status === 'corrigido' ? 'badge-success' : 'badge-warning'}`}>{entrega.status}</span>
+                    </div>
+
+                    <div className="assessment-meta">
+                      <span><strong>Enviado em:</strong> {entrega.enviadoEm ? new Date(entrega.enviadoEm).toLocaleString('pt-BR') : 'Nao informado'}</span>
+                      {entrega.arquivoUrl && (
+                        <button
+                          className="text-link-button"
+                          onClick={() => {
+                            void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                              setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                            });
+                          }}
+                          type="button"
+                        >
+                          Abrir arquivo enviado
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedAvaliacao.formato === 'objetiva' && (
+                      <div className="assessment-result-box">
+                        <div className="assessment-result-grid">
+                          <div><span>Acertos</span><strong>{entrega.acertosObjetivos ?? 0}/{entrega.totalQuestoes ?? selectedAvaliacao.questoesObjetivas?.length ?? 0}</strong></div>
+                          <div><span>Aproveitamento</span><strong>{entrega.percentualObjetivo != null ? `${entrega.percentualObjetivo}%` : 'N/A'}</strong></div>
+                          <div><span>Nota</span><strong>{typeof entrega.nota === 'number' ? entrega.nota : 'Pendente'}</strong></div>
+                        </div>
+
+                        {!!objectiveReview.length && (
+                          <div className="assessment-review-list">
+                            {objectiveReview.map((item, reviewIndex) => (
+                              <article className="assessment-review-item" key={item.id}>
+                                <h4>{reviewIndex + 1}. {item.enunciado}</h4>
+                                <ul className="assessment-option-list">
+                                  {item.opcoes.map((opcao, optionIndex) => {
+                                    const isCorrect = optionIndex === item.respostaCorreta;
+                                    const isSelected = optionIndex === item.respostaAluno;
+                                    return (
+                                      <li
+                                        className={`${isCorrect ? 'correct' : ''} ${isSelected && !item.correta && !isCorrect ? 'selected-wrong' : ''}`}
+                                        key={`${item.id}-${optionIndex}`}
+                                      >
+                                        <span>{String.fromCharCode(65 + optionIndex)}</span>
+                                        <p>{opcao}</p>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                                {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
 
-                  {entrega.respostaTexto && (
-                    <div className="assessment-text-response">
-                      <strong>Resposta em texto</strong>
-                      <p>{entrega.respostaTexto}</p>
+                    {entrega.respostaTexto && (
+                      <div className="assessment-text-response">
+                        <strong>Resposta em texto</strong>
+                        <p>{entrega.respostaTexto}</p>
+                      </div>
+                    )}
+
+                    <div className="form-row form-row-compact">
+                      <div className="form-group">
+                        <label className="form-label">Nota</label>
+                        <input
+                          className="form-input"
+                          min={0}
+                          step="0.5"
+                          type="number"
+                          value={correcoes[entrega.id]?.nota || ''}
+                          onChange={(event) => setCorrecoes((current) => ({
+                            ...current,
+                            [entrega.id]: {
+                              ...current[entrega.id],
+                              nota: event.target.value
+                            }
+                          }))}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Comentario</label>
+                        <textarea
+                          className="form-textarea"
+                          rows={4}
+                          value={correcoes[entrega.id]?.comentarioCorrecao || ''}
+                          onChange={(event) => setCorrecoes((current) => ({
+                            ...current,
+                            [entrega.id]: {
+                              ...current[entrega.id],
+                              comentarioCorrecao: event.target.value
+                            }
+                          }))}
+                        />
+                      </div>
                     </div>
-                  )}
 
-                  <div className="form-row form-row-compact">
-                    <div className="form-group">
-                      <label className="form-label">Nota</label>
-                      <input
-                        className="form-input"
-                        min={0}
-                        step="0.5"
-                        type="number"
-                        value={correcoes[entrega.id]?.nota || ''}
-                        onChange={(event) => setCorrecoes((current) => ({
-                          ...current,
-                          [entrega.id]: {
-                            ...current[entrega.id],
-                            nota: event.target.value
-                          }
-                        }))}
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Comentario</label>
-                      <textarea
-                        className="form-textarea"
-                        rows={4}
-                        value={correcoes[entrega.id]?.comentarioCorrecao || ''}
-                        onChange={(event) => setCorrecoes((current) => ({
-                          ...current,
-                          [entrega.id]: {
-                            ...current[entrega.id],
-                            comentarioCorrecao: event.target.value
-                          }
-                        }))}
-                      />
-                    </div>
-                  </div>
-
-                  <button className="btn btn-primary btn-sm" disabled={savingCorrectionId === entrega.id} onClick={() => handleSaveCorrection(entrega.id)} type="button">
-                    {savingCorrectionId === entrega.id ? 'Salvando...' : 'Salvar correcao'}
-                  </button>
-                </article>
-              ))}
+                    <button className="btn btn-primary btn-sm" disabled={savingCorrectionId === entrega.id} onClick={() => handleSaveCorrection(entrega.id)} type="button">
+                      {savingCorrectionId === entrega.id ? 'Salvando...' : 'Salvar correcao'}
+                    </button>
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="empty-panel">

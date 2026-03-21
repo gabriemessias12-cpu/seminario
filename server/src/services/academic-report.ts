@@ -14,6 +14,15 @@ export type DeliverySummaryInput = {
   nota: number | null;
 };
 
+export type BulletinDeliveryInput = {
+  status: string;
+  nota: number | null;
+  avaliacao?: {
+    modulo?: { titulo: string } | null;
+    aula?: { titulo: string } | null;
+  } | null;
+};
+
 function getAttendanceWeight(status: string | null | undefined) {
   if (status === 'presente') {
     return 1;
@@ -60,4 +69,30 @@ export function buildDeliverySummary(entregas: DeliverySummaryInput[]) {
     corrigidas,
     mediaNotas
   };
+}
+
+export function buildBulletinByModule(entregas: BulletinDeliveryInput[]) {
+  const map = new Map<string, BulletinDeliveryInput[]>();
+
+  for (const entrega of entregas) {
+    const modulo = entrega.avaliacao?.modulo?.titulo || entrega.avaliacao?.aula?.titulo || 'Sem vinculo';
+    const current = map.get(modulo) || [];
+    current.push(entrega);
+    map.set(modulo, current);
+  }
+
+  return Array.from(map.entries()).map(([modulo, items]) => {
+    const corrigidas = items.filter((item) => item.status === 'corrigido').length;
+    const notas = items
+      .map((item) => item.nota)
+      .filter((nota): nota is number => typeof nota === 'number');
+
+    return {
+      modulo,
+      atividades: items.length,
+      corrigidas,
+      pendentes: items.length - corrigidas,
+      mediaNotas: notas.length ? Math.round((notas.reduce((sum, nota) => sum + nota, 0) / notas.length) * 10) / 10 : null
+    };
+  });
 }

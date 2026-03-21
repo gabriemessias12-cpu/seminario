@@ -36,6 +36,8 @@ export default function AdminRelatorios() {
     });
   }, [data?.academicByStudent, search]);
 
+  const performanceByAssessment = data?.performanceByAssessment || [];
+
   const handlePrint = () => {
     window.print();
   };
@@ -54,6 +56,12 @@ export default function AdminRelatorios() {
             </button>
           </div>
         </div>
+
+        <section className="print-report-header print-only">
+          <p>IBVN - Instituto Biblico Vinha Nova</p>
+          <h2>Relatorios academicos</h2>
+          <span>Engajamento, acessos e desempenho geral do seminario</span>
+        </section>
 
         {loading ? (
           <div className="skeleton" style={{ height: 400 }} />
@@ -231,6 +239,77 @@ export default function AdminRelatorios() {
                     {!academicByStudent.length && (
                       <tr>
                         <td className="text-muted" colSpan={6}>Nenhum aluno corresponde ao filtro atual.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="card mt-3">
+              <div className="content-panel-toolbar admin-toolbar-compact">
+                <h3 style={{ fontSize: '1.1rem' }}>Desempenho por avaliacao</h3>
+                <button className="btn btn-outline btn-sm" onClick={() => {
+                  const rows = [
+                    ['Avaliacao', 'Tipo', 'Formato', 'Vinculo', 'Entregas', 'Corrigidas', 'Media notas', 'Media acerto objetivo'],
+                    ...performanceByAssessment.map((item: any) => [
+                      item.titulo,
+                      item.tipo,
+                      item.formato,
+                      item.modulo,
+                      String(item.totalEntregas),
+                      String(item.corrigidas),
+                      item.mediaNotas == null ? 'N/A' : String(item.mediaNotas),
+                      item.mediaAcertoObjetivo == null ? 'N/A' : `${item.mediaAcertoObjetivo}%`
+                    ])
+                  ];
+                  exportCSV(rows, 'relatorio-avaliacoes.csv');
+                }} type="button">
+                  Exportar CSV
+                </button>
+              </div>
+
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Avaliacao</th>
+                      <th>Tipo</th>
+                      <th>Formato</th>
+                      <th>Vinculo</th>
+                      <th>Entregas</th>
+                      <th>Corrigidas</th>
+                      <th>Media notas</th>
+                      <th>Media acerto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {performanceByAssessment.map((item: any) => (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 500 }}>{item.titulo}</td>
+                        <td>{item.tipo}</td>
+                        <td>
+                          <span className={`badge ${item.formato === 'objetiva' ? 'badge-purple' : 'badge-info'}`}>
+                            {item.formato}
+                          </span>
+                        </td>
+                        <td className="text-muted">{item.modulo}</td>
+                        <td>{item.totalEntregas}</td>
+                        <td>{item.corrigidas}</td>
+                        <td>{item.mediaNotas ?? 'N/A'}</td>
+                        <td>
+                          {item.mediaAcertoObjetivo == null ? 'N/A' : (
+                            <span className={`badge ${item.mediaAcertoObjetivo >= 75 ? 'badge-success' : item.mediaAcertoObjetivo >= 50 ? 'badge-warning' : 'badge-error'}`}>
+                              {item.mediaAcertoObjetivo}%
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {!performanceByAssessment.length && (
+                      <tr>
+                        <td className="text-muted" colSpan={8}>Nenhuma avaliacao publicada ainda.</td>
                       </tr>
                     )}
                   </tbody>

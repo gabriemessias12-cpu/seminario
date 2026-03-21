@@ -78,6 +78,7 @@ model Avaliacao {
   titulo         String
   descricao      String?
   tipo           String   @default("trabalho")
+  formato        String   @default("discursiva")
   moduloId       String?
   aulaId         String?
   dataLimite     DateTime?
@@ -85,6 +86,9 @@ model Avaliacao {
   publicado      Boolean  @default(false)
   permiteArquivo Boolean  @default(true)
   permiteTexto   Boolean  @default(false)
+  questoesObjetivas String?
+  resultadoImediato Boolean @default(true)
+  tempoLimiteMinutos Int?
   criadoEm       DateTime @default(now())
 
   modulo  Modulo?            @relation(fields: [moduloId], references: [id], onDelete: SetNull)
@@ -98,8 +102,12 @@ model EntregaAvaliacao {
   alunoId            String
   respostaTexto      String?
   arquivoUrl         String?
+  respostasObjetivas String?
   status             String   @default("pendente")
   nota               Float?
+  totalQuestoes      Int?
+  acertosObjetivos   Int?
+  percentualObjetivo Float?
   comentarioCorrecao String?
   enviadoEm          DateTime?
   corrigidoEm        DateTime?

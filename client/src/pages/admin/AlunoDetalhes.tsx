@@ -49,6 +49,7 @@ export default function AdminAlunoDetalhes() {
   const avgAcademic = typeof aluno.relatorioAcademico?.entregasResumo?.mediaNotas === 'number'
     ? aluno.relatorioAcademico.entregasResumo.mediaNotas.toFixed(1)
     : 'N/A';
+  const boletimPorModulo = aluno.relatorioAcademico?.boletimPorModulo || [];
 
   return (
     <>
@@ -66,6 +67,12 @@ export default function AdminAlunoDetalhes() {
             </button>
           </div>
         </div>
+
+        <section className="print-report-header print-only">
+          <p>IBVN - Instituto Biblico Vinha Nova</p>
+          <h2>Relatorio academico do aluno</h2>
+          <span>{aluno.nome} | {aluno.email}</span>
+        </section>
 
         <div className="card mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
@@ -207,6 +214,38 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Boletim por materia</h3>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Materia</th>
+                  <th>Atividades</th>
+                  <th>Corrigidas</th>
+                  <th>Pendentes</th>
+                  <th>Media</th>
+                </tr>
+              </thead>
+              <tbody>
+                {boletimPorModulo.length ? boletimPorModulo.map((item: any) => (
+                  <tr key={item.modulo}>
+                    <td style={{ fontWeight: 500 }}>{item.modulo}</td>
+                    <td>{item.atividades}</td>
+                    <td>{item.corrigidas}</td>
+                    <td>{item.pendentes}</td>
+                    <td>{item.mediaNotas == null ? 'N/A' : item.mediaNotas}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td className="text-muted" colSpan={5}>Nenhuma nota consolidada ainda.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card mb-3">
           <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Entregas e correcoes</h3>
           <div className="table-container">
             <table>
@@ -214,6 +253,7 @@ export default function AdminAlunoDetalhes() {
                 <tr>
                   <th>Avaliacao</th>
                   <th>Tipo</th>
+                  <th>Formato</th>
                   <th>Status</th>
                   <th>Nota</th>
                   <th>Arquivo</th>
@@ -225,6 +265,7 @@ export default function AdminAlunoDetalhes() {
                   <tr key={entrega.id}>
                     <td style={{ fontWeight: 500 }}>{entrega.avaliacao?.titulo}</td>
                     <td>{entrega.avaliacao?.tipo}</td>
+                    <td>{entrega.avaliacao?.formato || 'discursiva'}</td>
                     <td>
                       <span className={`badge ${entrega.status === 'corrigido' ? 'badge-success' : entrega.status === 'enviado' ? 'badge-warning' : 'badge-error'}`}>
                         {entrega.status}
@@ -253,7 +294,7 @@ export default function AdminAlunoDetalhes() {
                   </tr>
                 )) : (
                   <tr>
-                    <td className="text-muted" colSpan={6}>Nenhuma entrega registrada ainda.</td>
+                    <td className="text-muted" colSpan={7}>Nenhuma entrega registrada ainda.</td>
                   </tr>
                 )}
               </tbody>

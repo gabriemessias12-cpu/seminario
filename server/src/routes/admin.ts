@@ -6,8 +6,9 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
-import { buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
+import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { processAIPipeline } from '../services/ai-mock.js';
+import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
 import { getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
 
@@ -212,6 +213,9 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
                 id: true,
                 titulo: true,
                 tipo: true,
+                formato: true,
+                resultadoImediato: true,
+                questoesObjetivas: true,
                 notaMaxima: true,
                 modulo: { select: { titulo: true } },
                 aula: { select: { titulo: true } }
@@ -252,7 +256,8 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       ...aluno,
       relatorioAcademico: {
         frequenciaPorModulo: buildModuleFrequencyReport(modulos),
-        entregasResumo: buildDeliverySummary(aluno.entregasAvaliacao)
+        entregasResumo: buildDeliverySummary(aluno.entregasAvaliacao),
+        boletimPorModulo: buildBulletinByModule(aluno.entregasAvaliacao)
       }
     });
   } catch (error) {
@@ -699,6 +704,7 @@ router.get('/avaliacoes', async (_req: AuthRequest, res: Response): Promise<void
 
     res.json(avaliacoes.map((avaliacao) => ({
       ...avaliacao,
+      quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
       resumoEntregas: buildDeliverySummary(avaliacao.entregas)
     })));
   } catch (error) {
@@ -713,6 +719,7 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
     const titulo = readString(req.body.titulo);
     const descricao = readString(req.body.descricao);
     const tipo = readString(req.body.tipo) || 'trabalho';
+    const formato = readString(req.body.formato) === 'objetiva' ? 'objetiva' : 'discursiva';
     const moduloId = readString(req.body.moduloId) || null;
     const aulaId = readString(req.body.aulaId) || null;
     const dataLimite = readString(req.body.dataLimite);
@@ -720,13 +727,21 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
     const publicado = readBoolean(req.body.publicado, true);
     const permiteArquivo = readBoolean(req.body.permiteArquivo, true);
     const permiteTexto = readBoolean(req.body.permiteTexto, false);
+    const resultadoImediato = readBoolean(req.body.resultadoImediato, true);
+    const tempoLimiteMinutos = Number(readString(req.body.tempoLimiteMinutos));
+    const questoesObjetivas = parseObjectiveQuestions(req.body.questoesObjetivas);
 
     if (!titulo) {
       res.status(400).json({ error: 'Titulo obrigatorio.' });
       return;
     }
 
-    if (!permiteArquivo && !permiteTexto) {
+    if (formato === 'objetiva' && !questoesObjetivas.length) {
+      res.status(400).json({ error: 'Cadastre pelo menos uma questao objetiva valida.' });
+      return;
+    }
+
+    if (formato === 'discursiva' && !permiteArquivo && !permiteTexto) {
       res.status(400).json({ error: 'Ative arquivo, texto ou ambos para a entrega.' });
       return;
     }
@@ -736,13 +751,19 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
         titulo,
         descricao,
         tipo,
+        formato,
         moduloId,
         aulaId,
         dataLimite: dataLimite ? new Date(dataLimite) : null,
         notaMaxima: Number.isFinite(notaMaxima) && notaMaxima > 0 ? notaMaxima : 10,
         publicado,
-        permiteArquivo,
-        permiteTexto
+        permiteArquivo: formato === 'objetiva' ? false : permiteArquivo,
+        permiteTexto: formato === 'objetiva' ? false : permiteTexto,
+        questoesObjetivas: formato === 'objetiva' ? serializeObjectiveQuestions(questoesObjetivas) : null,
+        resultadoImediato: formato === 'objetiva' ? resultadoImediato : true,
+        tempoLimiteMinutos: formato === 'objetiva' && Number.isFinite(tempoLimiteMinutos) && tempoLimiteMinutos > 0
+          ? Math.round(tempoLimiteMinutos)
+          : null
       }
     });
 
@@ -765,6 +786,7 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     const titulo = readString(req.body.titulo);
     const descricao = readString(req.body.descricao);
     const tipo = readString(req.body.tipo) || 'trabalho';
+    const formato = readString(req.body.formato) === 'objetiva' ? 'objetiva' : 'discursiva';
     const moduloId = readString(req.body.moduloId) || null;
     const aulaId = readString(req.body.aulaId) || null;
     const dataLimite = readString(req.body.dataLimite);
@@ -772,13 +794,21 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     const publicado = readBoolean(req.body.publicado, true);
     const permiteArquivo = readBoolean(req.body.permiteArquivo, true);
     const permiteTexto = readBoolean(req.body.permiteTexto, false);
+    const resultadoImediato = readBoolean(req.body.resultadoImediato, true);
+    const tempoLimiteMinutos = Number(readString(req.body.tempoLimiteMinutos));
+    const questoesObjetivas = parseObjectiveQuestions(req.body.questoesObjetivas);
 
     if (!titulo) {
       res.status(400).json({ error: 'Titulo obrigatorio.' });
       return;
     }
 
-    if (!permiteArquivo && !permiteTexto) {
+    if (formato === 'objetiva' && !questoesObjetivas.length) {
+      res.status(400).json({ error: 'Cadastre pelo menos uma questao objetiva valida.' });
+      return;
+    }
+
+    if (formato === 'discursiva' && !permiteArquivo && !permiteTexto) {
       res.status(400).json({ error: 'Ative arquivo, texto ou ambos para a entrega.' });
       return;
     }
@@ -789,13 +819,19 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
         titulo,
         descricao,
         tipo,
+        formato,
         moduloId,
         aulaId,
         dataLimite: dataLimite ? new Date(dataLimite) : null,
         notaMaxima: Number.isFinite(notaMaxima) && notaMaxima > 0 ? notaMaxima : 10,
         publicado,
-        permiteArquivo,
-        permiteTexto
+        permiteArquivo: formato === 'objetiva' ? false : permiteArquivo,
+        permiteTexto: formato === 'objetiva' ? false : permiteTexto,
+        questoesObjetivas: formato === 'objetiva' ? serializeObjectiveQuestions(questoesObjetivas) : null,
+        resultadoImediato: formato === 'objetiva' ? resultadoImediato : true,
+        tempoLimiteMinutos: formato === 'objetiva' && Number.isFinite(tempoLimiteMinutos) && tempoLimiteMinutos > 0
+          ? Math.round(tempoLimiteMinutos)
+          : null
       }
     });
 
@@ -881,6 +917,8 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
 
     res.json({
       ...avaliacao,
+      questoesObjetivas: parseObjectiveQuestions(avaliacao.questoesObjetivas),
+      quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
       resumoEntregas: buildDeliverySummary(avaliacao.entregas)
     });
   } catch (error) {
@@ -1130,6 +1168,25 @@ router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void
       orderBy: { nome: 'asc' }
     });
 
+    const avaliacoes = await prisma.avaliacao.findMany({
+      where: { publicado: true },
+      include: {
+        modulo: { select: { titulo: true } },
+        aula: { select: { titulo: true } },
+        entregas: {
+          select: {
+            status: true,
+            nota: true,
+            percentualObjetivo: true
+          }
+        }
+      },
+      orderBy: [
+        { dataLimite: 'asc' },
+        { criadoEm: 'desc' }
+      ]
+    });
+
     const academicByStudent = alunos.map((aluno) => {
       const totalPresencas = aluno.presencas.length;
       const attendanceScore = aluno.presencas.reduce((sum, presenca) => {
@@ -1148,7 +1205,30 @@ router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void
       };
     });
 
-    res.json({ engajamento, logins, academicByStudent });
+    const performanceByAssessment = avaliacoes.map((avaliacao) => {
+      const notas = avaliacao.entregas
+        .map((entrega) => entrega.nota)
+        .filter((nota): nota is number => typeof nota === 'number');
+      const percentuaisObjetivos = avaliacao.entregas
+        .map((entrega) => entrega.percentualObjetivo)
+        .filter((percentual): percentual is number => typeof percentual === 'number');
+
+      return {
+        id: avaliacao.id,
+        titulo: avaliacao.titulo,
+        tipo: avaliacao.tipo,
+        formato: avaliacao.formato,
+        modulo: avaliacao.modulo?.titulo || avaliacao.aula?.titulo || 'Sem vinculo',
+        totalEntregas: avaliacao.entregas.filter((entrega) => entrega.status === 'enviado' || entrega.status === 'corrigido').length,
+        corrigidas: avaliacao.entregas.filter((entrega) => entrega.status === 'corrigido').length,
+        mediaNotas: notas.length ? Math.round((notas.reduce((sum, nota) => sum + nota, 0) / notas.length) * 10) / 10 : null,
+        mediaAcertoObjetivo: percentuaisObjetivos.length
+          ? Math.round(percentuaisObjetivos.reduce((sum, percentual) => sum + percentual, 0) / percentuaisObjetivos.length)
+          : null
+      };
+    });
+
+    res.json({ engajamento, logins, academicByStudent, performanceByAssessment });
   } catch {
     res.status(500).json({ error: 'Erro' });
   }
