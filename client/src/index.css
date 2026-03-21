@@ -4690,7 +4690,11 @@ body {
 
 .landing-hero-grid-phase-one {
   align-items: stretch;
-  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  grid-template-columns: 1fr;
+}
+
+.landing-hero-grid-phase-one .landing-carousel-panel {
+  display: none;
 }
 
 .landing-hero-quote-card,
