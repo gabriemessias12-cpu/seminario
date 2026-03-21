@@ -680,7 +680,7 @@ export default function StudentAulaPlayer() {
                   ? 'Conteudo concluido'
                   : lessonControlsUnlocked
                     ? 'Presenca confirmada: navegacao livre'
-                    : `Assistido ate ${maxWatched}%`}
+                    : `Assistido ate ${maxWatched < 1 && duration > 0 && playing ? '<1' : maxWatched}%`}
               </div>
 
               <div className="player-controls">

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
@@ -40,6 +40,14 @@ type Avaliacao = {
   } | null;
 };
 
+function formatCountdown(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export default function StudentAvaliacoes() {
   const token = localStorage.getItem('accessToken');
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
@@ -54,6 +62,12 @@ export default function StudentAvaliacoes() {
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
   const [pageError, setPageError] = useState('');
+
+  // Timer state: maps avaliacaoId -> remaining seconds (null = not started)
+  const [timerSeconds, setTimerSeconds] = useState<Record<string, number>>({});
+  const timerRefs = useRef<Record<string, number>>({});
+  // We need a ref to `handleSubmit` to call it from the timer
+  const submitRef = useRef<((avaliacao: Avaliacao) => void) | null>(null);
 
   const loadData = () => {
     setLoading(true);
@@ -82,6 +96,133 @@ export default function StudentAvaliacoes() {
     loadData();
   }, []);
 
+  // Start timer when an objective exam is opened
+  useEffect(() => {
+    if (!expandedId) return;
+
+    const avaliacao = avaliacoes.find((a) => a.id === expandedId);
+    if (!avaliacao) return;
+
+    const jaEnviou = avaliacao.formato === 'objetiva' && Boolean(avaliacao.entregaAtual?.enviadoEm);
+    if (avaliacao.formato !== 'objetiva' || jaEnviou) return;
+    if (timerSeconds[expandedId] !== undefined) return; // already running
+
+    // Default: 90 minutes (1:30h). Use tempoLimiteMinutos if set.
+    const minutes = avaliacao.tempoLimiteMinutos ?? 90;
+    const initialSeconds = minutes * 60;
+    setTimerSeconds((prev) => ({ ...prev, [expandedId]: initialSeconds }));
+  }, [expandedId, avaliacoes]);
+
+  // Start/stop countdown interval when exam is opened/closed
+  const expandedIdRef = useRef<string | null>(null);
+  const avaliacoesRef = useRef<Avaliacao[]>([]);
+  expandedIdRef.current = expandedId;
+  avaliacoesRef.current = avaliacoes;
+
+  useEffect(() => {
+    // Clear any interval for a previously expanded exam
+    Object.keys(timerRefs.current).forEach((id) => {
+      if (id !== expandedId) {
+        clearInterval(timerRefs.current[id]);
+        delete timerRefs.current[id];
+      }
+    });
+
+    if (!expandedId) return;
+    if (timerRefs.current[expandedId]) return; // already ticking
+
+    // Only start if timer was initialized (setTimerSeconds was called)
+    // We check via timerSeconds in the initialization effect
+    const startInterval = () => {
+      timerRefs.current[expandedId] = window.setInterval(() => {
+        setTimerSeconds((prev) => {
+          const current = prev[expandedIdRef.current!] ?? 0;
+          if (current <= 1) {
+            clearInterval(timerRefs.current[expandedIdRef.current!]);
+            delete timerRefs.current[expandedIdRef.current!];
+            const avaliacao = avaliacoesRef.current.find((a) => a.id === expandedIdRef.current);
+            if (avaliacao && submitRef.current) {
+              submitRef.current(avaliacao);
+            }
+            return { ...prev, [expandedIdRef.current!]: 0 };
+          }
+          return { ...prev, [expandedIdRef.current!]: current - 1 };
+        });
+      }, 1000);
+    };
+
+    // Delay slightly to let timerSeconds be set by the initialization effect
+    const timeout = window.setTimeout(startInterval, 100);
+
+    return () => {
+      clearTimeout(timeout);
+      if (timerRefs.current[expandedId]) {
+        clearInterval(timerRefs.current[expandedId]);
+        delete timerRefs.current[expandedId];
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedId]);
+
+  const handleSubmit = useCallback(async (avaliacao: Avaliacao, event?: FormEvent) => {
+    if (event) event.preventDefault();
+    setSubmittingId(avaliacao.id);
+    setFeedback((current) => ({ ...current, [avaliacao.id]: '' }));
+
+    // Stop timer
+    if (timerRefs.current[avaliacao.id]) {
+      clearInterval(timerRefs.current[avaliacao.id]);
+      delete timerRefs.current[avaliacao.id];
+    }
+
+    const formData = new FormData();
+    if (avaliacao.formato === 'objetiva') {
+      formData.append('respostasObjetivas', JSON.stringify(respostasObjetivas[avaliacao.id] || []));
+    } else {
+      const texto = respostasTexto[avaliacao.id]?.trim();
+      if (texto) formData.append('respostaTexto', texto);
+      const arquivo = arquivos[avaliacao.id];
+      if (arquivo) formData.append('arquivo', arquivo);
+    }
+
+    try {
+      const response = await fetch(`/api/aluno/avaliacao/${avaliacao.id}/entrega`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Nao foi possivel enviar a atividade.' }));
+        return;
+      }
+
+      setFeedback((current) => ({ ...current, [avaliacao.id]: 'Entrega enviada com sucesso.' }));
+      setArquivos((current) => ({ ...current, [avaliacao.id]: null }));
+      // Reload data after successful submission
+      setLoading(true);
+      fetch('/api/aluno/avaliacoes', { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json())
+        .then((d) => {
+          setAvaliacoes(d);
+          setRespostasTexto(Object.fromEntries(d.map((item: Avaliacao) => [item.id, item.entregaAtual?.respostaTexto || ''])));
+          setRespostasObjetivas(Object.fromEntries(d.map((item: Avaliacao) => [item.id, item.questoesObjetivas?.map((_: unknown, i: number) => item.resultadoObjetivo?.respostas?.[i]?.respostaAluno ?? null) || []])));
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } catch {
+      setFeedback((current) => ({ ...current, [avaliacao.id]: 'Erro ao comunicar com o servidor.' }));
+    } finally {
+      setSubmittingId(null);
+    }
+  }, [arquivos, respostasObjetivas, respostasTexto, token]);
+
+  // Keep submitRef updated
+  useEffect(() => {
+    submitRef.current = (avaliacao: Avaliacao) => void handleSubmit(avaliacao);
+  }, [handleSubmit]);
+
   const resumo = useMemo(() => {
     const total = avaliacoes.length;
     const entregues = avaliacoes.filter((item) => item.entregaAtual?.status === 'enviado' || item.entregaAtual?.status === 'corrigido').length;
@@ -107,49 +248,6 @@ export default function StudentAvaliacoes() {
       return matchesSearch && matchesTipo && matchesStatus;
     });
   }, [avaliacoes, filterStatus, filterTipo, search]);
-
-  const handleSubmit = async (event: FormEvent, avaliacao: Avaliacao) => {
-    event.preventDefault();
-    setSubmittingId(avaliacao.id);
-    setFeedback((current) => ({ ...current, [avaliacao.id]: '' }));
-
-    const formData = new FormData();
-    if (avaliacao.formato === 'objetiva') {
-      formData.append('respostasObjetivas', JSON.stringify(respostasObjetivas[avaliacao.id] || []));
-    } else {
-      const texto = respostasTexto[avaliacao.id]?.trim();
-      if (texto) {
-        formData.append('respostaTexto', texto);
-      }
-
-      const arquivo = arquivos[avaliacao.id];
-      if (arquivo) {
-        formData.append('arquivo', arquivo);
-      }
-    }
-
-    try {
-      const response = await fetch(`/api/aluno/avaliacao/${avaliacao.id}/entrega`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Nao foi possivel enviar a atividade.' }));
-        return;
-      }
-
-      setFeedback((current) => ({ ...current, [avaliacao.id]: 'Entrega enviada com sucesso.' }));
-      setArquivos((current) => ({ ...current, [avaliacao.id]: null }));
-      loadData();
-    } catch {
-      setFeedback((current) => ({ ...current, [avaliacao.id]: 'Erro ao comunicar com o servidor.' }));
-    } finally {
-      setSubmittingId(null);
-    }
-  };
 
   return (
     <div className="layout student-layout">
@@ -222,6 +320,11 @@ export default function StudentAvaliacoes() {
                 const jaEnviouObjetiva = avaliacao.formato === 'objetiva' && Boolean(avaliacao.entregaAtual?.enviadoEm);
                 const mostrarResultadoObjetivo = avaliacao.formato !== 'objetiva' || avaliacao.resultadoImediato;
 
+                const remaining = timerSeconds[avaliacao.id];
+                const timerRunning = isExpanded && remaining !== undefined && !jaEnviouObjetiva;
+                const timerWarning = timerRunning && remaining <= 300; // last 5 min
+                const timerCritical = timerRunning && remaining <= 60; // last 1 min
+
                 return (
                   <article className="assessment-card" key={avaliacao.id}>
                     <div className="assessment-card-head">
@@ -246,7 +349,7 @@ export default function StudentAvaliacoes() {
                       {avaliacao.formato === 'objetiva' && (
                         <>
                           <span><strong>Questoes:</strong> {avaliacao.quantidadeQuestoes}</span>
-                          <span><strong>Tempo:</strong> {avaliacao.tempoLimiteMinutos ? `${avaliacao.tempoLimiteMinutos} min` : 'Livre'}</span>
+                          <span><strong>Tempo:</strong> {avaliacao.tempoLimiteMinutos ? `${avaliacao.tempoLimiteMinutos} min` : '90 min'}</span>
                         </>
                       )}
                     </div>
@@ -334,7 +437,16 @@ export default function StudentAvaliacoes() {
                     </div>
 
                     {isExpanded && (
-                      <form className="assessment-form" onSubmit={(event) => handleSubmit(event, avaliacao)}>
+                      <form className="assessment-form" onSubmit={(event) => void handleSubmit(avaliacao, event)}>
+                        {/* Timer for objective exams */}
+                        {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && timerRunning && (
+                          <div className={`exam-timer-banner ${timerCritical ? 'critical' : timerWarning ? 'warning' : ''}`}>
+                            <AppIcon name="clock" size={16} />
+                            <span>Tempo restante: <strong>{formatCountdown(remaining!)}</strong></span>
+                            {timerCritical && <span className="exam-timer-alert">Finalize agora!</span>}
+                          </div>
+                        )}
+
                         {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && (
                           <div className="assessment-review-list">
                             {avaliacao.questoesObjetivas?.map((questao, questionIndex) => (
@@ -354,10 +466,7 @@ export default function StudentAvaliacoes() {
                                                 ? [...current[avaliacao.id]]
                                                 : Array.from({ length: avaliacao.quantidadeQuestoes }, () => null);
                                               currentAnswers[questionIndex] = optionIndex;
-                                              return {
-                                                ...current,
-                                                [avaliacao.id]: currentAnswers
-                                              };
+                                              return { ...current, [avaliacao.id]: currentAnswers };
                                             })}
                                             type="radio"
                                           />
@@ -387,8 +496,9 @@ export default function StudentAvaliacoes() {
 
                         {avaliacao.formato === 'discursiva' && avaliacao.permiteArquivo && (
                           <div className="form-group">
-                            <label className="form-label">Arquivo da entrega</label>
+                            <label className="form-label">Arquivo da entrega (PDF, DOC, imagem)</label>
                             <input
+                              accept=".pdf,.doc,.docx,.odt,.jpg,.jpeg,.png,.zip"
                               className="form-input file-input"
                               onChange={(event) => setArquivos((current) => ({ ...current, [avaliacao.id]: event.target.files?.[0] || null }))}
                               type="file"

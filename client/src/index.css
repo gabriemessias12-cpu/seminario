@@ -5317,4 +5317,756 @@ body {
   .progress-bar-fill.completed {
     background: #52525b !important;
   }
+
+  /* PDF Report header visible on print */
+  .pdf-header {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #7c3aed;
+  }
+
+  .pdf-header .pdf-brand-logo {
+    width: 48px;
+    height: 48px;
+    display: block;
+  }
+
+  .pdf-header .pdf-brand-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+  }
+
+  .pdf-header .pdf-brand-sub {
+    font-size: 10px;
+    color: #6c6c8a;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .pdf-header .pdf-date {
+    margin-left: auto;
+    font-size: 10px;
+    color: #6c6c8a;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+}
+
+/* ===========================
+   Exam Timer Banner
+   =========================== */
+.exam-timer-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.exam-timer-banner strong {
+  font-size: 1.05rem;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+.exam-timer-banner.warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.exam-timer-banner.critical {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  animation: timer-pulse 1s ease-in-out infinite;
+}
+
+.exam-timer-alert {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ===========================
+   Mobile Responsive Fixes
+   =========================== */
+
+/* Ensure content forms are responsive */
+.content-form {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.content-form-card {
+  overflow: hidden;
+}
+
+/* Fix admin form overflow on mobile */
+@media (max-width: 640px) {
+  .content-form .form-group {
+    width: 100%;
+  }
+
+  .content-form input,
+  .content-form select,
+  .content-form textarea {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .page-header-split {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .page-header-split .page-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .admin-toolbar-compact {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .search-field {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .table-container {
+    margin-left: -0.9rem;
+    margin-right: -0.9rem;
+    border-radius: 0;
+    width: calc(100% + 1.8rem);
+  }
+
+  /* Assessment cards on mobile */
+  .assessment-card-head {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .assessment-meta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Stats tiles mobile */
+  .student-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* AulaNova/AulaEditar form fix */
+  .source-type-toggle {
+    flex-wrap: wrap;
+  }
+
+  .source-type-toggle button {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+
+/* Fix nav popup z-index on mobile */
+@media (max-width: 768px) {
+  .nav-user-chip {
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+/* ===========================
+   COMPREHENSIVE RESPONSIVE
+   UI/UX PATCH — All Pages
+   =========================== */
+
+/* ── Global box model safety ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Prevent horizontal overflow on html/body */
+html, body { overflow-x: hidden; max-width: 100vw; }
+
+/* ── Touch targets: all interactive ≥ 44px ── */
+button, a, [role="button"], select, input[type="checkbox"], input[type="radio"] {
+  min-height: 44px;
+}
+.btn-sm { min-height: 38px; }
+input[type="file"] { min-height: 44px; }
+
+/* ── Tables: always scroll horizontally ── */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-container table {
+  min-width: 520px;
+}
+
+/* ── Flex containers: prevent text overflow ── */
+.stat-card,
+.attention-item,
+.assessment-card-head > div,
+.student-stat-tile,
+.assessment-meta span,
+.table-entity { min-width: 0; }
+
+/* ── Stat grids: responsive columns ── */
+.stat-grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Login page: full mobile safety ── */
+.login-page {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 40%),
+    radial-gradient(circle at bottom left, rgba(155, 109, 255, 0.1), transparent 45%),
+    var(--bg-primary);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-logo h1 {
+  font-size: 1.6rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.login-logo p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.logo-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 0.5rem;
+  box-shadow: 0 8px 32px rgba(155, 109, 255, 0.25);
+}
+
+.brand-mark-login {
+  width: 52px;
+  height: 52px;
+}
+
+.login-error {
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  color: #f87171;
+  font-size: 0.88rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+/* ── Page header: responsive ── */
+.page-header {
+  margin-bottom: 1.5rem;
+  min-width: 0;
+}
+
+.page-header h1 {
+  font-size: clamp(1.4rem, 3.5vw, 1.75rem);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ── Admin/student grids: responsive ── */
+@media (max-width: 768px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .stat-grid-auto { grid-template-columns: repeat(2, 1fr); }
+
+  .attention-item {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .table-device-text {
+    display: none;
+  }
+
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.15rem; }
+
+  .bar-chart {
+    height: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid-auto { grid-template-columns: 1fr; }
+  .student-stats-grid { grid-template-columns: 1fr; }
+
+  .stat-card {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* ── Landing page: mobile ── */
+@media (max-width: 768px) {
+  .landing-hero-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+  }
+
+  .landing-carousel-panel {
+    display: none;
+  }
+
+  .landing-showcase {
+    padding-top: 5.5rem !important;
+    padding-bottom: 2rem;
+  }
+
+  .landing-hero-copy-top h1 {
+    font-size: clamp(1.6rem, 5vw, 2.25rem) !important;
+    line-height: 1.25;
+  }
+
+  .landing-lead {
+    font-size: 0.95rem;
+  }
+
+  .landing-hero-badges {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .landing-hero-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .landing-hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .landing-hero-channel-panel {
+    margin-top: 1.5rem;
+  }
+
+  .landing-channel-list-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-section-heading {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem;
+  }
+
+  .landing-modules-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-highlights-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-footer-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-shell {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .landing-mini-stats {
+    display: none;
+  }
+
+  .landing-poster-card {
+    width: 180px !important;
+    height: 180px !important;
+  }
+}
+
+/* ── AulaPlayer mobile ── */
+@media (max-width: 768px) {
+  .lesson-player-shell {
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+
+  .lesson-player-main {
+    width: 100% !important;
+  }
+
+  .lesson-sidebar {
+    width: 100% !important;
+    max-height: none !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-color) !important;
+  }
+
+  .lesson-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+    padding-bottom: 2px;
+  }
+
+  .lesson-tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .lesson-player-stage {
+    border-radius: 0;
+  }
+
+  .player-progress-badge {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.5rem !important;
+  }
+
+  .player-time {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* ── Admin pages: general mobile ── */
+@media (max-width: 640px) {
+  /* Card padding tighter */
+  .card { padding: 1rem; }
+
+  /* Inline feedback full width */
+  .inline-feedback {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Assessment grid */
+  .assessment-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .assessment-review-item h4 {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* Exam timer banner */
+  .exam-timer-banner {
+    flex-wrap: wrap;
+  }
+
+  /* Module card content */
+  .module-card-header,
+  .module-card-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Aulas list table on mobile */
+  .aulas-table th:nth-child(4),
+  .aulas-table td:nth-child(4),
+  .aulas-table th:nth-child(5),
+  .aulas-table td:nth-child(5) {
+    display: none;
+  }
+
+  /* Student list */
+  .alunos-table th:nth-child(3),
+  .alunos-table td:nth-child(3),
+  .alunos-table th:nth-child(4),
+  .alunos-table td:nth-child(4) {
+    display: none;
+  }
+
+  /* Filter row: wrap */
+  .content-panel-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-select {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+  }
+
+  /* Chamada page */
+  .chamada-student-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Aviso form */
+  .aviso-form-row {
+    flex-direction: column;
+  }
+
+  /* Page header h1 */
+  .page-header h1 {
+    font-size: 1.4rem;
+  }
+}
+
+/* ── Student area mobile tweaks ── */
+@media (max-width: 640px) {
+  .student-topbar {
+    padding-bottom: 0.5rem;
+  }
+
+  .student-page-title {
+    font-size: clamp(1.4rem, 4vw, 2rem) !important;
+  }
+
+  .student-stat-tile {
+    padding: 0.85rem 1rem;
+  }
+
+  .student-stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Modulo cards */
+  .modulo-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Aula list items */
+  .aula-list-item {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .aula-list-item .aula-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* Perfil page */
+  .perfil-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Materiais page */
+  .materiais-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Fix z-index layering ── */
+.nav-shell { z-index: 50; }
+
+/* Sidebar (old-style, not used with tubelight) */
+.sidebar { z-index: 100; }
+.sidebar-backdrop { z-index: 90; }
+
+/* Tubelight drawer: above all */
+/* .z-[70] is handled via Tailwind inline */
+
+/* Profile popup: above nav surface but below drawer */
+[class*="nav-user-chip"] ~ div,
+.relative > div[class*="absolute"] {
+  z-index: 200;
+}
+
+/* Toast container: above everything */
+.toast-container { z-index: 9999; }
+
+/* ── Empty states ── */
+.empty-panel {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.01);
+  color: var(--text-muted);
+}
+
+.empty-panel p {
+  max-width: 40ch;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── Loading skeleton improvements ── */
+.skeleton-card { min-height: 140px; border-radius: var(--radius-lg); }
+.skeleton-text { height: 0.9rem; border-radius: 4px; }
+
+/* ── Error states ── */
+.inline-feedback {
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.inline-feedback.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #fcd34d;
+}
+
+.inline-feedback.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #6ee7b7;
+}
+
+.inline-feedback.info {
+  background: rgba(100, 181, 246, 0.1);
+  border: 1px solid rgba(100, 181, 246, 0.28);
+  color: var(--color-info);
+}
+
+/* ── Accessibility improvements ── */
+:focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
+}
+
+/* Skip to content */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  background: var(--color-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  z-index: 9999;
+  font-size: 0.9rem;
+  transition: top 0.1s;
+}
+
+.skip-to-content:focus {
+  top: 1rem;
+}
+
+/* ── Print: universal PDF styles ── */
+@media print {
+  body {
+    background: white !important;
+    color: #1a1a1a !important;
+  }
+
+  .nav-shell,
+  .sidebar,
+  .print-hide,
+  .toast-container,
+  .player-controls,
+  button:not(.print-show),
+  nav { display: none !important; }
+
+  .main-content,
+  .admin-main,
+  .student-main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .card {
+    background: white !important;
+    border: 1px solid #e2e2f5 !important;
+    color: #1a1a1a !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100% !important;
+    font-size: 11px !important;
+  }
+
+  th { background: #f5f3ff !important; color: #1a1a1a !important; }
+  td { color: #1a1a1a !important; }
+
+  .text-muted { color: #6c6c8a !important; }
+
+  .badge {
+    border: 1px solid #ccc !important;
+    background: #f5f5f5 !important;
+    color: #333 !important;
+  }
+
+  .badge-success { background: #d1fae5 !important; color: #065f46 !important; border-color: #6ee7b7 !important; }
+  .badge-warning { background: #fef3c7 !important; color: #92400e !important; border-color: #fcd34d !important; }
+  .badge-error { background: #fee2e2 !important; color: #991b1b !important; border-color: #fca5a5 !important; }
+  .badge-purple { background: #ede9fe !important; color: #5b21b6 !important; border-color: #c4b5fd !important; }
+  .badge-info { background: #dbeafe !important; color: #1e40af !important; border-color: #93c5fd !important; }
+
+  .print-only { display: block !important; }
+  .pdf-header { display: flex !important; }
 }
