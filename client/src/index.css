@@ -3335,7 +3335,9 @@ body {
   min-height: 100%;
 }
 
-.landing-hero-copy-top {
+.landing-hero-copy-top,
+.landing-hero-copy-head,
+.landing-hero-copy-body {
   display: flex;
   flex-direction: column;
 }
@@ -4126,10 +4128,35 @@ body {
   font-family: var(--font-body);
 }
 
+.landing-root .footer-cta {
+  max-width: 1280px;
+  margin: 0 auto 0;
+  padding: 1.25rem 2rem;
+  border-top: 1px solid rgba(210, 191, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.landing-root .footer-cta strong {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.landing-root .footer-cta span {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
 .landing-root .footer-bottom {
   max-width: 1280px;
-  margin: 1.25rem auto 0;
-  padding: 0 2rem;
+  margin: 0 auto;
+  padding: 1rem 2rem 0;
+  border-top: 1px solid rgba(210, 191, 255, 0.08);
   color: var(--text-muted);
 }
 
@@ -4690,11 +4717,7 @@ body {
 
 .landing-hero-grid-phase-one {
   align-items: stretch;
-  grid-template-columns: 1fr;
-}
-
-.landing-hero-grid-phase-one .landing-carousel-panel {
-  display: none;
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
 }
 
 .landing-hero-quote-card,
@@ -5686,7 +5709,8 @@ input[type="file"] { min-height: 44px; }
     padding-bottom: 2rem;
   }
 
-  .landing-hero-copy-top h1 {
+  .landing-hero-copy-top h1,
+  .landing-hero-copy-head h1 {
     font-size: clamp(1.6rem, 5vw, 2.25rem) !important;
     line-height: 1.25;
   }
@@ -5750,9 +5774,25 @@ input[type="file"] { min-height: 44px; }
   }
 
   .landing-poster-card {
-    width: 180px !important;
-    height: 180px !important;
+    width: 200px !important;
+    height: auto !important;
   }
+
+  /* Hero mobile: carousel between title and lead */
+  .landing-hero-grid-phase-one {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .landing-hero-grid-phase-one .landing-hero-copy {
+    display: contents;
+  }
+
+  .landing-hero-copy-head { order: 1; }
+  .landing-carousel-panel { order: 2; margin-top: 1.25rem; }
+  .landing-hero-copy-body { order: 3; margin-top: 1.25rem; }
+  .landing-hero-quote-card { order: 4; }
+  .landing-hero-channel-panel { order: 5; }
 }
 
 /* ── AulaPlayer mobile ── */

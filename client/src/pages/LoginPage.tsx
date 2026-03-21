@@ -20,8 +20,13 @@ export default function LoginPage() {
     const result = await login(email, senha);
     setLoading(false);
 
-    if (result.success) navigate('/dashboard');
-    else setError(result.error || 'Erro ao fazer login');
+    if (result.success) {
+      const papel = result.user?.papel;
+      if (papel === 'admin' || papel === 'pastor') navigate('/admin/dashboard');
+      else navigate('/dashboard');
+    } else {
+      setError(result.error || 'Erro ao fazer login');
+    }
   };
 
   return (

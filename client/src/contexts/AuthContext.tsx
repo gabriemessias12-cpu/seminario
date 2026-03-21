@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       setUser(data.user);
-      return { success: true };
+      return { success: true, user: data.user };
     } catch {
       return { success: false, error: 'Erro de conexão com o servidor' };
     }

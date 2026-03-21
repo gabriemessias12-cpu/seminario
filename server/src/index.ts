@@ -38,6 +38,8 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads/materials', express.static(path.join(uploadRoot, 'materials')));
 app.use('/uploads/thumbnails', express.static(path.join(uploadRoot, 'thumbnails')));
+app.use('/api/uploads/materials', express.static(path.join(uploadRoot, 'materials')));
+app.use('/api/uploads/thumbnails', express.static(path.join(uploadRoot, 'thumbnails')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/aluno', alunoRoutes);

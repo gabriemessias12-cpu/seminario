@@ -155,9 +155,12 @@ export default function LandingPage() {
       <section className="landing-showcase" id="inicio">
         <div className="landing-shell landing-hero-grid landing-hero-grid-phase-one">
           <div className="landing-hero-copy">
-            <div className="landing-hero-copy-top">
+            <div className="landing-hero-copy-head">
               <span className="section-kicker">Curso livre e confessional</span>
               <h1>O Seminário Teológico do IBVN nasceu para formar corações incendiados, mentes bíblicas e servos fiéis ao Senhor.</h1>
+            </div>
+
+            <div className="landing-hero-copy-body">
               <p className="landing-lead">
                 O IBVN, Instituto Bíblico Vinha Nova, oferece o Seminário Teológico como um curso livre em teologia,
                 confessional, próprio da Vinha, mas aberto a todos que desejam crescimento e conhecimento bíblico sério,
@@ -486,6 +489,15 @@ export default function LandingPage() {
             <p><a href="#trilhas">Trilhas do curso</a></p>
             <p><a href="#canais">Inscrições e programação</a></p>
           </div>
+        </div>
+        <div className="footer-cta">
+          <div>
+            <strong>Garanta sua vaga no Seminário</strong>
+            <span>Entre em contato com a Fábia para fazer sua inscrição</span>
+          </div>
+          <a className="btn btn-primary btn-sm" href="https://wa.me/55" rel="noreferrer" target="_blank">
+            Fale com a Fábia
+          </a>
         </div>
         <div className="footer-bottom">© 2026 IBVN · Instituto Bíblico Vinha Nova. Todos os direitos reservados.</div>
       </footer>

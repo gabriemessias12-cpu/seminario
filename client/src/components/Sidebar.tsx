@@ -53,7 +53,7 @@ export default function Sidebar({ type }: SidebarProps) {
   const handleLogout = () => {
     setShowLogoutPopup(false);
     logout();
-    navigate(type === 'admin' ? '/admin' : '/login');
+    navigate('/');
   };
 
   // Close popup on outside click

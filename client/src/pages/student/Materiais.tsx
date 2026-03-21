@@ -149,7 +149,7 @@ export default function StudentMateriais() {
                     {materialSelecionado.tipo === 'pdf' ? (
                       <iframe
                         title={materialSelecionado.titulo}
-                        src={apiUrl(materialSelecionado.urlArquivo)}
+                        src={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)}
                         className="material-preview-frame"
                       />
                     ) : (
