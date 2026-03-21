@@ -4553,3 +4553,104 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  .dashboard-navbar,
+  .print-hide,
+  .btn,
+  .text-link-button,
+  .inline-back-button {
+    display: none !important;
+  }
+
+  .layout,
+  .student-layout,
+  .admin-layout,
+  .main-content,
+  .student-main,
+  .admin-main {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  .main-content > :where(div, main, section) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .card,
+  .panel-card,
+  .profile-card,
+  .assessment-card,
+  .assessment-submission-card,
+  .stat-card,
+  .track-card,
+  .catalog-card,
+  .resource-browser-card,
+  .profile-summary-card,
+  .hero-course-card {
+    background: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #d4d4d8 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  span,
+  strong,
+  td,
+  th,
+  label {
+    color: #111111 !important;
+  }
+
+  .text-muted,
+  .student-page-subtitle,
+  .assessment-card-head p,
+  .assessment-text-response p,
+  .assessment-result-box p,
+  .assessment-meta,
+  .form-helper-text {
+    color: #52525b !important;
+  }
+
+  .badge {
+    background: #ffffff !important;
+    color: #111111 !important;
+    border: 1px solid #a1a1aa !important;
+  }
+
+  .table-container {
+    overflow: visible !important;
+    border-color: #d4d4d8 !important;
+  }
+
+  .progress-bar {
+    background: #e4e4e7 !important;
+  }
+
+  .progress-bar-fill,
+  .progress-bar-fill.completed {
+    background: #52525b !important;
+  }
+}

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
-import { apiUrl } from '../../lib/api';
+import { downloadAuthenticatedFile } from '../../lib/auth-file';
 
 type Avaliacao = {
   id: string;
@@ -34,6 +34,9 @@ export default function StudentAvaliacoes() {
   const [arquivos, setArquivos] = useState<Record<string, File | null>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filterTipo, setFilterTipo] = useState('todos');
+  const [filterStatus, setFilterStatus] = useState('todos');
 
   const loadData = () => {
     setLoading(true);
@@ -70,6 +73,16 @@ export default function StudentAvaliacoes() {
       media: notas.length ? (Math.round((notas.reduce((sum, nota) => sum + nota, 0) / notas.length) * 10) / 10).toFixed(1) : 'N/A'
     };
   }, [avaliacoes]);
+
+  const filteredAvaliacoes = useMemo(() => {
+    return avaliacoes.filter((avaliacao) => {
+      const currentStatus = avaliacao.entregaAtual?.status || 'pendente';
+      const matchesSearch = !search.trim() || `${avaliacao.titulo} ${avaliacao.descricao || ''}`.toLowerCase().includes(search.trim().toLowerCase());
+      const matchesTipo = filterTipo === 'todos' || avaliacao.tipo === filterTipo;
+      const matchesStatus = filterStatus === 'todos' || currentStatus === filterStatus;
+      return matchesSearch && matchesTipo && matchesStatus;
+    });
+  }, [avaliacoes, filterStatus, filterTipo, search]);
 
   const handleSubmit = async (event: FormEvent, avaliacao: Avaliacao) => {
     event.preventDefault();
@@ -147,13 +160,33 @@ export default function StudentAvaliacoes() {
             </div>
           </div>
 
+          <div className="content-panel-toolbar admin-toolbar-compact mb-3">
+            <div className="search-field">
+              <AppIcon name="search" size={16} />
+              <input placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
+            </div>
+            <div className="page-header-actions">
+              <select className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
+                <option value="todos">Todos os tipos</option>
+                <option value="trabalho">Trabalhos</option>
+                <option value="prova">Provas</option>
+              </select>
+              <select className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+                <option value="todos">Todos os status</option>
+                <option value="pendente">Pendentes</option>
+                <option value="enviado">Enviadas</option>
+                <option value="corrigido">Corrigidas</option>
+              </select>
+            </div>
+          </div>
+
           {loading ? (
             <div className="card-grid">
               {[1, 2, 3].map((item) => <div className="skeleton skeleton-card" key={item} />)}
             </div>
           ) : (
             <div className="assessment-grid">
-              {avaliacoes.map((avaliacao) => {
+              {filteredAvaliacoes.map((avaliacao) => {
                 const status = avaliacao.entregaAtual?.status || 'pendente';
                 const prazo = avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toLocaleDateString('pt-BR') : 'Sem prazo definido';
                 const isExpanded = expandedId === avaliacao.id;
@@ -199,10 +232,21 @@ export default function StudentAvaliacoes() {
                           </div>
                         </div>
                         {avaliacao.entregaAtual.arquivoUrl && (
-                          <a className="btn btn-outline btn-sm" href={apiUrl(avaliacao.entregaAtual.arquivoUrl)} rel="noreferrer" target="_blank">
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => {
+                              void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${avaliacao.entregaAtual?.id}/arquivo`, token).catch((error) => {
+                                setFeedback((current) => ({
+                                  ...current,
+                                  [avaliacao.id]: error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.'
+                                }));
+                              });
+                            }}
+                            type="button"
+                          >
                             <AppIcon name="external" size={14} />
                             <span>Ver arquivo enviado</span>
-                          </a>
+                          </button>
                         )}
                       </div>
                     )}
@@ -256,10 +300,10 @@ export default function StudentAvaliacoes() {
                 );
               })}
 
-              {!avaliacoes.length && (
+              {!filteredAvaliacoes.length && (
                 <div className="empty-panel">
                   <AppIcon name="quiz" size={20} />
-                  <p>Nenhuma avaliacao publicada ainda.</p>
+                  <p>{avaliacoes.length ? 'Nenhuma avaliacao corresponde aos filtros atuais.' : 'Nenhuma avaliacao publicada ainda.'}</p>
                 </div>
               )}
             </div>

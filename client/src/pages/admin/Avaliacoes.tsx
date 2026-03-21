@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import AppIcon from '../../components/AppIcon';
-import { apiUrl } from '../../lib/api';
+import { downloadAuthenticatedFile } from '../../lib/auth-file';
 
 type Avaliacao = {
   id: string;
@@ -44,10 +44,14 @@ export default function AdminAvaliacoes() {
   const [modulos, setModulos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAvaliacao, setSelectedAvaliacao] = useState<(Avaliacao & { entregas: Entrega[] }) | null>(null);
   const [feedback, setFeedback] = useState('');
   const [savingCorrectionId, setSavingCorrectionId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filterTipo, setFilterTipo] = useState('todos');
+  const [filterStatus, setFilterStatus] = useState('todos');
 
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -84,13 +88,36 @@ export default function AdminAvaliacoes() {
     return modulos.flatMap((modulo: any) => modulo.aulas?.map((aula: any) => ({ ...aula, moduloTitulo: modulo.titulo })) || []);
   }, [modulos]);
 
+  const filteredAvaliacoes = useMemo(() => {
+    return avaliacoes.filter((avaliacao) => {
+      const matchesSearch = !search.trim() || `${avaliacao.titulo} ${avaliacao.descricao || ''}`.toLowerCase().includes(search.trim().toLowerCase());
+      const matchesTipo = filterTipo === 'todos' || avaliacao.tipo === filterTipo;
+      const matchesStatus = filterStatus === 'todos' || (filterStatus === 'publicado' ? avaliacao.publicado : !avaliacao.publicado);
+      return matchesSearch && matchesTipo && matchesStatus;
+    });
+  }, [avaliacoes, filterStatus, filterTipo, search]);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitulo('');
+    setDescricao('');
+    setTipo('trabalho');
+    setModuloId('');
+    setAulaId('');
+    setDataLimite('');
+    setNotaMaxima('10');
+    setPublicado(true);
+    setPermiteArquivo(true);
+    setPermiteTexto(false);
+  };
+
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
     setFeedback('');
 
     try {
-      const response = await fetch('/api/admin/avaliacao', {
-        method: 'POST',
+      const response = await fetch(editingId ? `/api/admin/avaliacao/${editingId}` : '/api/admin/avaliacao', {
+        method: editingId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -115,20 +142,60 @@ export default function AdminAvaliacoes() {
         return;
       }
 
-      setTitulo('');
-      setDescricao('');
-      setTipo('trabalho');
-      setModuloId('');
-      setAulaId('');
-      setDataLimite('');
-      setNotaMaxima('10');
-      setPublicado(true);
-      setPermiteArquivo(true);
-      setPermiteTexto(false);
+      resetForm();
       setShowForm(false);
       loadData();
     } catch {
       setFeedback('Erro ao comunicar com o servidor.');
+    }
+  };
+
+  const handleEdit = (avaliacao: Avaliacao) => {
+    setEditingId(avaliacao.id);
+    setTitulo(avaliacao.titulo);
+    setDescricao(avaliacao.descricao || '');
+    setTipo(avaliacao.tipo);
+    setModuloId(avaliacao.modulo?.id || '');
+    setAulaId(avaliacao.aula?.id || '');
+    setDataLimite(avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toISOString().slice(0, 16) : '');
+    setNotaMaxima(String(avaliacao.notaMaxima));
+    setPublicado(avaliacao.publicado);
+    setPermiteArquivo(avaliacao.permiteArquivo);
+    setPermiteTexto(avaliacao.permiteTexto);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (avaliacaoId: string) => {
+    if (!window.confirm('Deseja realmente excluir esta avaliacao e todas as entregas ligadas a ela?')) {
+      return;
+    }
+
+    setFeedback('');
+    try {
+      const response = await fetch(`/api/admin/avaliacao/${avaliacaoId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setFeedback(data.error || 'Nao foi possivel excluir a avaliacao.');
+        return;
+      }
+
+      if (selectedId === avaliacaoId) {
+        setSelectedId(null);
+        setSelectedAvaliacao(null);
+      }
+
+      if (editingId === avaliacaoId) {
+        resetForm();
+        setShowForm(false);
+      }
+
+      loadData();
+    } catch {
+      setFeedback('Erro ao excluir a avaliacao.');
     }
   };
 
@@ -145,7 +212,7 @@ export default function AdminAvaliacoes() {
         {
           nota: typeof entrega.nota === 'number' ? String(entrega.nota) : '',
           comentarioCorrecao: entrega.comentarioCorrecao || '',
-          status: entrega.status === 'corrigido' ? 'corrigido' : 'corrigido'
+          status: 'corrigido'
         }
       ])
     ));
@@ -190,7 +257,19 @@ export default function AdminAvaliacoes() {
           <p>Cadastre provas e trabalhos, receba entregas e lance nota com comentario individual.</p>
         </div>
         <div className="page-header-actions">
-          <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)} type="button">
+          <button
+            className="btn btn-accent"
+            onClick={() => {
+              if (showForm) {
+                setShowForm(false);
+                return;
+              }
+
+              resetForm();
+              setShowForm(true);
+            }}
+            type="button"
+          >
             {showForm ? 'Fechar cadastro' : 'Nova avaliacao'}
           </button>
         </div>
@@ -266,11 +345,42 @@ export default function AdminAvaliacoes() {
             </div>
 
             <div className="content-form-actions">
-              <button className="btn btn-primary" type="submit">Salvar avaliacao</button>
+              <button className="btn btn-primary" type="submit">{editingId ? 'Salvar alteracoes' : 'Salvar avaliacao'}</button>
+              {editingId && (
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    resetForm();
+                    setShowForm(false);
+                  }}
+                  type="button"
+                >
+                  Cancelar edicao
+                </button>
+              )}
             </div>
           </form>
         </div>
       )}
+
+      <div className="content-panel-toolbar admin-toolbar-compact mb-3">
+        <div className="search-field">
+          <AppIcon name="search" size={16} />
+          <input placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
+        </div>
+        <div className="page-header-actions">
+          <select className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
+            <option value="todos">Todos os tipos</option>
+            <option value="trabalho">Trabalhos</option>
+            <option value="prova">Provas</option>
+          </select>
+          <select className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+            <option value="todos">Todos os status</option>
+            <option value="publicado">Publicadas</option>
+            <option value="rascunho">Rascunhos</option>
+          </select>
+        </div>
+      </div>
 
       {loading ? (
         <div className="card-grid">
@@ -278,7 +388,7 @@ export default function AdminAvaliacoes() {
         </div>
       ) : (
         <div className="assessment-grid admin-assessment-grid">
-          {avaliacoes.map((avaliacao) => (
+          {filteredAvaliacoes.map((avaliacao) => (
             <article className="assessment-card" key={avaliacao.id}>
               <div className="assessment-card-head">
                 <div>
@@ -308,9 +418,22 @@ export default function AdminAvaliacoes() {
                 <button className="btn btn-outline btn-sm" onClick={() => loadAvaliacao(avaliacao.id)} type="button">
                   Ver entregas
                 </button>
+                <button className="btn btn-outline btn-sm" onClick={() => handleEdit(avaliacao)} type="button">
+                  Editar
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={() => handleDelete(avaliacao.id)} type="button">
+                  Excluir
+                </button>
               </div>
             </article>
           ))}
+
+          {!filteredAvaliacoes.length && (
+            <div className="empty-panel">
+              <AppIcon name="quiz" size={20} />
+              <p>{avaliacoes.length ? 'Nenhuma avaliacao corresponde aos filtros atuais.' : 'Nenhuma avaliacao cadastrada ainda.'}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -338,9 +461,17 @@ export default function AdminAvaliacoes() {
                   <div className="assessment-meta">
                     <span><strong>Enviado em:</strong> {entrega.enviadoEm ? new Date(entrega.enviadoEm).toLocaleString('pt-BR') : 'Nao informado'}</span>
                     {entrega.arquivoUrl && (
-                      <a href={apiUrl(entrega.arquivoUrl)} rel="noreferrer" target="_blank">
+                      <button
+                        className="text-link-button"
+                        onClick={() => {
+                          void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                            setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                          });
+                        }}
+                        type="button"
+                      >
                         Abrir arquivo enviado
-                      </a>
+                      </button>
                     )}
                   </div>
 

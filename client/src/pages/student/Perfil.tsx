@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
+import { downloadAuthenticatedFile } from '../../lib/auth-file';
 
 export default function StudentPerfil() {
   const token = localStorage.getItem('accessToken');
@@ -37,6 +38,10 @@ export default function StudentPerfil() {
   const initials = useMemo(() => {
     return perfil?.user?.nome?.split(' ').map((item: string) => item[0]).slice(0, 2).join('').toUpperCase() || 'SV';
   }, [perfil]);
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -132,6 +137,12 @@ export default function StudentPerfil() {
               Atualize seus dados e senha com facilidade.
             </p>
           </div>
+          <div className="student-topbar-actions print-hide">
+            <button className="btn btn-outline" onClick={handlePrint} type="button">
+              <AppIcon name="reports" size={14} />
+              <span>Imprimir boletim</span>
+            </button>
+          </div>
         </section>
 
         {feedback && <div className="inline-feedback success">{feedback}</div>}
@@ -175,6 +186,7 @@ export default function StudentPerfil() {
                 <div><strong>{perfil?.progressos?.filter((item: any) => item.concluido).length || 0}</strong><span>Aulas concluidas</span></div>
                 <div><strong>{mediaQuiz}</strong><span>Media nos quizzes</span></div>
                 <div><strong>{mediaAtividades}</strong><span>Media nas avaliacoes</span></div>
+                <div><strong>{perfil?.relatorioAcademico?.entregasResumo?.corrigidas || 0}</strong><span>Atividades corrigidas</span></div>
                 <div><strong>{new Date(user?.criadoEm).toLocaleDateString('pt-BR')}</strong><span>Conta criada em</span></div>
               </div>
             </article>
@@ -240,6 +252,20 @@ export default function StudentPerfil() {
                         <span>{entrega.avaliacao?.modulo?.titulo || entrega.avaliacao?.aula?.titulo || 'Sem vinculo'}</span>
                       </div>
                       <p>{entrega.comentarioCorrecao || 'Aguardando comentario da equipe.'}</p>
+                      {entrega.arquivoUrl && (
+                        <button
+                          className="text-link-button"
+                          onClick={() => {
+                            void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                              setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                            });
+                          }}
+                          type="button"
+                        >
+                          <AppIcon name="download" size={14} />
+                          <span>Baixar arquivo enviado</span>
+                        </button>
+                      )}
                     </div>
                   </article>
                 ))

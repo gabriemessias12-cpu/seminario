@@ -9,6 +9,7 @@ import { authMiddleware, AuthRequest, generateVideoToken, verifyVideoToken } fro
 import { buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { askLessonAssistant, getAIConfig } from '../services/ai-mock.js';
 import { aiCreditSettings, consumeAICredit, syncDailyAICredits, updateAIConsent } from '../services/ai-credits.js';
+import { sendStoredUpload } from '../utils/stored-file.js';
 import { getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
 
 const router = Router();
@@ -756,6 +757,8 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       }
     });
 
+    const arquivoAnterior = entregaExistente?.arquivoUrl;
+
     const entrega = await prisma.entregaAvaliacao.upsert({
       where: {
         avaliacaoId_alunoId: {
@@ -782,10 +785,50 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       }
     });
 
+    if (arquivo && arquivoAnterior && arquivoAnterior !== entrega.arquivoUrl) {
+      const arquivoAnteriorPath = path.resolve('uploads/submissions', path.basename(arquivoAnterior));
+      if (fs.existsSync(arquivoAnteriorPath)) {
+        fs.unlinkSync(arquivoAnteriorPath);
+      }
+    }
+
     res.json(entrega);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao enviar atividade' });
+  }
+});
+
+// GET /api/aluno/entrega-avaliacao/:id/arquivo
+router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const entregaId = readString(req.params.id);
+
+    if (!entregaId) {
+      res.status(400).json({ error: 'Entrega invalida.' });
+      return;
+    }
+
+    const entrega = await prisma.entregaAvaliacao.findFirst({
+      where: {
+        id: entregaId,
+        alunoId: userId
+      },
+      select: {
+        arquivoUrl: true
+      }
+    });
+
+    if (!entrega?.arquivoUrl) {
+      res.status(404).json({ error: 'Arquivo da entrega nao encontrado.' });
+      return;
+    }
+
+    sendStoredUpload(res, entrega.arquivoUrl, 'uploads/submissions');
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao baixar arquivo da entrega' });
   }
 });
 

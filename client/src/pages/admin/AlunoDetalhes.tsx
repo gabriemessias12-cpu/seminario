@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import { downloadAuthenticatedFile } from '../../lib/auth-file';
 
 export default function AdminAlunoDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [aluno, setAluno] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [feedback, setFeedback] = useState('');
   const token = localStorage.getItem('accessToken');
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   useEffect(() => {
     fetch(`/api/admin/aluno/${id}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -46,10 +52,20 @@ export default function AdminAlunoDetalhes() {
 
   return (
     <>
-        <button className="btn btn-ghost mb-2" onClick={() => navigate('/admin/alunos')}>
-          <AppIcon name="arrow-left" size={14} />
-          <span>Voltar para lista</span>
-        </button>
+        {feedback && <div className="inline-feedback warning">{feedback}</div>}
+
+        <div className="page-header page-header-split print-hide">
+          <button className="btn btn-ghost" onClick={() => navigate('/admin/alunos')} type="button">
+            <AppIcon name="arrow-left" size={14} />
+            <span>Voltar para lista</span>
+          </button>
+          <div className="page-header-actions">
+            <button className="btn btn-outline" onClick={handlePrint} type="button">
+              <AppIcon name="reports" size={14} />
+              <span>Imprimir relatorio</span>
+            </button>
+          </div>
+        </div>
 
         <div className="card mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
@@ -200,6 +216,7 @@ export default function AdminAlunoDetalhes() {
                   <th>Tipo</th>
                   <th>Status</th>
                   <th>Nota</th>
+                  <th>Arquivo</th>
                   <th>Comentario</th>
                 </tr>
               </thead>
@@ -214,11 +231,29 @@ export default function AdminAlunoDetalhes() {
                       </span>
                     </td>
                     <td>{typeof entrega.nota === 'number' ? `${entrega.nota}/${entrega.avaliacao?.notaMaxima}` : 'Pendente'}</td>
+                    <td>
+                      {entrega.arquivoUrl ? (
+                        <button
+                          className="text-link-button"
+                          onClick={() => {
+                            void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                              setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                            });
+                          }}
+                          type="button"
+                        >
+                          <AppIcon name="download" size={14} />
+                          <span>Baixar</span>
+                        </button>
+                      ) : (
+                        <span className="text-muted">Sem arquivo</span>
+                      )}
+                    </td>
                     <td className="text-muted">{entrega.comentarioCorrecao || 'Sem comentario'}</td>
                   </tr>
                 )) : (
                   <tr>
-                    <td className="text-muted" colSpan={5}>Nenhuma entrega registrada ainda.</td>
+                    <td className="text-muted" colSpan={6}>Nenhuma entrega registrada ainda.</td>
                   </tr>
                 )}
               </tbody>

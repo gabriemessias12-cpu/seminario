@@ -2,11 +2,13 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
+import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
 import { buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { processAIPipeline } from '../services/ai-mock.js';
+import { sendStoredUpload } from '../utils/stored-file.js';
 import { getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
 
 const router = Router();
@@ -776,6 +778,11 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    if (!permiteArquivo && !permiteTexto) {
+      res.status(400).json({ error: 'Ative arquivo, texto ou ambos para a entrega.' });
+      return;
+    }
+
     const avaliacao = await prisma.avaliacao.update({
       where: { id: avaliacaoId },
       data: {
@@ -796,6 +803,42 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao atualizar avaliacao' });
+  }
+});
+
+// DELETE /api/admin/avaliacao/:id
+router.delete('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const avaliacaoId = readString(req.params.id);
+    if (!avaliacaoId) {
+      res.status(400).json({ error: 'Avaliacao invalida.' });
+      return;
+    }
+
+    const entregaArquivos = await prisma.entregaAvaliacao.findMany({
+      where: { avaliacaoId },
+      select: { arquivoUrl: true }
+    });
+
+    await prisma.avaliacao.delete({
+      where: { id: avaliacaoId }
+    });
+
+    for (const entrega of entregaArquivos) {
+      if (!entrega.arquivoUrl) {
+        continue;
+      }
+
+      const filePath = path.resolve('uploads/submissions', path.basename(entrega.arquivoUrl));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao excluir avaliacao' });
   }
 });
 
@@ -894,6 +937,32 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao salvar correcao' });
+  }
+});
+
+// GET /api/admin/entrega-avaliacao/:id/arquivo
+router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const entregaId = readString(req.params.id);
+    if (!entregaId) {
+      res.status(400).json({ error: 'Entrega invalida.' });
+      return;
+    }
+
+    const entrega = await prisma.entregaAvaliacao.findUnique({
+      where: { id: entregaId },
+      select: { arquivoUrl: true }
+    });
+
+    if (!entrega?.arquivoUrl) {
+      res.status(404).json({ error: 'Arquivo da entrega nao encontrado.' });
+      return;
+    }
+
+    sendStoredUpload(res, entrega.arquivoUrl, 'uploads/submissions');
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao baixar arquivo da entrega' });
   }
 });
 

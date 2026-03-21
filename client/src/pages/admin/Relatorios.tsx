@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AppIcon from '../../components/AppIcon';
 
 export default function AdminRelatorios() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
@@ -24,11 +25,34 @@ export default function AdminRelatorios() {
     anchor.click();
   };
 
+  const academicByStudent = useMemo(() => {
+    return (data?.academicByStudent || []).filter((item: any) => {
+      if (!search.trim()) {
+        return true;
+      }
+
+      const haystack = `${item.nome} ${item.email}`.toLowerCase();
+      return haystack.includes(search.trim().toLowerCase());
+    });
+  }, [data?.academicByStudent, search]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <>
-        <div className="page-header">
-          <h1>Relatorios</h1>
-          <p>Metricas de engajamento, desempenho e acesso do seminario.</p>
+        <div className="page-header page-header-split">
+          <div>
+            <h1>Relatorios</h1>
+            <p>Metricas de engajamento, desempenho e acesso do seminario.</p>
+          </div>
+          <div className="page-header-actions print-hide">
+            <button className="btn btn-outline" onClick={handlePrint} type="button">
+              <AppIcon name="reports" size={14} />
+              <span>Imprimir relatorios</span>
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -148,10 +172,16 @@ export default function AdminRelatorios() {
             <div className="card mt-3">
               <div className="content-panel-toolbar admin-toolbar-compact">
                 <h3 style={{ fontSize: '1.1rem' }}>Relatorio academico por aluno</h3>
+                <div className="page-header-actions print-hide">
+                  <div className="search-field compact">
+                    <AppIcon name="search" size={16} />
+                    <input placeholder="Buscar aluno por nome ou email" value={search} onChange={(event) => setSearch(event.target.value)} />
+                  </div>
+                </div>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const rows = [
                     ['Aluno', 'Email', 'Aulas concluidas', 'Frequencia geral', 'Entregas', 'Corrigidas', 'Media notas'],
-                    ...(data.academicByStudent || []).map((item: any) => [
+                    ...academicByStudent.map((item: any) => [
                       item.nome,
                       item.email,
                       String(item.aulasConcluidas),
@@ -180,7 +210,7 @@ export default function AdminRelatorios() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.academicByStudent?.map((item: any) => (
+                    {academicByStudent.map((item: any) => (
                       <tr key={item.alunoId}>
                         <td>
                           <div style={{ fontWeight: 500 }}>{item.nome}</div>
@@ -197,6 +227,12 @@ export default function AdminRelatorios() {
                         <td>{item.mediaNotas ?? 'N/A'}</td>
                       </tr>
                     ))}
+
+                    {!academicByStudent.length && (
+                      <tr>
+                        <td className="text-muted" colSpan={6}>Nenhum aluno corresponde ao filtro atual.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
