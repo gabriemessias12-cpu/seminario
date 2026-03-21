@@ -496,9 +496,9 @@ export default function StudentAvaliacoes() {
 
                         {avaliacao.formato === 'discursiva' && avaliacao.permiteArquivo && (
                           <div className="form-group">
-                            <label className="form-label">Arquivo da entrega (PDF, DOC, imagem)</label>
+                            <label className="form-label">Arquivo da entrega (PDF, DOC, imagem ou vídeo até 1 GB)</label>
                             <input
-                              accept=".pdf,.doc,.docx,.odt,.jpg,.jpeg,.png,.zip"
+                              accept=".pdf,.doc,.docx,.odt,.jpg,.jpeg,.png,.zip,.mp4,.mov,.avi,.mkv,.webm"
                               className="form-input file-input"
                               onChange={(event) => setArquivos((current) => ({ ...current, [avaliacao.id]: event.target.files?.[0] || null }))}
                               type="file"

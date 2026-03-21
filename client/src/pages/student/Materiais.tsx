@@ -10,6 +10,7 @@ export default function StudentMateriais() {
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [busca, setBusca] = useState('');
   const [materialSelecionado, setMaterialSelecionado] = useState<any | null>(null);
+  const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
     fetch('/api/aluno/materiais', {
@@ -110,7 +111,7 @@ export default function StudentMateriais() {
                           <span>{material.tipo.toUpperCase()}</span>
                         </div>
                       </div>
-                      <button className="btn btn-outline btn-sm" type="button" onClick={() => setMaterialSelecionado(material)}>
+                      <button className="btn btn-outline btn-sm" type="button" onClick={() => { setMaterialSelecionado(material); setPdfError(false); }}>
                         Abrir
                       </button>
                     </article>
@@ -133,12 +134,12 @@ export default function StudentMateriais() {
                         <p>{materialSelecionado.descricao}</p>
                       </div>
                       <div className="resource-actions">
-                        <a className="btn btn-outline btn-sm" href={apiUrl(materialSelecionado.urlArquivo)} target="_blank" rel="noreferrer">
+                        <a className="btn btn-outline btn-sm" href={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)} target="_blank" rel="noreferrer">
                           <AppIcon name="external" size={14} />
                           <span>Nova guia</span>
                         </a>
                         {materialSelecionado.permiteDownload && (
-                          <a className="btn btn-primary btn-sm" href={apiUrl(materialSelecionado.urlArquivo)} download>
+                          <a className="btn btn-primary btn-sm" href={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)} download>
                             <AppIcon name="download" size={14} />
                             <span>Download</span>
                           </a>
@@ -146,12 +147,19 @@ export default function StudentMateriais() {
                       </div>
                     </div>
 
-                    {materialSelecionado.tipo === 'pdf' ? (
+                    {materialSelecionado.tipo === 'pdf' && !pdfError ? (
                       <iframe
+                        key={materialSelecionado.id}
                         title={materialSelecionado.titulo}
                         src={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)}
                         className="material-preview-frame"
+                        onError={() => setPdfError(true)}
                       />
+                    ) : materialSelecionado.tipo === 'pdf' && pdfError ? (
+                      <div className="empty-panel">
+                        <AppIcon name="file" size={20} />
+                        <p>Não foi possível visualizar este arquivo. Use "Nova guia" para abri-lo.</p>
+                      </div>
                     ) : (
                       <div className="empty-panel">
                         <AppIcon name="external" size={20} />

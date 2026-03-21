@@ -28,7 +28,7 @@ const submissionStorage = multer.diskStorage({
     cb(null, `${uuidv4()}${ext}`);
   }
 });
-const uploadSubmission = multer({ storage: submissionStorage, limits: { fileSize: 100 * 1024 * 1024 } });
+const uploadSubmission = multer({ storage: submissionStorage, limits: { fileSize: 1024 * 1024 * 1024 } });
 
 type ModuloComAulas = {
   aulas: Array<{

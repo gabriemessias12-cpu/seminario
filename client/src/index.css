@@ -2736,6 +2736,25 @@ body {
 .lesson-playlist {
   position: sticky;
   top: 1.5rem;
+  align-self: start;
+}
+
+.lesson-playlist .search-field {
+  flex: none;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+}
+
+.lesson-playlist .playlist-header {
+  padding-bottom: 0;
+}
+
+/* iPad: show more face in carousel */
+@media (min-width: 768px) and (max-width: 1200px) {
+  .landing-carousel-image {
+    object-position: center 10%;
+  }
 }
 
 .playlist-item {
@@ -4779,6 +4798,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 20%;
 }
 
 .landing-carousel-controls,
