@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
             <BrandMark className="brand-mark brand-mark-login" />
           </div>
           <h1>Administracao</h1>
-          <p>Acesso restrito do Seminario Vinha Nova</p>
+          <p>Acesso restrito do IBVN - Instituto Biblico Vinha Nova</p>
         </div>
 
         {error && <div className="login-error">{error}</div>}

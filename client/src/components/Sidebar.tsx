@@ -58,10 +58,10 @@ export default function Sidebar({ type }: SidebarProps) {
           <BrandMark className="h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
           <div className="min-w-0">
             <strong className="block truncate text-base font-semibold leading-none text-white">
-              {type === 'admin' ? 'Painel Vinha Nova' : 'Area do Aluno'}
+              {type === 'admin' ? 'IBVN Admin' : 'Area do Aluno'}
             </strong>
             <span className="block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
-              {type === 'admin' ? 'Gestao do Seminario' : 'Seminario Teologico'}
+              {type === 'admin' ? 'Instituto Biblico Vinha Nova' : 'Seminario Teologico IBVN'}
             </span>
           </div>
         </Link>

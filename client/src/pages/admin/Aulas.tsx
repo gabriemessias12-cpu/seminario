@@ -62,12 +62,12 @@ export default function AdminAulas() {
 
   return (
     <>
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="page-header page-header-split">
           <div>
             <h1>Gestao de Conteudo</h1>
-            <p>Gerencie os modulos e aulas do seminario.</p>
+            <p>Gerencie modulos, aulas por arquivo ou YouTube e a estrutura do Seminario Teologico.</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div className="page-header-actions">
             <button className="btn btn-outline" onClick={() => setShowNewModule(!showNewModule)}>
               {showNewModule ? 'Cancelar' : 'Novo Modulo'}
             </button>
@@ -116,7 +116,7 @@ export default function AdminAulas() {
                 <h2 style={{ margin: 0 }}>{modulo.titulo}</h2>
                 <button 
                   className="btn btn-outline btn-sm" 
-                  style={{ color: 'var(--error)', borderColor: 'var(--error)' }}
+                  style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
                   onClick={() => handleDeleteModulo(modulo.id)}
                 >
                   Excluir Modulo
@@ -130,7 +130,7 @@ export default function AdminAulas() {
                     <tr>
                       <th>Aula</th>
                       <th>Status</th>
-
+                      <th>Video</th>
                       <th>Alunos</th>
                       <th>% Medio</th>
                       <th>Acoes</th>
@@ -151,7 +151,11 @@ export default function AdminAulas() {
                               {aula.publicado ? 'Publicado' : 'Rascunho'}
                             </span>
                           </td>
-
+                          <td>
+                            <span className={`badge ${String(aula.urlVideo || '').includes('youtube.com') ? 'badge-info' : aula.urlVideo ? 'badge-success' : 'badge-warning'}`}>
+                              {String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem video'}
+                            </span>
+                          </td>
                           <td>{totalAlunos}</td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

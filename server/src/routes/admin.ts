@@ -6,6 +6,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
 import { processAIPipeline } from '../services/ai-mock.js';
+import { getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -16,6 +17,18 @@ function readString(value: string | string[] | undefined): string | null {
   }
 
   return value ?? null;
+}
+
+function readBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+
+  return fallback;
 }
 
 // Multer setup for video uploads
@@ -312,7 +325,12 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
       }
     });
     if (!aula) { res.status(404).json({ error: 'Aula não encontrada' }); return; }
-    res.json(aula);
+    const videoTipo = getLessonVideoKind(aula.urlVideo);
+    res.json({
+      ...aula,
+      videoTipo,
+      youtubeUrl: videoTipo === 'youtube' ? aula.urlVideo : null
+    });
   } catch {
     res.status(500).json({ error: 'Erro' });
   }
@@ -321,10 +339,32 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
 // POST /api/admin/aula - create lesson with video upload
 router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { titulo, descricao, moduloId, publicado, dataPublicacao } = req.body;
+    const titulo = readString(req.body.titulo);
+    const descricao = readString(req.body.descricao);
+    const moduloId = readString(req.body.moduloId);
+    const shouldPublish = readBoolean(req.body.publicado, true);
+    const dataPublicacao = readString(req.body.dataPublicacao);
     const videoFile = req.file;
+    const youtubeUrl = normalizeLessonVideoUrl(readString(req.body.youtubeUrl));
+    const duracaoMinutos = Number(readString(req.body.duracaoMinutos) || '30');
+
+    if (!titulo || !moduloId) {
+      res.status(400).json({ error: 'Titulo e modulo sao obrigatorios.' });
+      return;
+    }
+
+    if (videoFile && youtubeUrl) {
+      res.status(400).json({ error: 'Escolha upload de arquivo ou link do YouTube, nao os dois.' });
+      return;
+    }
+
+    if (readString(req.body.youtubeUrl) && !youtubeUrl) {
+      res.status(400).json({ error: 'O link do YouTube informado e invalido.' });
+      return;
+    }
+
     const modulo = await prisma.modulo.findUnique({
-      where: { id: String(moduloId) },
+      where: { id: moduloId },
       select: { titulo: true }
     });
 
@@ -333,16 +373,16 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
         titulo,
         descricao,
         moduloId,
-        urlVideo: videoFile ? `/uploads/videos/${videoFile.filename}` : null,
-        publicado: publicado === 'true',
-        dataPublicacao: dataPublicacao ? new Date(dataPublicacao) : (publicado === 'true' ? new Date() : null),
-        duracaoSegundos: 1800, // Default 30min for mock
+        urlVideo: videoFile ? `/uploads/videos/${videoFile.filename}` : youtubeUrl,
+        publicado: shouldPublish,
+        dataPublicacao: dataPublicacao ? new Date(dataPublicacao) : (shouldPublish ? new Date() : null),
+        duracaoSegundos: Number.isFinite(duracaoMinutos) && duracaoMinutos > 0 ? Math.round(duracaoMinutos * 60) : 1800,
         statusIA: 'processando'
       }
     });
 
     // Fire AI pipeline asynchronously
-    processAIPipeline(aula.id, titulo, descricao, { modulo: modulo?.titulo }).then(async (aiResult) => {
+    processAIPipeline(aula.id, titulo, descricao || '', { modulo: modulo?.titulo }).then(async (aiResult) => {
       await prisma.aula.update({
         where: { id: aula.id },
         data: {
@@ -380,7 +420,7 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
 });
 
 // PUT /api/admin/aula/:id
-router.put('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const aulaId = readString(req.params.id);
     if (!aulaId) {
@@ -388,7 +428,49 @@ router.put('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    const { titulo, descricao, moduloId, publicado, dataPublicacao } = req.body;
+    const titulo = readString(req.body.titulo);
+    const descricao = readString(req.body.descricao);
+    const moduloId = readString(req.body.moduloId);
+    const shouldPublish = readBoolean(req.body.publicado);
+    const dataPublicacao = readString(req.body.dataPublicacao);
+    const videoFile = req.file;
+    const youtubeUrlInput = readString(req.body.youtubeUrl);
+    const youtubeUrl = youtubeUrlInput ? normalizeLessonVideoUrl(youtubeUrlInput) : null;
+    const duracaoMinutos = Number(readString(req.body.duracaoMinutos));
+
+    if (!titulo || !moduloId) {
+      res.status(400).json({ error: 'Titulo e modulo sao obrigatorios.' });
+      return;
+    }
+
+    if (videoFile && youtubeUrl) {
+      res.status(400).json({ error: 'Escolha upload de arquivo ou link do YouTube, nao os dois.' });
+      return;
+    }
+
+    if (youtubeUrlInput && !youtubeUrl) {
+      res.status(400).json({ error: 'O link do YouTube informado e invalido.' });
+      return;
+    }
+
+    const aulaAtual = await prisma.aula.findUnique({
+      where: { id: aulaId },
+      select: { urlVideo: true, duracaoSegundos: true }
+    });
+
+    if (!aulaAtual) {
+      res.status(404).json({ error: 'Aula nao encontrada' });
+      return;
+    }
+
+    const clearVideo = readString(req.body.clearVideo) === 'true';
+    const nextVideoUrl = videoFile
+      ? `/uploads/videos/${videoFile.filename}`
+      : youtubeUrlInput
+        ? youtubeUrl
+        : clearVideo
+          ? null
+          : aulaAtual.urlVideo;
 
     const aula = await prisma.aula.update({
       where: { id: aulaId },
@@ -396,8 +478,12 @@ router.put('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
         titulo,
         descricao,
         moduloId,
-        publicado,
-        dataPublicacao: dataPublicacao ? new Date(dataPublicacao) : undefined
+        publicado: shouldPublish,
+        dataPublicacao: dataPublicacao ? new Date(dataPublicacao) : undefined,
+        urlVideo: nextVideoUrl,
+        duracaoSegundos: Number.isFinite(duracaoMinutos) && duracaoMinutos > 0
+          ? Math.round(duracaoMinutos * 60)
+          : aulaAtual.duracaoSegundos
       }
     });
 

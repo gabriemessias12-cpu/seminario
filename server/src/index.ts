@@ -55,7 +55,7 @@ async function startServer() {
   await ensureSystemAccounts();
 
   app.listen(PORT, () => {
-    console.log(`Seminario Vinha Nova API running on http://localhost:${PORT}`);
+    console.log(`IBVN API running on http://localhost:${PORT}`);
   });
 }
 

@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest, generateVideoToken, verifyVideoToken } from '../middleware/auth.js';
 import { askLessonAssistant, getAIConfig } from '../services/ai-mock.js';
 import { aiCreditSettings, consumeAICredit, syncDailyAICredits, updateAIConsent } from '../services/ai-credits.js';
+import { getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -295,14 +296,18 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
 
     const presenca = aula.presencas[0] || null;
     const podeControlarLivremente = hasAttendanceUnlock(presenca);
-    const videoStreamUrl = aula.urlVideo
+    const videoTipo = getLessonVideoKind(aula.urlVideo);
+    const videoStreamUrl = videoTipo === 'upload'
       ? `/api/aluno/aula/${aula.id}/video?token=${generateVideoToken({ userId, aulaId: aula.id })}`
       : null;
+    const videoEmbedUrl = videoTipo === 'youtube' ? getYouTubeEmbedUrl(aula.urlVideo) : null;
 
     res.json({
       ...aula,
       urlVideo: null,
+      videoTipo,
       videoStreamUrl,
+      videoEmbedUrl,
       presenca,
       controleVideo: {
         liberaSeek: podeControlarLivremente,
@@ -357,6 +362,11 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
 
     if (!aula?.urlVideo) {
       res.status(404).json({ error: 'Video nao encontrado' });
+      return;
+    }
+
+    if (getLessonVideoKind(aula.urlVideo) !== 'upload') {
+      res.status(404).json({ error: 'Aula sem arquivo local de video' });
       return;
     }
 

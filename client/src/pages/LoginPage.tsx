@@ -31,8 +31,8 @@ export default function LoginPage() {
           <div className="logo-circle">
             <BrandMark className="brand-mark brand-mark-login" />
           </div>
-          <h1>Seminario Vinha Nova</h1>
-          <p>Acesse sua area de estudos</p>
+          <h1>IBVN</h1>
+          <p>Acesse sua area de estudos do Seminario Teologico</p>
         </div>
 
         {error && <div className="login-error">{error}</div>}

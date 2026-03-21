@@ -36,7 +36,7 @@ export default function AdminRelatorios() {
         ) : data && (
           <>
             <div className="card mb-3">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="content-panel-toolbar admin-toolbar-compact">
                 <h3 style={{ fontSize: '1.1rem' }}>Relatorio de engajamento por aula</h3>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const rows = [
@@ -102,7 +102,7 @@ export default function AdminRelatorios() {
             </div>
 
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div className="content-panel-toolbar admin-toolbar-compact">
                 <h3 style={{ fontSize: '1.1rem' }}>Relatorio de acesso</h3>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const rows = [

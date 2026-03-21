@@ -20,7 +20,7 @@ export default function AdminDashboard() {
     <>
         <div className="page-header">
           <h1>Painel Administrativo</h1>
-          <p>Visao geral do Seminario Vinha Nova.</p>
+          <p>Visao geral do IBVN e do Seminario Teologico.</p>
         </div>
 
         {loading ? (

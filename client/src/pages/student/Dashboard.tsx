@@ -103,7 +103,7 @@ export default function StudentDashboard() {
       <main className="main-content student-main">
         <section className="student-topbar">
           <div>
-            <span className="section-kicker">Seminario Vinha Nova</span>
+            <span className="section-kicker">IBVN - Seminario Teologico</span>
             <h1 className="student-page-title">Ola, {firstName}</h1>
             <p className="student-page-subtitle">
               Continue sua formacao com conteudo organizado por trilhas e materiais de apoio.

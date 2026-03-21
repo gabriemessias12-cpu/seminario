@@ -4,6 +4,13 @@ import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
 import { apiUrl } from '../../lib/api';
 
+declare global {
+  interface Window {
+    YT?: any;
+    onYouTubeIframeAPIReady?: (() => void) | undefined;
+  }
+}
+
 type AssistantMessage = {
   id: string;
   pergunta: string;
@@ -30,13 +37,25 @@ function formatTime(seconds: number) {
   return `${minutes.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
 }
 
+function getYoutubeIdFromEmbedUrl(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/embed\/([A-Za-z0-9_-]{11})/);
+  return match?.[1] ?? null;
+}
+
 export default function StudentAulaPlayer() {
   const { id } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem('accessToken');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const youtubeHostRef = useRef<HTMLDivElement>(null);
+  const youtubePlayerRef = useRef<any>(null);
   const progressInterval = useRef<number | null>(null);
   const demoInterval = useRef<number | null>(null);
+  const youtubeInterval = useRef<number | null>(null);
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
 
@@ -62,7 +81,9 @@ export default function StudentAulaPlayer() {
   const [lessonFeedback, setLessonFeedback] = useState('');
 
   const lessonControlsUnlocked = Boolean(aula?.controleVideo?.liberaSeek);
-  const demoMode = Boolean(aula && !aula.videoStreamUrl);
+  const isYoutubeLesson = aula?.videoTipo === 'youtube';
+  const youtubeVideoId = getYoutubeIdFromEmbedUrl(aula?.videoEmbedUrl);
+  const demoMode = Boolean(aula && aula.videoTipo === 'none');
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
@@ -78,6 +99,7 @@ export default function StudentAulaPlayer() {
       fetch('/api/aluno/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
     ])
       .then(([lessonData, modules]) => {
+        setPlaying(false);
         setAula(lessonData);
         setAssistantMessages(lessonData.interacoesIA || []);
 
@@ -126,6 +148,19 @@ export default function StudentAulaPlayer() {
   const saveCurrentProgress = useCallback((pausou = false) => {
     if (!durationRef.current) return;
 
+    if (isYoutubeLesson) {
+      const player = youtubePlayerRef.current;
+      if (!player?.getCurrentTime || !player?.getDuration) return;
+
+      const youtubeDuration = player.getDuration();
+      const youtubeCurrentTime = player.getCurrentTime();
+      if (!youtubeDuration) return;
+
+      const percentual = Math.round((youtubeCurrentTime / youtubeDuration) * 100);
+      saveProgress(percentual, youtubeCurrentTime, pausou);
+      return;
+    }
+
     if (demoMode) {
       const percentual = Math.round((currentTimeRef.current / durationRef.current) * 100);
       saveProgress(percentual, currentTimeRef.current, pausou);
@@ -137,7 +172,7 @@ export default function StudentAulaPlayer() {
 
     const percentual = Math.round((video.currentTime / video.duration) * 100);
     saveProgress(percentual, video.currentTime, pausou);
-  }, [demoMode, saveProgress]);
+  }, [demoMode, isYoutubeLesson, saveProgress]);
 
   useEffect(() => {
     if (!playing) return;
@@ -158,6 +193,34 @@ export default function StudentAulaPlayer() {
   }, [demoMode, playing]);
 
   useEffect(() => {
+    if (!isYoutubeLesson || !playing) return;
+
+    youtubeInterval.current = window.setInterval(() => {
+      const player = youtubePlayerRef.current;
+      if (!player?.getCurrentTime || !player?.getDuration) return;
+
+      const nextCurrentTime = player.getCurrentTime();
+      const nextDuration = player.getDuration();
+      if (Number.isFinite(nextDuration) && nextDuration > 0) {
+        setDuration(nextDuration);
+      }
+      setCurrentTime(nextCurrentTime);
+
+      if (nextDuration > 0) {
+        const percentual = Math.round((nextCurrentTime / nextDuration) * 100);
+        setMaxWatched((current) => Math.max(current, percentual));
+        if (percentual >= 95) {
+          setCompleted(true);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      if (youtubeInterval.current) clearInterval(youtubeInterval.current);
+    };
+  }, [isYoutubeLesson, playing]);
+
+  useEffect(() => {
     if (!demoMode || !duration) return;
     const percentual = Math.round((currentTime / duration) * 100);
     setMaxWatched((current) => Math.max(current, percentual));
@@ -167,6 +230,104 @@ export default function StudentAulaPlayer() {
       saveProgress(100, duration);
     }
   }, [currentTime, demoMode, duration, playing, saveProgress]);
+
+  useEffect(() => {
+    if (!isYoutubeLesson) return;
+
+    const player = youtubePlayerRef.current;
+    if (!player?.setVolume) return;
+
+    if (volume === 0) {
+      player.mute?.();
+      return;
+    }
+
+    player.unMute?.();
+    player.setVolume(Math.round(volume * 100));
+  }, [isYoutubeLesson, volume]);
+
+  useEffect(() => {
+    if (!isYoutubeLesson || !youtubeVideoId || !youtubeHostRef.current) return;
+
+    let cancelled = false;
+
+    const initializePlayer = () => {
+      if (cancelled || !window.YT?.Player || !youtubeHostRef.current) return;
+
+      youtubePlayerRef.current?.destroy?.();
+      youtubePlayerRef.current = new window.YT.Player(youtubeHostRef.current, {
+        videoId: youtubeVideoId,
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: {
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          rel: 0
+        },
+        events: {
+          onReady: (event: any) => {
+            if (cancelled) return;
+
+            const nextDuration = event.target.getDuration?.() || 0;
+            if (nextDuration > 0) {
+              setDuration(nextDuration);
+            }
+
+            const progress = aula?.progressos?.[0];
+            if (progress?.posicaoAtualSegundos) {
+              event.target.seekTo(progress.posicaoAtualSegundos, true);
+            }
+
+            event.target.setVolume(Math.round(volume * 100));
+          },
+          onStateChange: (event: any) => {
+            if (cancelled || !window.YT?.PlayerState) return;
+
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              setPlaying(true);
+              return;
+            }
+
+            if (event.data === window.YT.PlayerState.PAUSED) {
+              setPlaying(false);
+              saveCurrentProgress(true);
+              return;
+            }
+
+            if (event.data === window.YT.PlayerState.ENDED) {
+              setPlaying(false);
+              saveProgress(100, durationRef.current || duration);
+            }
+          }
+        }
+      });
+    };
+
+    if (window.YT?.Player) {
+      initializePlayer();
+    } else {
+      const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://www.youtube.com/iframe_api"]');
+      const previousReady = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        previousReady?.();
+        initializePlayer();
+      };
+
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://www.youtube.com/iframe_api';
+        document.body.appendChild(script);
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      youtubePlayerRef.current?.destroy?.();
+      youtubePlayerRef.current = null;
+    };
+  }, [aula?.id, aula?.progressos, isYoutubeLesson, saveCurrentProgress, saveProgress, youtubeVideoId]);
 
   const handleTimeUpdate = () => {
     const video = videoRef.current;
@@ -186,6 +347,24 @@ export default function StudentAulaPlayer() {
   };
 
   const togglePlay = useCallback(() => {
+    if (isYoutubeLesson) {
+      const player = youtubePlayerRef.current;
+      if (!player?.playVideo || !player?.pauseVideo || !player?.getPlayerState) {
+        return;
+      }
+
+      const playerState = player.getPlayerState();
+      if (playerState === window.YT?.PlayerState?.PLAYING) {
+        player.pauseVideo();
+        setPlaying(false);
+        saveCurrentProgress(true);
+      } else {
+        player.playVideo();
+        setPlaying(true);
+      }
+      return;
+    }
+
     if (demoMode) {
       if (playing) {
         setPlaying(false);
@@ -206,12 +385,19 @@ export default function StudentAulaPlayer() {
       setPlaying(false);
       saveCurrentProgress(true);
     }
-  }, [demoMode, playing, saveCurrentProgress]);
+  }, [demoMode, isYoutubeLesson, playing, saveCurrentProgress]);
 
   const handleSeek = (event: React.MouseEvent<HTMLDivElement>) => {
     if ((!completed && !lessonControlsUnlocked) || !durationRef.current) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const nextTime = ((event.clientX - rect.left) / rect.width) * durationRef.current;
+
+    if (isYoutubeLesson) {
+      youtubePlayerRef.current?.seekTo?.(nextTime, true);
+      setCurrentTime(nextTime);
+      return;
+    }
+
     if (demoMode) {
       setCurrentTime(nextTime);
       return;
@@ -449,7 +635,11 @@ export default function StudentAulaPlayer() {
               onCut={(event) => event.preventDefault()}
               onDragStart={(event) => event.preventDefault()}
             >
-              {!demoMode ? (
+              {isYoutubeLesson ? (
+                <div className="youtube-player-shell">
+                  <div className="youtube-player-host" ref={youtubeHostRef} />
+                </div>
+              ) : !demoMode ? (
                 <video
                   ref={videoRef}
                   src={aula.videoStreamUrl ? apiUrl(aula.videoStreamUrl) : undefined}
@@ -505,7 +695,16 @@ export default function StudentAulaPlayer() {
                       onClick={() => {
                         const nextVolume = volume === 0 ? 1 : 0;
                         setVolume(nextVolume);
-                        if (videoRef.current) videoRef.current.volume = nextVolume;
+                        if (isYoutubeLesson) {
+                          if (nextVolume === 0) {
+                            youtubePlayerRef.current?.mute?.();
+                          } else {
+                            youtubePlayerRef.current?.unMute?.();
+                            youtubePlayerRef.current?.setVolume?.(Math.round(nextVolume * 100));
+                          }
+                        } else if (videoRef.current) {
+                          videoRef.current.volume = nextVolume;
+                        }
                       }}
                     >
                       <AppIcon name={volume === 0 ? 'mute' : 'volume'} size={16} />
@@ -520,7 +719,11 @@ export default function StudentAulaPlayer() {
                       onChange={(event) => {
                         const nextVolume = parseFloat(event.target.value);
                         setVolume(nextVolume);
-                        if (videoRef.current) videoRef.current.volume = nextVolume;
+                        if (isYoutubeLesson) {
+                          youtubePlayerRef.current?.setVolume?.(Math.round(nextVolume * 100));
+                        } else if (videoRef.current) {
+                          videoRef.current.volume = nextVolume;
+                        }
                       }}
                       disabled={demoMode}
                     />
@@ -531,10 +734,12 @@ export default function StudentAulaPlayer() {
                       ? 'Conteudo concluido'
                       : lessonControlsUnlocked
                         ? `Seek liberado por presenca ${aula?.controleVideo?.origem || 'confirmada'}`
-                        : 'Sem presenca confirmada: somente pausa, sem pular'}
-                  </div>
+                        : isYoutubeLesson
+                          ? 'Sem presenca confirmada: pausa liberada e navegacao travada no player.'
+                          : 'Sem presenca confirmada: somente pausa, sem pular'}
                 </div>
               </div>
+            </div>
             </div>
 
             <div className="lesson-meta-band">
