@@ -3619,7 +3619,12 @@ body {
 }
 
 .landing-section-marquee {
+  padding-top: 2rem;
   padding-bottom: 3.1rem;
+}
+
+.landing-section-marquee .landing-section-heading {
+  margin-bottom: 1.5rem;
 }
 
 .landing-section-heading {
@@ -5665,7 +5670,11 @@ input[type="file"] { min-height: 44px; }
   }
 
   .landing-carousel-panel {
-    display: none;
+    margin-top: 1.5rem;
+  }
+
+  .landing-carousel-visual {
+    min-height: 280px !important;
   }
 
   .landing-showcase {
@@ -5729,7 +5738,11 @@ input[type="file"] { min-height: 44px; }
   }
 
   .landing-mini-stats {
-    display: none;
+    flex-direction: column;
+  }
+
+  .landing-mini-stat {
+    width: 100%;
   }
 
   .landing-poster-card {

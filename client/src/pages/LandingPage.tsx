@@ -177,6 +177,14 @@ export default function LandingPage() {
                 <a className="btn btn-outline btn-lg" href="#trilhas">
                   Ver trilhas
                 </a>
+                <a
+                  className="btn btn-outline btn-lg"
+                  href="https://wa.me/55"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Fale com a Fábia
+                </a>
               </div>
             </div>
 
@@ -321,20 +329,6 @@ export default function LandingPage() {
               <span className="section-kicker">Comunicação oficial</span>
               <h2>Programação, cartazes e rotina ministerial</h2>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <p>
-                Faça sua inscrição! Entre em contato com a Fábia e garanta sua vaga no Seminário Teológico do IBVN.
-              </p>
-              <a
-                className="btn btn-primary btn-sm"
-                href="https://wa.me/55"
-                rel="noreferrer"
-                style={{ alignSelf: 'flex-start' }}
-                target="_blank"
-              >
-                Fale com a Fábia — Inscrições
-              </a>
-            </div>
           </div>
         </div>
 
@@ -364,7 +358,7 @@ export default function LandingPage() {
         <div className="landing-section-heading">
           <div>
             <span className="section-kicker">Sobre o instituto</span>
-            <h2>Instituto Bíblico Vinha Nova — estudos teológicos abrangentes, bíblicos e apaixonantes</h2>
+            <h2>Instituto Bíblico Vinha Nova: estudos teológicos abrangentes, bíblicos e apaixonantes</h2>
           </div>
           <p>
             Resgatando o fervor espiritual e o amor pelas Escrituras! Acreditamos em uma teologia completa que tem
@@ -378,7 +372,7 @@ export default function LandingPage() {
               <AppIcon name="target" size={22} />
             </span>
             <h3>Formação com identidade</h3>
-            <p>Estrutura pensada para servir a todos — irmãos em Cristo, membros, obreiros e líderes que desejam crescer em serviço e entendimento bíblico, se apaixonando ainda mais pelas Escrituras.</p>
+            <p>Estrutura pensada para servir a todos: irmãos em Cristo, membros, obreiros e líderes que desejam crescer em serviço e entendimento bíblico, se apaixonando ainda mais pelas Escrituras.</p>
           </div>
 
           <div className="landing-info-card">
@@ -426,27 +420,27 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-section landing-shell">
-        <div className="landing-feature-band">
-          <div className="landing-feature-copy">
+        <div className="landing-section-heading">
+          <div>
             <span className="section-kicker">Experiência da plataforma</span>
             <h2>Estrutura profissional para estudo com acompanhamento de progresso</h2>
-            <p>
-              A plataforma tem navegação clara e adaptação para telas pequenas e grandes sem perder leitura nem proporção —
-              facilitando o uso em computadores, tablets, celulares e até televisores.
-            </p>
           </div>
+          <p>
+            A plataforma tem navegação clara e adaptação para telas pequenas e grandes sem perder leitura nem proporção,
+            facilitando o uso em computadores, tablets, celulares e até televisores.
+          </p>
+        </div>
 
-          <div className="landing-feature-grid">
-            {platformHighlights.map((item) => (
-              <article className="landing-feature-card" key={item.title}>
-                <span className="landing-info-icon">
-                  <AppIcon name={item.icon} size={20} />
-                </span>
-                <strong>{item.title}</strong>
-                <p>{item.description}</p>
-              </article>
-            ))}
-          </div>
+        <div className="landing-feature-grid">
+          {platformHighlights.map((item) => (
+            <article className="landing-feature-card" key={item.title}>
+              <span className="landing-info-icon">
+                <AppIcon name={item.icon} size={20} />
+              </span>
+              <strong>{item.title}</strong>
+              <p>{item.description}</p>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -493,7 +487,7 @@ export default function LandingPage() {
             <p><a href="#canais">Inscrições e programação</a></p>
           </div>
         </div>
-        <div className="footer-bottom">© 2026 IBVN — Instituto Bíblico Vinha Nova. Todos os direitos reservados.</div>
+        <div className="footer-bottom">© 2026 IBVN · Instituto Bíblico Vinha Nova. Todos os direitos reservados.</div>
       </footer>
     </div>
   );
