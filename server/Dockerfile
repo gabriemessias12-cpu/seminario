@@ -13,7 +13,7 @@ COPY src ./src
 RUN npm run build && test -f dist/src/index.js
 ENV NODE_ENV=production
 
-RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos
+RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos /app/uploads/submissions
 
 EXPOSE 3001
 

@@ -5,6 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
+import { buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { processAIPipeline } from '../services/ai-mock.js';
 import { getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
 
@@ -202,6 +203,21 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
         presencas: {
           include: { aula: { select: { titulo: true } } }
         },
+        entregasAvaliacao: {
+          include: {
+            avaliacao: {
+              select: {
+                id: true,
+                titulo: true,
+                tipo: true,
+                notaMaxima: true,
+                modulo: { select: { titulo: true } },
+                aula: { select: { titulo: true } }
+              }
+            }
+          },
+          orderBy: { atualizadoEm: 'desc' }
+        },
         loginHistorico: {
           orderBy: { dataHora: 'desc' },
           take: 20
@@ -214,7 +230,29 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    res.json(aluno);
+    const modulos = await prisma.modulo.findMany({
+      where: { ativo: true },
+      include: {
+        aulas: {
+          where: { publicado: true },
+          include: {
+            presencas: {
+              where: { alunoId },
+              select: { status: true }
+            }
+          }
+        }
+      },
+      orderBy: { ordem: 'asc' }
+    });
+
+    res.json({
+      ...aluno,
+      relatorioAcademico: {
+        frequenciaPorModulo: buildModuleFrequencyReport(modulos),
+        entregasResumo: buildDeliverySummary(aluno.entregasAvaliacao)
+      }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao carregar aluno' });
@@ -636,6 +674,229 @@ router.get('/materiais', async (_req: AuthRequest, res: Response): Promise<void>
   }
 });
 
+// GET /api/admin/avaliacoes
+router.get('/avaliacoes', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const avaliacoes = await prisma.avaliacao.findMany({
+      include: {
+        modulo: { select: { id: true, titulo: true } },
+        aula: { select: { id: true, titulo: true } },
+        entregas: {
+          select: {
+            id: true,
+            status: true,
+            nota: true
+          }
+        }
+      },
+      orderBy: [
+        { dataLimite: 'asc' },
+        { criadoEm: 'desc' }
+      ]
+    });
+
+    res.json(avaliacoes.map((avaliacao) => ({
+      ...avaliacao,
+      resumoEntregas: buildDeliverySummary(avaliacao.entregas)
+    })));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao carregar avaliacoes' });
+  }
+});
+
+// POST /api/admin/avaliacao
+router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const titulo = readString(req.body.titulo);
+    const descricao = readString(req.body.descricao);
+    const tipo = readString(req.body.tipo) || 'trabalho';
+    const moduloId = readString(req.body.moduloId) || null;
+    const aulaId = readString(req.body.aulaId) || null;
+    const dataLimite = readString(req.body.dataLimite);
+    const notaMaxima = Number(readString(req.body.notaMaxima) || '10');
+    const publicado = readBoolean(req.body.publicado, true);
+    const permiteArquivo = readBoolean(req.body.permiteArquivo, true);
+    const permiteTexto = readBoolean(req.body.permiteTexto, false);
+
+    if (!titulo) {
+      res.status(400).json({ error: 'Titulo obrigatorio.' });
+      return;
+    }
+
+    if (!permiteArquivo && !permiteTexto) {
+      res.status(400).json({ error: 'Ative arquivo, texto ou ambos para a entrega.' });
+      return;
+    }
+
+    const avaliacao = await prisma.avaliacao.create({
+      data: {
+        titulo,
+        descricao,
+        tipo,
+        moduloId,
+        aulaId,
+        dataLimite: dataLimite ? new Date(dataLimite) : null,
+        notaMaxima: Number.isFinite(notaMaxima) && notaMaxima > 0 ? notaMaxima : 10,
+        publicado,
+        permiteArquivo,
+        permiteTexto
+      }
+    });
+
+    res.json(avaliacao);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao criar avaliacao' });
+  }
+});
+
+// PUT /api/admin/avaliacao/:id
+router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const avaliacaoId = readString(req.params.id);
+    if (!avaliacaoId) {
+      res.status(400).json({ error: 'Avaliacao invalida.' });
+      return;
+    }
+
+    const titulo = readString(req.body.titulo);
+    const descricao = readString(req.body.descricao);
+    const tipo = readString(req.body.tipo) || 'trabalho';
+    const moduloId = readString(req.body.moduloId) || null;
+    const aulaId = readString(req.body.aulaId) || null;
+    const dataLimite = readString(req.body.dataLimite);
+    const notaMaxima = Number(readString(req.body.notaMaxima) || '10');
+    const publicado = readBoolean(req.body.publicado, true);
+    const permiteArquivo = readBoolean(req.body.permiteArquivo, true);
+    const permiteTexto = readBoolean(req.body.permiteTexto, false);
+
+    if (!titulo) {
+      res.status(400).json({ error: 'Titulo obrigatorio.' });
+      return;
+    }
+
+    const avaliacao = await prisma.avaliacao.update({
+      where: { id: avaliacaoId },
+      data: {
+        titulo,
+        descricao,
+        tipo,
+        moduloId,
+        aulaId,
+        dataLimite: dataLimite ? new Date(dataLimite) : null,
+        notaMaxima: Number.isFinite(notaMaxima) && notaMaxima > 0 ? notaMaxima : 10,
+        publicado,
+        permiteArquivo,
+        permiteTexto
+      }
+    });
+
+    res.json(avaliacao);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao atualizar avaliacao' });
+  }
+});
+
+// GET /api/admin/avaliacao/:id
+router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const avaliacaoId = readString(req.params.id);
+    if (!avaliacaoId) {
+      res.status(400).json({ error: 'Avaliacao invalida.' });
+      return;
+    }
+
+    const avaliacao = await prisma.avaliacao.findUnique({
+      where: { id: avaliacaoId },
+      include: {
+        modulo: { select: { id: true, titulo: true } },
+        aula: { select: { id: true, titulo: true } },
+        entregas: {
+          include: {
+            aluno: {
+              select: {
+                id: true,
+                nome: true,
+                email: true
+              }
+            }
+          },
+          orderBy: [
+            { status: 'asc' },
+            { enviadoEm: 'desc' }
+          ]
+        }
+      }
+    });
+
+    if (!avaliacao) {
+      res.status(404).json({ error: 'Avaliacao nao encontrada.' });
+      return;
+    }
+
+    res.json({
+      ...avaliacao,
+      resumoEntregas: buildDeliverySummary(avaliacao.entregas)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao carregar avaliacao' });
+  }
+});
+
+// PUT /api/admin/entrega-avaliacao/:id/correcao
+router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const entregaId = readString(req.params.id);
+    const comentarioCorrecao = readString(req.body.comentarioCorrecao);
+    const status = readString(req.body.status) || 'corrigido';
+    const nota = Number(readString(req.body.nota));
+
+    if (!entregaId) {
+      res.status(400).json({ error: 'Entrega invalida.' });
+      return;
+    }
+
+    if (!Number.isFinite(nota)) {
+      res.status(400).json({ error: 'Informe uma nota valida.' });
+      return;
+    }
+
+    const entrega = await prisma.entregaAvaliacao.update({
+      where: { id: entregaId },
+      data: {
+        nota,
+        comentarioCorrecao,
+        status,
+        corrigidoEm: new Date()
+      },
+      include: {
+        aluno: {
+          select: {
+            id: true,
+            nome: true,
+            email: true
+          }
+        },
+        avaliacao: {
+          select: {
+            id: true,
+            titulo: true,
+            notaMaxima: true
+          }
+        }
+      }
+    });
+
+    res.json(entrega);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao salvar correcao' });
+  }
+});
+
 // GET /api/admin/chamada
 router.get('/chamada', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -777,7 +1038,48 @@ router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void
       include: { usuario: { select: { nome: true, email: true } } }
     });
 
-    res.json({ engajamento, logins });
+    const alunos = await prisma.user.findMany({
+      where: { papel: 'aluno' },
+      include: {
+        entregasAvaliacao: {
+          select: {
+            status: true,
+            nota: true
+          }
+        },
+        progressos: {
+          select: {
+            concluido: true
+          }
+        },
+        presencas: {
+          select: {
+            status: true
+          }
+        }
+      },
+      orderBy: { nome: 'asc' }
+    });
+
+    const academicByStudent = alunos.map((aluno) => {
+      const totalPresencas = aluno.presencas.length;
+      const attendanceScore = aluno.presencas.reduce((sum, presenca) => {
+        if (presenca.status === 'presente') return sum + 1;
+        if (presenca.status === 'parcial') return sum + 0.5;
+        return sum;
+      }, 0);
+
+      return {
+        alunoId: aluno.id,
+        nome: aluno.nome,
+        email: aluno.email,
+        aulasConcluidas: aluno.progressos.filter((item) => item.concluido).length,
+        frequenciaGeral: totalPresencas > 0 ? Math.round((attendanceScore / totalPresencas) * 100) : 0,
+        ...buildDeliverySummary(aluno.entregasAvaliacao)
+      };
+    });
+
+    res.json({ engajamento, logins, academicByStudent });
   } catch {
     res.status(500).json({ error: 'Erro' });
   }

@@ -3,13 +3,25 @@ import path from 'path';
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, AuthRequest, generateVideoToken, verifyVideoToken } from '../middleware/auth.js';
+import { buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { askLessonAssistant, getAIConfig } from '../services/ai-mock.js';
 import { aiCreditSettings, consumeAICredit, syncDailyAICredits, updateAIConsent } from '../services/ai-credits.js';
 import { getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+const submissionStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, path.resolve('uploads/submissions')),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
+const uploadSubmission = multer({ storage: submissionStorage, limits: { fileSize: 100 * 1024 * 1024 } });
 
 type ModuloComAulas = {
   aulas: Array<{
@@ -665,6 +677,118 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
   }
 });
 
+// GET /api/aluno/avaliacoes
+router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const avaliacoes = await prisma.avaliacao.findMany({
+      where: { publicado: true },
+      include: {
+        modulo: { select: { id: true, titulo: true } },
+        aula: { select: { id: true, titulo: true } },
+        entregas: {
+          where: { alunoId: userId },
+          take: 1
+        }
+      },
+      orderBy: [
+        { dataLimite: 'asc' },
+        { criadoEm: 'desc' }
+      ]
+    });
+
+    res.json(avaliacoes.map((avaliacao) => ({
+      ...avaliacao,
+      entregaAtual: avaliacao.entregas[0] || null
+    })));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao carregar avaliacoes' });
+  }
+});
+
+// POST /api/aluno/avaliacao/:id/entrega
+router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const avaliacaoId = readString(req.params.id);
+    const respostaTexto = readString(req.body.respostaTexto);
+    const arquivo = req.file;
+
+    if (!avaliacaoId) {
+      res.status(400).json({ error: 'Avaliacao invalida.' });
+      return;
+    }
+
+    const avaliacao = await prisma.avaliacao.findFirst({
+      where: {
+        id: avaliacaoId,
+        publicado: true
+      }
+    });
+
+    if (!avaliacao) {
+      res.status(404).json({ error: 'Avaliacao nao encontrada.' });
+      return;
+    }
+
+    if (!avaliacao.permiteArquivo && arquivo) {
+      res.status(400).json({ error: 'Esta atividade nao aceita arquivo.' });
+      return;
+    }
+
+    if (!avaliacao.permiteTexto && respostaTexto) {
+      res.status(400).json({ error: 'Esta atividade nao aceita resposta em texto.' });
+      return;
+    }
+
+    if (!arquivo && !respostaTexto?.trim()) {
+      res.status(400).json({ error: 'Envie um arquivo, uma resposta em texto ou ambos.' });
+      return;
+    }
+
+    const entregaExistente = await prisma.entregaAvaliacao.findUnique({
+      where: {
+        avaliacaoId_alunoId: {
+          avaliacaoId,
+          alunoId: userId
+        }
+      }
+    });
+
+    const entrega = await prisma.entregaAvaliacao.upsert({
+      where: {
+        avaliacaoId_alunoId: {
+          avaliacaoId,
+          alunoId: userId
+        }
+      },
+      update: {
+        respostaTexto: avaliacao.permiteTexto ? respostaTexto : entregaExistente?.respostaTexto,
+        arquivoUrl: arquivo ? `/uploads/submissions/${arquivo.filename}` : entregaExistente?.arquivoUrl,
+        status: 'enviado',
+        enviadoEm: new Date(),
+        comentarioCorrecao: null,
+        nota: null,
+        corrigidoEm: null
+      },
+      create: {
+        avaliacaoId,
+        alunoId: userId,
+        respostaTexto: avaliacao.permiteTexto ? respostaTexto : null,
+        arquivoUrl: arquivo ? `/uploads/submissions/${arquivo.filename}` : null,
+        status: 'enviado',
+        enviadoEm: new Date()
+      }
+    });
+
+    res.json(entrega);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao enviar atividade' });
+  }
+});
+
 // GET /api/aluno/perfil
 router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -697,7 +821,50 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
       orderBy: { feitoEm: 'desc' }
     });
 
-    res.json({ user, progressos, resultados, ia: iaStatus });
+    const entregasAvaliacao = await prisma.entregaAvaliacao.findMany({
+      where: { alunoId: userId },
+      include: {
+        avaliacao: {
+          select: {
+            id: true,
+            titulo: true,
+            tipo: true,
+            notaMaxima: true,
+            modulo: { select: { titulo: true } },
+            aula: { select: { titulo: true } }
+          }
+        }
+      },
+      orderBy: { atualizadoEm: 'desc' }
+    });
+
+    const modulos = await prisma.modulo.findMany({
+      where: { ativo: true },
+      include: {
+        aulas: {
+          where: { publicado: true },
+          include: {
+            presencas: {
+              where: { alunoId: userId },
+              select: { status: true }
+            }
+          }
+        }
+      },
+      orderBy: { ordem: 'asc' }
+    });
+
+    res.json({
+      user,
+      progressos,
+      resultados,
+      entregasAvaliacao,
+      relatorioAcademico: {
+        frequenciaPorModulo: buildModuleFrequencyReport(modulos),
+        entregasResumo: buildDeliverySummary(entregasAvaliacao)
+      },
+      ia: iaStatus
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao carregar perfil' });

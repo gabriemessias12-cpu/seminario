@@ -40,6 +40,9 @@ export default function AdminAlunoDetalhes() {
   const avgProgress = aluno.progressos?.length
     ? Math.round(aluno.progressos.reduce((sum: number, progresso: any) => sum + progresso.percentualAssistido, 0) / aluno.progressos.length)
     : 0;
+  const avgAcademic = typeof aluno.relatorioAcademico?.entregasResumo?.mediaNotas === 'number'
+    ? aluno.relatorioAcademico.entregasResumo.mediaNotas.toFixed(1)
+    : 'N/A';
 
   return (
     <>
@@ -69,7 +72,8 @@ export default function AdminAlunoDetalhes() {
             { icon: 'reports' as const, className: 'purple', value: `${avgProgress}%`, label: 'Progresso geral' },
             { icon: 'check' as const, className: 'green', value: aluno.progressos?.filter((item: any) => item.concluido).length || 0, label: 'Aulas concluidas' },
             { icon: 'target' as const, className: 'orange', value: aluno.resultadosQuiz?.length ? `${Math.round(aluno.resultadosQuiz.reduce((sum: number, item: any) => sum + ((item.pontuacao / item.totalQuestoes) * 100), 0) / aluno.resultadosQuiz.length)}%` : 'N/A', label: 'Media quizzes' },
-            { icon: 'attendance' as const, className: 'blue', value: aluno.progressos?.reduce((sum: number, item: any) => sum + item.sessoes, 0) || 0, label: 'Total sessoes' }
+            { icon: 'attendance' as const, className: 'blue', value: aluno.progressos?.reduce((sum: number, item: any) => sum + item.sessoes, 0) || 0, label: 'Total sessoes' },
+            { icon: 'quiz' as const, className: 'purple', value: avgAcademic, label: 'Media avaliacoes' }
           ].map((item) => (
             <div className="stat-card" key={item.label}>
               <div className={`stat-icon ${item.className}`}><AppIcon name={item.icon} size={18} /></div>
@@ -145,6 +149,78 @@ export default function AdminAlunoDetalhes() {
                     <td>{Math.round(presenca.percentual)}%</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card mb-3">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Frequencia por materia</h3>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Materia</th>
+                  <th>Frequencia</th>
+                  <th>Presentes</th>
+                  <th>Parciais</th>
+                  <th>Ausencias</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aluno.relatorioAcademico?.frequenciaPorModulo?.map((item: any) => (
+                  <tr key={item.moduloId}>
+                    <td style={{ fontWeight: 500 }}>{item.modulo}</td>
+                    <td>
+                      <span className={`badge ${item.frequenciaPercentual >= 75 ? 'badge-success' : item.frequenciaPercentual >= 50 ? 'badge-warning' : 'badge-error'}`}>
+                        {item.frequenciaPercentual}%
+                      </span>
+                    </td>
+                    <td>{item.presencasPresentes}</td>
+                    <td>{item.presencasParciais}</td>
+                    <td>{item.presencasAusentes}</td>
+                  </tr>
+                )) || (
+                  <tr>
+                    <td className="text-muted" colSpan={5}>Nenhum dado consolidado ainda.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card mb-3">
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Entregas e correcoes</h3>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Avaliacao</th>
+                  <th>Tipo</th>
+                  <th>Status</th>
+                  <th>Nota</th>
+                  <th>Comentario</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aluno.entregasAvaliacao?.length ? aluno.entregasAvaliacao.map((entrega: any) => (
+                  <tr key={entrega.id}>
+                    <td style={{ fontWeight: 500 }}>{entrega.avaliacao?.titulo}</td>
+                    <td>{entrega.avaliacao?.tipo}</td>
+                    <td>
+                      <span className={`badge ${entrega.status === 'corrigido' ? 'badge-success' : entrega.status === 'enviado' ? 'badge-warning' : 'badge-error'}`}>
+                        {entrega.status}
+                      </span>
+                    </td>
+                    <td>{typeof entrega.nota === 'number' ? `${entrega.nota}/${entrega.avaliacao?.notaMaxima}` : 'Pendente'}</td>
+                    <td className="text-muted">{entrega.comentarioCorrecao || 'Sem comentario'}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td className="text-muted" colSpan={5}>Nenhuma entrega registrada ainda.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

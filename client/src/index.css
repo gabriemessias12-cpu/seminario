@@ -4442,3 +4442,114 @@ body {
     width: 100%;
   }
 }
+
+.assessment-grid,
+.assessment-meta,
+.assessment-card-actions,
+.assessment-result-grid,
+.assessment-submission-list {
+  display: flex;
+  gap: 1rem;
+}
+
+.assessment-grid {
+  flex-direction: column;
+}
+
+.admin-assessment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.assessment-card,
+.assessment-submission-card {
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.assessment-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.assessment-card-head h3 {
+  margin-top: 0.45rem;
+  margin-bottom: 0.35rem;
+  font-size: 1.2rem;
+}
+
+.assessment-card-head p,
+.assessment-text-response p,
+.assessment-result-box p {
+  color: var(--text-secondary);
+}
+
+.assessment-meta {
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.assessment-card-actions {
+  justify-content: flex-end;
+}
+
+.assessment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-top: 1px solid rgba(199, 179, 255, 0.1);
+  padding-top: 1rem;
+}
+
+.assessment-result-box,
+.assessment-text-response {
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(199, 179, 255, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.assessment-result-grid {
+  flex-wrap: wrap;
+}
+
+.assessment-result-grid > div {
+  min-width: 140px;
+  flex: 1;
+}
+
+.assessment-result-grid span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.assessment-result-grid strong {
+  font-size: 1rem;
+}
+
+.assessment-submission-list {
+  flex-direction: column;
+}
+
+@media (max-width: 820px) {
+  .assessment-card-head,
+  .assessment-meta,
+  .assessment-card-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-assessment-grid {
+    grid-template-columns: 1fr;
+  }
+}

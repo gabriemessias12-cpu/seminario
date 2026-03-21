@@ -116,6 +116,9 @@ export default function StudentPerfil() {
   const mediaQuiz = perfil?.resultados?.length
     ? `${Math.round(perfil.resultados.reduce((sum: number, resultado: any) => sum + ((resultado.pontuacao / resultado.totalQuestoes) * 100), 0) / perfil.resultados.length)}%`
     : 'N/A';
+  const mediaAtividades = typeof perfil?.relatorioAcademico?.entregasResumo?.mediaNotas === 'number'
+    ? perfil.relatorioAcademico.entregasResumo.mediaNotas.toFixed(1)
+    : 'N/A';
 
   return (
     <div className="layout student-layout">
@@ -171,6 +174,7 @@ export default function StudentPerfil() {
               <div className="profile-summary-list">
                 <div><strong>{perfil?.progressos?.filter((item: any) => item.concluido).length || 0}</strong><span>Aulas concluidas</span></div>
                 <div><strong>{mediaQuiz}</strong><span>Media nos quizzes</span></div>
+                <div><strong>{mediaAtividades}</strong><span>Media nas avaliacoes</span></div>
                 <div><strong>{new Date(user?.criadoEm).toLocaleDateString('pt-BR')}</strong><span>Conta criada em</span></div>
               </div>
             </article>
@@ -217,35 +221,81 @@ export default function StudentPerfil() {
           <div className="panel-card">
             <div className="student-section-header compact">
               <div>
-                <span className="section-kicker">Historico</span>
-                <h2>Ultimos resultados</h2>
+                <span className="section-kicker">Academico</span>
+                <h2>Correcoes recentes</h2>
               </div>
             </div>
 
             <div className="lesson-list">
-              {perfil?.resultados?.length ? (
-                perfil.resultados.slice(0, 6).map((resultado: any) => (
-                  <article className="lesson-list-item lesson-list-item-advanced" key={resultado.id}>
+              {perfil?.entregasAvaliacao?.length ? (
+                perfil.entregasAvaliacao.slice(0, 6).map((entrega: any) => (
+                  <article className="lesson-list-item lesson-list-item-advanced" key={entrega.id}>
                     <div className="lesson-index-circle">
                       <AppIcon name="quiz" size={14} />
                     </div>
                     <div className="lesson-list-content">
-                      <strong>{resultado.aula?.titulo}</strong>
+                      <strong>{entrega.avaliacao?.titulo}</strong>
                       <div className="lesson-list-meta">
-                        <span>{resultado.pontuacao}/{resultado.totalQuestoes}</span>
-                        <span>{new Date(resultado.feitoEm).toLocaleDateString('pt-BR')}</span>
+                        <span>{typeof entrega.nota === 'number' ? `${entrega.nota}/${entrega.avaliacao?.notaMaxima}` : entrega.status}</span>
+                        <span>{entrega.avaliacao?.modulo?.titulo || entrega.avaliacao?.aula?.titulo || 'Sem vinculo'}</span>
                       </div>
+                      <p>{entrega.comentarioCorrecao || 'Aguardando comentario da equipe.'}</p>
                     </div>
                   </article>
                 ))
               ) : (
                 <div className="empty-panel">
                   <AppIcon name="quiz" size={20} />
-                  <p>Nenhum resultado registrado ainda.</p>
+                  <p>Nenhuma avaliacao enviada ainda.</p>
                 </div>
               )}
             </div>
           </div>
+        </section>
+
+        <section className="panel-card">
+          <div className="student-section-header compact">
+            <div>
+              <span className="section-kicker">Frequencia</span>
+              <h2>Frequencia por materia</h2>
+            </div>
+          </div>
+
+          {perfil?.relatorioAcademico?.frequenciaPorModulo?.length ? (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Materia</th>
+                    <th>Frequencia</th>
+                    <th>Presentes</th>
+                    <th>Parciais</th>
+                    <th>Ausencias</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {perfil.relatorioAcademico.frequenciaPorModulo.map((item: any) => (
+                    <tr key={item.moduloId}>
+                      <td style={{ fontWeight: 500 }}>{item.modulo}</td>
+                      <td>
+                        <span className={`badge ${item.frequenciaPercentual >= 75 ? 'badge-success' : item.frequenciaPercentual >= 50 ? 'badge-warning' : 'badge-error'}`}>
+                          {item.frequenciaPercentual}%
+                        </span>
+                      </td>
+                      <td>{item.presencasPresentes}</td>
+                      <td>{item.presencasParciais}</td>
+                      <td>{item.presencasAusentes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-panel">
+              <AppIcon name="attendance" size={20} />
+              <p>Nenhum dado de frequencia consolidado ainda.</p>
+            </div>
+          )}
         </section>
 
         <section className="panel-card">

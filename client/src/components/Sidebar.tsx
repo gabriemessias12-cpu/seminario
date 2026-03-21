@@ -4,11 +4,11 @@ import {
   BellRing,
   BookOpen,
   ClipboardCheck,
-  GraduationCap,
   Home,
   LayoutDashboard,
   LogOut,
   Play,
+  ScrollText,
   UserRound,
   Users
 } from 'lucide-react';
@@ -27,6 +27,7 @@ export default function Sidebar({ type }: SidebarProps) {
   const studentLinks = [
     { name: 'Inicio', url: '/dashboard', icon: Home },
     { name: 'Conteudos', url: '/aulas', icon: Play },
+    { name: 'Avaliacoes', url: '/avaliacoes', icon: ScrollText },
     { name: 'Biblioteca', url: '/materiais', icon: BookOpen },
     { name: 'Perfil', url: '/perfil', icon: UserRound }
   ];
@@ -34,6 +35,7 @@ export default function Sidebar({ type }: SidebarProps) {
   const adminLinks = [
     { name: 'Inicio', url: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Alunos', url: '/admin/alunos', icon: Users },
+    { name: 'Avaliacoes', url: '/admin/avaliacoes', icon: ScrollText },
     { name: 'Aulas', url: '/admin/aulas', icon: Play },
     { name: 'Materiais', url: '/admin/materiais', icon: BookOpen },
     { name: 'Chamada', url: '/admin/chamada', icon: ClipboardCheck },

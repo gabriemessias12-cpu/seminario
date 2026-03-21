@@ -20,7 +20,7 @@ const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-for (const dir of ['materials', 'thumbnails', 'videos']) {
+for (const dir of ['materials', 'thumbnails', 'videos', 'submissions']) {
   fs.mkdirSync(path.join(uploadRoot, dir), { recursive: true });
 }
 
@@ -38,6 +38,7 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads/materials', express.static(path.join(uploadRoot, 'materials')));
 app.use('/uploads/thumbnails', express.static(path.join(uploadRoot, 'thumbnails')));
+app.use('/uploads/submissions', express.static(path.join(uploadRoot, 'submissions')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/aluno', alunoRoutes);

@@ -29,6 +29,7 @@ model User {
   loginHistorico LoginHistorico[]
   presencas      Presenca[]
   interacoesIA   InteracaoIA[]
+  entregasAvaliacao EntregaAvaliacao[]
 }
 
 model Modulo {
@@ -40,6 +41,7 @@ model Modulo {
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
   aulas     Aula[]
+  avaliacoes Avaliacao[]
 }
 
 model Aula {
@@ -68,6 +70,46 @@ model Aula {
   presencas      Presenca[]
   materiaisAula  MaterialAula[]
   interacoesIA   InteracaoIA[]
+  avaliacoes     Avaliacao[]
+}
+
+model Avaliacao {
+  id             String   @id @default(uuid())
+  titulo         String
+  descricao      String?
+  tipo           String   @default("trabalho")
+  moduloId       String?
+  aulaId         String?
+  dataLimite     DateTime?
+  notaMaxima     Float    @default(10)
+  publicado      Boolean  @default(false)
+  permiteArquivo Boolean  @default(true)
+  permiteTexto   Boolean  @default(false)
+  criadoEm       DateTime @default(now())
+
+  modulo  Modulo?            @relation(fields: [moduloId], references: [id], onDelete: SetNull)
+  aula    Aula?              @relation(fields: [aulaId], references: [id], onDelete: SetNull)
+  entregas EntregaAvaliacao[]
+}
+
+model EntregaAvaliacao {
+  id                 String   @id @default(uuid())
+  avaliacaoId        String
+  alunoId            String
+  respostaTexto      String?
+  arquivoUrl         String?
+  status             String   @default("pendente")
+  nota               Float?
+  comentarioCorrecao String?
+  enviadoEm          DateTime?
+  corrigidoEm        DateTime?
+  atualizadoEm       DateTime @updatedAt
+  criadoEm           DateTime @default(now())
+
+  avaliacao Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Cascade)
+  aluno     User      @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@unique([avaliacaoId, alunoId])
 }
 
 model Quiz {

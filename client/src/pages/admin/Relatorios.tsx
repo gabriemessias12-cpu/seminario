@@ -144,6 +144,63 @@ export default function AdminRelatorios() {
                 </table>
               </div>
             </div>
+
+            <div className="card mt-3">
+              <div className="content-panel-toolbar admin-toolbar-compact">
+                <h3 style={{ fontSize: '1.1rem' }}>Relatorio academico por aluno</h3>
+                <button className="btn btn-outline btn-sm" onClick={() => {
+                  const rows = [
+                    ['Aluno', 'Email', 'Aulas concluidas', 'Frequencia geral', 'Entregas', 'Corrigidas', 'Media notas'],
+                    ...(data.academicByStudent || []).map((item: any) => [
+                      item.nome,
+                      item.email,
+                      String(item.aulasConcluidas),
+                      `${item.frequenciaGeral}%`,
+                      String(item.entregues),
+                      String(item.corrigidas),
+                      item.mediaNotas == null ? 'N/A' : String(item.mediaNotas)
+                    ])
+                  ];
+                  exportCSV(rows, 'relatorio-academico.csv');
+                }}>
+                  Exportar CSV
+                </button>
+              </div>
+
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Aluno</th>
+                      <th>Frequencia</th>
+                      <th>Aulas concluidas</th>
+                      <th>Entregas</th>
+                      <th>Corrigidas</th>
+                      <th>Media notas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.academicByStudent?.map((item: any) => (
+                      <tr key={item.alunoId}>
+                        <td>
+                          <div style={{ fontWeight: 500 }}>{item.nome}</div>
+                          <div className="text-muted text-sm">{item.email}</div>
+                        </td>
+                        <td>
+                          <span className={`badge ${item.frequenciaGeral >= 75 ? 'badge-success' : item.frequenciaGeral >= 50 ? 'badge-warning' : 'badge-error'}`}>
+                            {item.frequenciaGeral}%
+                          </span>
+                        </td>
+                        <td>{item.aulasConcluidas}</td>
+                        <td>{item.entregues}</td>
+                        <td>{item.corrigidas}</td>
+                        <td>{item.mediaNotas ?? 'N/A'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </>
         )}
     </>
