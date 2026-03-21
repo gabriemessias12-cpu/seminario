@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
@@ -18,17 +19,17 @@ model User {
   ativo         Boolean   @default(true)
   criadoEm      DateTime  @default(now())
   ultimoAcesso  DateTime?
-  compartilhaDadosIA   Boolean   @default(false)
+  compartilhaDadosIA    Boolean  @default(false)
   aiCreditosDisponiveis Int      @default(3)
   aiCreditosUltimaRecarga DateTime @default(now())
 
-  progressos     ProgressoAluno[]
-  resultadosQuiz ResultadoQuiz[]
-  notificacoes   Notificacao[]
-  anotacoes      AnotacaoAluno[]
-  loginHistorico LoginHistorico[]
-  presencas      Presenca[]
-  interacoesIA   InteracaoIA[]
+  progressos        ProgressoAluno[]
+  resultadosQuiz    ResultadoQuiz[]
+  notificacoes      Notificacao[]
+  anotacoes         AnotacaoAluno[]
+  loginHistorico    LoginHistorico[]
+  presencas         Presenca[]
+  interacoesIA      InteracaoIA[]
   entregasAvaliacao EntregaAvaliacao[]
   registrosConteudo RegistroMudancaConteudo[]
 }
@@ -41,6 +42,7 @@ model Modulo {
   ordem     Int      @default(0)
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
+
   aulas     Aula[]
   avaliacoes Avaliacao[]
 }
@@ -55,11 +57,11 @@ model Aula {
   duracaoSegundos Int       @default(0)
   publicado       Boolean   @default(false)
   dataPublicacao  DateTime?
-  transcricao     String?
-  resumo          String?
-  pontosChave     String?
-  versiculos      String?
-  glossario       String?
+  transcricao     String?   @db.Text
+  resumo          String?   @db.Text
+  pontosChave     String?   @db.Text
+  versiculos      String?   @db.Text
+  glossario       String?   @db.Text
   statusIA        String    @default("pendente")
   criadoEm        DateTime  @default(now())
 
@@ -75,45 +77,45 @@ model Aula {
 }
 
 model Avaliacao {
-  id             String   @id @default(uuid())
-  titulo         String
-  descricao      String?
-  tipo           String   @default("trabalho")
-  formato        String   @default("discursiva")
-  moduloId       String?
-  aulaId         String?
-  dataLimite     DateTime?
-  notaMaxima     Float    @default(10)
-  publicado      Boolean  @default(false)
-  permiteArquivo Boolean  @default(true)
-  permiteTexto   Boolean  @default(false)
-  questoesObjetivas String?
-  resultadoImediato Boolean @default(true)
+  id                 String    @id @default(uuid())
+  titulo             String
+  descricao          String?
+  tipo               String    @default("trabalho")
+  formato            String    @default("discursiva")
+  moduloId           String?
+  aulaId             String?
+  dataLimite         DateTime?
+  notaMaxima         Float     @default(10)
+  publicado          Boolean   @default(false)
+  permiteArquivo     Boolean   @default(true)
+  permiteTexto       Boolean   @default(false)
+  questoesObjetivas  String?   @db.Text
+  resultadoImediato  Boolean   @default(true)
   tempoLimiteMinutos Int?
-  criadoEm       DateTime @default(now())
+  criadoEm           DateTime  @default(now())
 
-  modulo  Modulo?            @relation(fields: [moduloId], references: [id], onDelete: SetNull)
-  aula    Aula?              @relation(fields: [aulaId], references: [id], onDelete: SetNull)
+  modulo   Modulo?            @relation(fields: [moduloId], references: [id], onDelete: SetNull)
+  aula     Aula?              @relation(fields: [aulaId], references: [id], onDelete: SetNull)
   entregas EntregaAvaliacao[]
 }
 
 model EntregaAvaliacao {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   avaliacaoId        String
   alunoId            String
-  respostaTexto      String?
+  respostaTexto      String?   @db.Text
   arquivoUrl         String?
-  respostasObjetivas String?
-  status             String   @default("pendente")
+  respostasObjetivas String?   @db.Text
+  status             String    @default("pendente")
   nota               Float?
   totalQuestoes      Int?
   acertosObjetivos   Int?
   percentualObjetivo Float?
-  comentarioCorrecao String?
+  comentarioCorrecao String?   @db.Text
   enviadoEm          DateTime?
   corrigidoEm        DateTime?
-  atualizadoEm       DateTime @updatedAt
-  criadoEm           DateTime @default(now())
+  atualizadoEm       DateTime  @updatedAt
+  criadoEm           DateTime  @default(now())
 
   avaliacao Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Cascade)
   aluno     User      @relation(fields: [alunoId], references: [id], onDelete: Cascade)
@@ -124,8 +126,9 @@ model EntregaAvaliacao {
 model Quiz {
   id       String @id @default(uuid())
   aulaId   String
-  questoes String
-  aula     Aula   @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+  questoes String @db.Text
+
+  aula Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
 }
 
 model ProgressoAluno {
@@ -151,7 +154,7 @@ model ResultadoQuiz {
   id            String   @id @default(uuid())
   alunoId       String
   aulaId        String
-  respostas     String
+  respostas     String   @db.Text
   pontuacao     Int
   totalQuestoes Int
   feitoEm       DateTime @default(now())
@@ -169,15 +172,18 @@ model Material {
   categoria       String   @default("geral")
   permiteDownload Boolean  @default(false)
   criadoEm        DateTime @default(now())
-  materiaisAula   MaterialAula[]
+
+  materiaisAula MaterialAula[]
 }
 
 model MaterialAula {
   id         String @id @default(uuid())
   materialId String
   aulaId     String
-  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  aula       Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  aula     Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
   @@unique([materialId, aulaId])
 }
 
@@ -185,12 +191,14 @@ model Presenca {
   id           String   @id @default(uuid())
   alunoId      String
   aulaId       String
-  status       String   @default("ausente") // "presente", "parcial", "ausente"
-  metodo       String   @default("digital") // "presencial", "meet", "digital"
+  status       String   @default("ausente")
+  metodo       String   @default("digital")
   percentual   Float    @default(0)
   registradoEm DateTime @default(now())
-  aluno        User     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
-  aula         Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
   @@unique([alunoId, aulaId])
 }
 
@@ -201,17 +209,20 @@ model Notificacao {
   mensagem String
   lida     Boolean  @default(false)
   criadaEm DateTime @default(now())
-  aluno    User     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
 }
 
 model AnotacaoAluno {
   id           String   @id @default(uuid())
   alunoId      String
   aulaId       String
-  conteudo     String   @default("")
+  conteudo     String   @default("") @db.Text
   atualizadoEm DateTime @default(now())
-  aluno        User     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
-  aula         Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
   @@unique([alunoId, aulaId])
 }
 
@@ -222,15 +233,16 @@ model LoginHistorico {
   dispositivo String?
   dataHora    DateTime @default(now())
   sucesso     Boolean  @default(true)
-  usuario     User     @relation(fields: [usuarioId], references: [id])
+
+  usuario User @relation(fields: [usuarioId], references: [id])
 }
 
 model InteracaoIA {
   id       String   @id @default(uuid())
   alunoId  String
   aulaId   String?
-  pergunta String
-  resposta String
+  pergunta String   @db.Text
+  resposta String   @db.Text
   criadoEm DateTime @default(now())
 
   aluno User  @relation(fields: [alunoId], references: [id])
@@ -238,7 +250,7 @@ model InteracaoIA {
 }
 
 model RegistroMudancaConteudo {
-  id            String   @id @default(uuid())
+  id             String   @id @default(uuid())
   usuarioId      String?
   usuarioNome    String
   entidade       String
