@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
 
 export default function AdminChamada() {
@@ -14,17 +13,18 @@ export default function AdminChamada() {
   const [editMode, setEditMode] = useState(false);
   const [manualChanges, setManualChanges] = useState<{ [alunoId: string]: { status: string, metodo: string } }>({});
   const [alunos, setAlunos] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then(setModulos)
-      .catch(console.error);
+      .catch(() => setFeedback('Nao foi possivel carregar os modulos.'));
 
     fetch('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then(setAlunos)
-      .catch(console.error);
+      .catch(() => setFeedback('Nao foi possivel carregar os alunos.'));
 
     const params = new URLSearchParams(window.location.search);
     const aulaId = params.get('aulaId');
@@ -38,13 +38,13 @@ export default function AdminChamada() {
       return;
     }
 
-    fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } })
+      fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((data) => {
         const modulo = data.find((item: any) => item.id === selectedModulo);
         setAulas(modulo?.aulas || []);
       })
-      .catch(console.error);
+      .catch(() => setFeedback('Nao foi possivel carregar as aulas.'));
   }, [selectedModulo]);
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function AdminChamada() {
     fetch(`/api/admin/chamada?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then(setPresencas)
-      .catch(console.error)
+      .catch(() => setFeedback('Nao foi possivel carregar a chamada.'))
       .finally(() => setLoading(false));
   }, [selectedModulo, selectedAula]);
 
@@ -91,9 +91,10 @@ export default function AdminChamada() {
         fetch(`/api/admin/chamada?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
           .then((r) => r.json())
           .then(setPresencas);
+        setFeedback('Chamada salva com sucesso.');
       }
     } catch (err) {
-      console.error(err);
+      setFeedback('Nao foi possivel salvar a chamada.');
     } finally {
       setSaving(false);
     }
@@ -120,12 +121,12 @@ export default function AdminChamada() {
 
   return (
     <>
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="page-header page-header-split">
           <div>
             <h1>Lista de Chamada</h1>
             <p>Registre a presenca manual (Presencial/Meet) ou visualize o engajamento automatico.</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div className="page-header-actions">
             {selectedAula && (
               <button 
                 className={`btn ${editMode ? 'btn-outline' : 'btn-accent'}`} 
@@ -144,20 +145,27 @@ export default function AdminChamada() {
                   }
                   setEditMode(!editMode);
                 }}
+                type="button"
               >
                 {editMode ? 'Cancelar Edicao' : 'Registrar Presenca'}
               </button>
             )}
             {editMode && (
-              <button className="btn btn-primary" onClick={handleSaveChamada} disabled={saving}>
+              <button className="btn btn-primary" onClick={handleSaveChamada} disabled={saving} type="button">
                 {saving ? 'Salvando...' : 'Salvar Chamada'}
               </button>
             )}
           </div>
         </div>
 
+        {feedback && (
+          <div className={`inline-feedback ${feedback.includes('sucesso') ? 'success' : 'warning'}`}>
+            {feedback}
+          </div>
+        )}
+
         <div className="filters">
-          <select className="filter-select" value={selectedModulo} onChange={(e) => { setSelectedModulo(e.target.value); setSelectedAula(''); }}>
+          <select aria-label="Selecionar modulo" className="filter-select" value={selectedModulo} onChange={(e) => { setSelectedModulo(e.target.value); setSelectedAula(''); }}>
             <option value="">Selecione um modulo</option>
             {modulos.map((modulo) => (
               <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
@@ -165,7 +173,7 @@ export default function AdminChamada() {
           </select>
 
           {aulas.length > 0 && (
-            <select className="filter-select" value={selectedAula} onChange={(e) => setSelectedAula(e.target.value)}>
+            <select aria-label="Selecionar aula" className="filter-select" value={selectedAula} onChange={(e) => setSelectedAula(e.target.value)}>
               <option value="">Todas as aulas</option>
               {aulas.map((aula) => (
                 <option key={aula.id} value={aula.id}>{aula.titulo}</option>
@@ -178,14 +186,14 @@ export default function AdminChamada() {
               // (Reusing old export logic internally if needed, or keeping it clean)
               alert('Relatorio pronto para impressao via browser (Ctrl+P)');
               window.print();
-            }}>
+            }} type="button">
               Exportar / Imprimir
             </button>
           )}
         </div>
 
         {presencas.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="stat-grid-auto mb-3">
             <div className="stat-card">
               <div className="stat-icon green">P</div>
               <div><div className="stat-value">{stats.presentes}</div><div className="stat-label">Presentes</div></div>
@@ -238,23 +246,13 @@ export default function AdminChamada() {
                   return (
                     <tr key={aluno.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: 'var(--radius-full)',
-                            background: 'var(--bg-hover)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.75rem',
-                            fontWeight: 700
-                          }}>
+                        <div className="table-entity">
+                          <div className="table-entity-avatar">
                             {aluno.nome?.[0]}
                           </div>
-                          <div>
+                          <div className="table-entity-copy">
                             <div style={{ fontWeight: 500 }}>{aluno.nome}</div>
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>{aluno.email}</div>
+                            <div className="text-muted text-sm">{aluno.email}</div>
                           </div>
                         </div>
                       </td>
@@ -274,26 +272,29 @@ export default function AdminChamada() {
                       {!isEdit && <td>{Math.round(item.percentual)}%</td>}
                       {isEdit && (
                         <td>
-                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <div className="table-actions">
                             <button 
                               className={`btn btn-sm ${currentStatus === 'presente' && currentMetodo === 'presencial' ? 'btn-primary' : 'btn-outline'}`}
                               onClick={() => updateManual(aluno.id, 'presente', 'presencial')}
+                              type="button"
                             >
                               Presencial
                             </button>
                             <button 
                               className={`btn btn-sm ${currentStatus === 'presente' && currentMetodo === 'meet' ? 'btn-primary' : 'btn-outline'}`}
                               onClick={() => updateManual(aluno.id, 'presente', 'meet')}
+                              type="button"
                             >
                               Meet
                             </button>
                             <button 
                               className={`btn btn-sm ${currentStatus === 'ausente' ? 'btn-accent' : 'btn-outline'}`}
                               style={{ 
-                                background: currentStatus === 'ausente' ? 'var(--error)' : 'transparent',
+                                background: currentStatus === 'ausente' ? 'var(--color-error)' : 'transparent',
                                 color: currentStatus === 'ausente' ? 'white' : 'inherit'
                               }}
                               onClick={() => updateManual(aluno.id, 'ausente', 'digital')}
+                              type="button"
                             >
                               Falta
                             </button>

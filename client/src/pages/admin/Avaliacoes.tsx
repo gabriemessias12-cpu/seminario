@@ -75,6 +75,7 @@ export default function AdminAvaliacoes() {
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
+  const [pageError, setPageError] = useState('');
 
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -95,6 +96,7 @@ export default function AdminAvaliacoes() {
 
   const loadData = () => {
     setLoading(true);
+    setPageError('');
     Promise.all([
       fetch('/api/admin/avaliacoes', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
       fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
@@ -103,7 +105,7 @@ export default function AdminAvaliacoes() {
         setAvaliacoes(avaliacoesData);
         setModulos(modulosData);
       })
-      .catch(console.error)
+      .catch(() => setPageError('Nao foi possivel carregar as avaliacoes agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -399,6 +401,7 @@ export default function AdminAvaliacoes() {
       </div>
 
       {feedback && <div className={`inline-feedback ${feedback.includes('sucesso') ? 'success' : 'warning'}`}>{feedback}</div>}
+      {pageError && <div className="inline-feedback warning">{pageError}</div>}
 
       {showForm && (
         <div className="card content-form-card mb-3">
@@ -599,15 +602,15 @@ export default function AdminAvaliacoes() {
       <div className="content-panel-toolbar admin-toolbar-compact mb-3">
         <div className="search-field">
           <AppIcon name="search" size={16} />
-          <input placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input aria-label="Buscar avaliacao" placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
         <div className="page-header-actions">
-          <select className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
+          <select aria-label="Filtrar tipo de avaliacao" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
             <option value="todos">Todos os tipos</option>
             <option value="trabalho">Trabalhos</option>
             <option value="prova">Provas</option>
           </select>
-          <select className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+          <select aria-label="Filtrar status de publicacao" className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
             <option value="todos">Todos os status</option>
             <option value="publicado">Publicadas</option>
             <option value="rascunho">Rascunhos</option>

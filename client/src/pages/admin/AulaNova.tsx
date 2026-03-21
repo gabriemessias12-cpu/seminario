@@ -1,8 +1,22 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type MediaSourceType = 'youtube' | 'upload';
+
+interface LessonDraft {
+  titulo: string;
+  descricao: string;
+  moduloId: string;
+  publicar: boolean;
+  sourceType: MediaSourceType;
+  youtubeUrl: string;
+  duracaoMinutos: string;
+  savedAt: number;
+}
+
+const LESSON_DRAFT_KEY = 'admin:aula:nova:draft';
 
 export default function AdminAulaNova() {
   const navigate = useNavigate();
@@ -17,19 +31,94 @@ export default function AdminAulaNova() {
   const [video, setVideo] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const token = localStorage.getItem('accessToken');
+
+  const dateTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }),
+    [],
+  );
 
   useEffect(() => {
     fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then((data) => {
-        setModulos(data);
-        if (data.length > 0) {
-          setModuloId(data[0].id);
+        const moduleList = Array.isArray(data) ? data : [];
+        const storedDraft = readDraft<LessonDraft>(LESSON_DRAFT_KEY);
+
+        setModulos(moduleList);
+        if (storedDraft) {
+          setTitulo(storedDraft.titulo || '');
+          setDescricao(storedDraft.descricao || '');
+          setPublicar(storedDraft.publicar);
+          setSourceType(storedDraft.sourceType || 'youtube');
+          setYoutubeUrl(storedDraft.youtubeUrl || '');
+          setDuracaoMinutos(storedDraft.duracaoMinutos || '30');
+          setDraftSavedAt(storedDraft.savedAt || null);
+
+          const draftModuleExists = moduleList.some((moduleItem) => moduleItem.id === storedDraft.moduloId);
+          setModuloId(draftModuleExists ? storedDraft.moduloId : moduleList[0]?.id || '');
+        } else if (moduleList.length > 0) {
+          setModuloId(moduleList[0].id);
         }
       })
-      .catch(console.error);
+      .catch(() => setAiStatus('Nao foi possivel carregar os modulos agora.'))
+      .finally(() => setDraftReady(true));
   }, [token]);
+
+  useEffect(() => {
+    if (!draftReady) {
+      return;
+    }
+
+    const hasDraft = Boolean(
+      titulo.trim() ||
+      descricao.trim() ||
+      moduloId ||
+      youtubeUrl.trim() ||
+      duracaoMinutos.trim() ||
+      sourceType !== 'youtube' ||
+      publicar !== true,
+    );
+
+    if (!hasDraft) {
+      clearDraft(LESSON_DRAFT_KEY);
+      setDraftSavedAt(null);
+      return;
+    }
+
+    const nextSavedAt = Date.now();
+    writeDraft<LessonDraft>(LESSON_DRAFT_KEY, {
+      titulo,
+      descricao,
+      moduloId,
+      publicar,
+      sourceType,
+      youtubeUrl,
+      duracaoMinutos,
+      savedAt: nextSavedAt,
+    });
+    setDraftSavedAt(nextSavedAt);
+  }, [descricao, draftReady, duracaoMinutos, moduloId, publicar, sourceType, titulo, youtubeUrl]);
+
+  const clearLessonDraft = () => {
+    clearDraft(LESSON_DRAFT_KEY);
+    setTitulo('');
+    setDescricao('');
+    setModuloId(modulos[0]?.id || '');
+    setPublicar(true);
+    setSourceType('youtube');
+    setYoutubeUrl('');
+    setDuracaoMinutos('30');
+    setVideo(null);
+    setDraftSavedAt(null);
+    setAiStatus('');
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -55,7 +144,7 @@ export default function AdminAulaNova() {
       const response = await fetch('/api/admin/aula', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: formData
+        body: formData,
       });
 
       const data = await response.json();
@@ -65,7 +154,9 @@ export default function AdminAulaNova() {
         return;
       }
 
-      setAiStatus('Aula criada com sucesso. Redirecionando...');
+      clearDraft(LESSON_DRAFT_KEY);
+      setDraftSavedAt(null);
+      setAiStatus('Aula criada com sucesso, registrada no historico e sincronizada. Redirecionando...');
       setTimeout(() => navigate('/admin/aulas'), 1200);
     } catch {
       setAiStatus('Erro ao criar aula.');
@@ -87,6 +178,18 @@ export default function AdminAulaNova() {
 
       <div className="card content-form-card">
         <form className="content-form" onSubmit={handleSubmit}>
+          <div className="page-header-split mb-2">
+            <div>
+              <h3 className="section-title">Conteudo da aula</h3>
+              <p className="text-muted">
+                O rascunho textual e salvo automaticamente para sobreviver a atualizacoes de pagina.
+              </p>
+            </div>
+            <button className="btn btn-outline btn-sm" onClick={clearLessonDraft} type="button">
+              Limpar rascunho
+            </button>
+          </div>
+
           <div className="form-group">
             <label className="form-label">Titulo da aula</label>
             <input className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} required />
@@ -183,7 +286,10 @@ export default function AdminAulaNova() {
               {video ? (
                 <p className="form-helper-text">{video.name} ({(video.size / 1024 / 1024).toFixed(1)} MB)</p>
               ) : (
-                <p className="form-helper-text">O sistema protege esse video no player do aluno e evita download direto.</p>
+                <p className="form-helper-text">
+                  O sistema protege esse video no player do aluno e evita download direto. Se voce atualizar a pagina,
+                  o navegador exige selecionar o arquivo novamente.
+                </p>
               )}
             </div>
           )}
@@ -193,6 +299,12 @@ export default function AdminAulaNova() {
               <input checked={publicar} onChange={(event) => setPublicar(event.target.checked)} type="checkbox" />
               <span className="form-label checkbox-label">Publicar imediatamente</span>
             </label>
+          </div>
+
+          <div className="inline-feedback neutral">
+            {draftSavedAt
+              ? `Rascunho salvo automaticamente em ${dateTimeFormatter.format(draftSavedAt)}.`
+              : 'Cada campo textual desta aula fica salvo automaticamente enquanto voce digita.'}
           </div>
 
           {aiStatus && (

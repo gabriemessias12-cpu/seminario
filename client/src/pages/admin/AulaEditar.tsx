@@ -1,8 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type MediaSourceType = 'youtube' | 'upload';
+
+interface LessonDraft {
+  titulo: string;
+  descricao: string;
+  moduloId: string;
+  publicado: boolean;
+  duracaoMinutos: string;
+  sourceType: MediaSourceType;
+  youtubeUrl: string;
+  clearVideo: boolean;
+  savedAt: number;
+}
 
 function inferSourceType(aula: any): MediaSourceType {
   return aula?.videoTipo === 'youtube' ? 'youtube' : 'upload';
@@ -25,27 +38,116 @@ export default function AdminAulaEditar() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const token = localStorage.getItem('accessToken');
+  const draftKey = `admin:aula:editar:${id}`;
+
+  const dateTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }),
+    [],
+  );
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/admin/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
-      fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
+      fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
     ])
       .then(([aulaData, modulosData]) => {
+        const moduleList = Array.isArray(modulosData) ? modulosData : [];
+        const storedDraft = readDraft<LessonDraft>(draftKey);
+
         setAula(aulaData);
-        setModulos(modulosData);
-        setTitulo(aulaData.titulo);
-        setDescricao(aulaData.descricao || '');
-        setModuloId(aulaData.moduloId);
-        setPublicado(aulaData.publicado);
-        setDuracaoMinutos(String(Math.max(1, Math.round((aulaData.duracaoSegundos || 1800) / 60))));
-        setSourceType(inferSourceType(aulaData));
-        setYoutubeUrl(aulaData.youtubeUrl || '');
+        setModulos(moduleList);
+
+        if (storedDraft) {
+          setTitulo(storedDraft.titulo || aulaData.titulo);
+          setDescricao(storedDraft.descricao || '');
+          setPublicado(storedDraft.publicado);
+          setDuracaoMinutos(storedDraft.duracaoMinutos || String(Math.max(1, Math.round((aulaData.duracaoSegundos || 1800) / 60))));
+          setSourceType(storedDraft.sourceType || inferSourceType(aulaData));
+          setYoutubeUrl(storedDraft.youtubeUrl || '');
+          setClearVideo(Boolean(storedDraft.clearVideo));
+          setDraftSavedAt(storedDraft.savedAt || null);
+
+          const draftModuleExists = moduleList.some((moduleItem) => moduleItem.id === storedDraft.moduloId);
+          setModuloId(draftModuleExists ? storedDraft.moduloId : aulaData.moduloId);
+        } else {
+          setTitulo(aulaData.titulo);
+          setDescricao(aulaData.descricao || '');
+          setModuloId(aulaData.moduloId);
+          setPublicado(aulaData.publicado);
+          setDuracaoMinutos(String(Math.max(1, Math.round((aulaData.duracaoSegundos || 1800) / 60))));
+          setSourceType(inferSourceType(aulaData));
+          setYoutubeUrl(aulaData.youtubeUrl || '');
+        }
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [id, token]);
+      .catch(() => setFeedback('Nao foi possivel carregar os dados da aula.'))
+      .finally(() => {
+        setLoading(false);
+        setDraftReady(true);
+      });
+  }, [draftKey, id, token]);
+
+  useEffect(() => {
+    if (!draftReady || !id) {
+      return;
+    }
+
+    const hasDraft = Boolean(
+      titulo.trim() ||
+      descricao.trim() ||
+      moduloId ||
+      duracaoMinutos.trim() ||
+      youtubeUrl.trim() ||
+      clearVideo ||
+      sourceType !== 'upload' ||
+      publicado !== false,
+    );
+
+    if (!hasDraft) {
+      clearDraft(draftKey);
+      setDraftSavedAt(null);
+      return;
+    }
+
+    const nextSavedAt = Date.now();
+    writeDraft<LessonDraft>(draftKey, {
+      titulo,
+      descricao,
+      moduloId,
+      publicado,
+      duracaoMinutos,
+      sourceType,
+      youtubeUrl,
+      clearVideo,
+      savedAt: nextSavedAt,
+    });
+    setDraftSavedAt(nextSavedAt);
+  }, [clearVideo, descricao, draftKey, draftReady, duracaoMinutos, id, moduloId, publicado, sourceType, titulo, youtubeUrl]);
+
+  const clearEditDraft = () => {
+    if (!aula) {
+      return;
+    }
+
+    clearDraft(draftKey);
+    setTitulo(aula.titulo);
+    setDescricao(aula.descricao || '');
+    setModuloId(aula.moduloId);
+    setPublicado(aula.publicado);
+    setDuracaoMinutos(String(Math.max(1, Math.round((aula.duracaoSegundos || 1800) / 60))));
+    setSourceType(inferSourceType(aula));
+    setYoutubeUrl(aula.youtubeUrl || '');
+    setVideo(null);
+    setClearVideo(false);
+    setDraftSavedAt(null);
+    setFeedback('');
+  };
 
   const handleSave = async () => {
     if (!id) {
@@ -78,7 +180,7 @@ export default function AdminAulaEditar() {
       const response = await fetch(`/api/admin/aula/${id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
-        body: formData
+        body: formData,
       });
       const data = await response.json();
 
@@ -87,6 +189,8 @@ export default function AdminAulaEditar() {
         return;
       }
 
+      clearDraft(draftKey);
+      setDraftSavedAt(null);
       navigate('/admin/aulas');
     } catch {
       setFeedback('Erro ao salvar a aula.');
@@ -118,6 +222,18 @@ export default function AdminAulaEditar() {
 
       <div className="card content-form-card">
         <div className="content-form">
+          <div className="page-header-split mb-2">
+            <div>
+              <h3 className="section-title">Ajustes da aula</h3>
+              <p className="text-muted">
+                O rascunho desta edicao e salvo automaticamente para nao se perder em refresh.
+              </p>
+            </div>
+            <button className="btn btn-outline btn-sm" onClick={clearEditDraft} type="button">
+              Restaurar original
+            </button>
+          </div>
+
           <div className="form-group">
             <label className="form-label">Titulo</label>
             <input className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} />
@@ -219,7 +335,9 @@ export default function AdminAulaEditar() {
                 type="file"
               />
               <p className="form-helper-text">
-                {video ? `${video.name} (${(video.size / 1024 / 1024).toFixed(1)} MB)` : 'Selecione um novo arquivo apenas se quiser substituir o atual.'}
+                {video
+                  ? `${video.name} (${(video.size / 1024 / 1024).toFixed(1)} MB)`
+                  : 'Selecione um novo arquivo apenas se quiser substituir o atual. Em refresh, o arquivo precisa ser escolhido de novo.'}
               </p>
             </div>
           )}
@@ -247,6 +365,12 @@ export default function AdminAulaEditar() {
               <p><strong>Alunos que assistiram:</strong> {aula.progressos?.length || 0}</p>
             </div>
           )}
+
+          <div className="inline-feedback neutral">
+            {draftSavedAt
+              ? `Rascunho salvo automaticamente em ${dateTimeFormatter.format(draftSavedAt)}.`
+              : 'Alteracoes locais desta aula ficam guardadas automaticamente ate o envio.'}
+          </div>
 
           {feedback && <div className="inline-feedback warning">{feedback}</div>}
 

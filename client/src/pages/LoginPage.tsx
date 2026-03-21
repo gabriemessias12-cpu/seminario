@@ -35,7 +35,7 @@ export default function LoginPage() {
           <p>Acesse sua area de estudos do Seminario Teologico</p>
         </div>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && <div className="login-error" role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -51,7 +51,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+        <div className="print-hide" style={{ textAlign: 'center', marginTop: '1.5rem' }}>
           <button className="text-link-button" type="button" onClick={() => navigate('/')}>
             <AppIcon name="arrow-left" size={14} />
             <span>Voltar ao site</span>

@@ -23,12 +23,14 @@ export default function AdminAlunos() {
   const [senha, setSenha] = useState('123456');
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const loadAlunos = () => {
+    setLoadError('');
     fetch('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setAlunos)
-      .catch(console.error)
+      .catch(() => setLoadError('Nao foi possivel carregar a lista de alunos agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -42,14 +44,18 @@ export default function AdminAlunos() {
   );
 
   const toggleStatus = async (id: string) => {
-    await fetch(`/api/admin/aluno/${id}/toggle`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    try {
+      await fetch(`/api/admin/aluno/${id}/toggle`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    setAlunos((current) => current.map((aluno) => (
-      aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno
-    )));
+      setAlunos((current) => current.map((aluno) => (
+        aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno
+      )));
+    } catch {
+      setFeedback('Nao foi possivel atualizar o status do aluno.');
+    }
   };
 
   const handleCreateStudent = async (event: FormEvent) => {
@@ -90,25 +96,27 @@ export default function AdminAlunos() {
 
   return (
     <>
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+        <div className="page-header page-header-split">
           <div>
             <h1>Gestao de Alunos</h1>
             <p>{alunos.length} alunos cadastrados</p>
           </div>
-          <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)}>
+          <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)} type="button">
             {showForm ? 'Fechar cadastro' : '+ Cadastrar aluno'}
           </button>
         </div>
 
+        {loadError && <div className="inline-feedback warning">{loadError}</div>}
+
         {feedback && (
-          <div className="card mb-3" style={{ borderColor: 'rgba(249,115,22,0.3)', background: 'rgba(249,115,22,0.08)' }}>
+          <div className="inline-feedback warning">
             {feedback}
           </div>
         )}
 
         {showForm && (
-          <div className="card mb-3" style={{ maxWidth: 680 }}>
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Novo aluno</h3>
+          <div className="card mb-3 page-surface-narrow">
+            <h3 className="section-title">Novo aluno</h3>
             <form onSubmit={handleCreateStudent}>
               <div className="grid-2">
                 <div className="form-group">
@@ -143,7 +151,7 @@ export default function AdminAlunos() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome ou email"
-            style={{ maxWidth: 400 }}
+            aria-label="Buscar alunos por nome ou email"
           />
         </div>
 
@@ -163,32 +171,22 @@ export default function AdminAlunos() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((aluno) => (
+                {filtered.length ? filtered.map((aluno) => (
                   <tr key={aluno.id}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <div style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 'var(--radius-full)',
-                          background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          color: 'white',
-                          flexShrink: 0
-                        }}>
+                      <div className="table-entity">
+                        <div className="table-entity-avatar">
                           {aluno.nome?.[0]}
                         </div>
-                        <span style={{ fontWeight: 500 }}>{aluno.nome}</span>
+                        <div className="table-entity-copy">
+                          <strong>{aluno.nome}</strong>
+                        </div>
                       </div>
                     </td>
                     <td className="text-muted">{aluno.email}</td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div className="progress-bar" style={{ width: 80 }}>
+                      <div className="chart-inline-progress">
+                        <div className="progress-bar">
                           <div
                             className={`progress-bar-fill ${aluno.progressoGeral >= 95 ? 'completed' : ''}`}
                             style={{ width: `${aluno.progressoGeral}%` }}
@@ -206,17 +204,21 @@ export default function AdminAlunos() {
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
-                        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)}>
+                      <div className="table-actions">
+                        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">
                           Ver
                         </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
                           {aluno.ativo ? 'Desativar' : 'Ativar'}
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td className="text-muted" colSpan={6}>Nenhum aluno corresponde ao filtro atual.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

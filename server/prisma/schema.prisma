@@ -30,6 +30,7 @@ model User {
   presencas      Presenca[]
   interacoesIA   InteracaoIA[]
   entregasAvaliacao EntregaAvaliacao[]
+  registrosConteudo RegistroMudancaConteudo[]
 }
 
 model Modulo {
@@ -234,4 +235,18 @@ model InteracaoIA {
 
   aluno User  @relation(fields: [alunoId], references: [id])
   aula  Aula? @relation(fields: [aulaId], references: [id])
+}
+
+model RegistroMudancaConteudo {
+  id            String   @id @default(uuid())
+  usuarioId      String?
+  usuarioNome    String
+  entidade       String
+  entidadeId     String?
+  entidadeTitulo String
+  acao           String
+  detalhes       String?
+  criadoEm       DateTime @default(now())
+
+  usuario User? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 }

@@ -20,10 +20,12 @@ export default function StudentDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [modulos, setModulos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const loadData = () => {
     const token = localStorage.getItem('accessToken');
     setLoading(true);
+    setError('');
     Promise.all([
       fetch('/api/aluno/dashboard', {
         headers: { Authorization: `Bearer ${token}` }
@@ -36,7 +38,9 @@ export default function StudentDashboard() {
         setData(dashboard);
         setModulos(aulas);
       })
-      .catch(console.error)
+      .catch(() => {
+        setError('Nao foi possivel carregar o painel do aluno agora.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -56,7 +60,7 @@ export default function StudentDashboard() {
         loadData();
       }
     } catch (err) {
-      console.error(err);
+      setError('Nao foi possivel atualizar a notificacao.');
     }
   };
 
@@ -101,6 +105,7 @@ export default function StudentDashboard() {
     <div className="layout student-layout">
       <Sidebar type="student" />
       <main className="main-content student-main">
+        {error && <div className="inline-feedback warning">{error}</div>}
         <section className="student-topbar">
           <div>
             <span className="section-kicker">IBVN - Seminario Teologico</span>
@@ -111,13 +116,13 @@ export default function StudentDashboard() {
           </div>
 
           <div className="student-topbar-actions">
-            <button className="icon-button" type="button" onClick={() => navigate('/aulas')}>
+            <button aria-label="Abrir conteudos" className="icon-button" type="button" onClick={() => navigate('/aulas')}>
               <AppIcon name="search" size={18} />
             </button>
-            <button className="icon-button" type="button" onClick={() => navigate('/perfil')}>
+            <button aria-label="Abrir perfil e notificacoes" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
               <AppIcon name="bell" size={18} />
             </button>
-            <button className="profile-chip" type="button" onClick={() => navigate('/perfil')}>
+            <button aria-label="Abrir perfil" className="profile-chip" type="button" onClick={() => navigate('/perfil')}>
               <span>{firstName.slice(0, 1).toUpperCase()}</span>
             </button>
           </div>
@@ -200,7 +205,7 @@ export default function StudentDashboard() {
           </div>
 
           <div className="track-grid">
-            {modulos.map((modulo: any, index: number) => {
+            {modulos.length ? modulos.map((modulo: any, index: number) => {
               const totalAulas = modulo.aulas.length;
               const concluidas = modulo.aulas.filter((aula: any) => aula.progressos?.[0]?.concluido).length;
               const progresso = totalAulas > 0 ? Math.round((concluidas / totalAulas) * 100) : 0;
@@ -244,7 +249,12 @@ export default function StudentDashboard() {
                   </div>
                 </article>
               );
-            })}
+            }) : (
+              <div className="empty-panel">
+                <AppIcon name="book" size={20} />
+                <p>Nenhuma trilha foi publicada ainda.</p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -302,15 +312,16 @@ export default function StudentDashboard() {
                     <div className="notice-icon">
                       <AppIcon name="bell" size={16} />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div className="notice-card-body">
                       <strong>{item.titulo}</strong>
                       <p>{item.mensagem}</p>
                     </div>
                     <button 
+                      aria-label={`Marcar aviso ${item.titulo} como lido`}
                       className="icon-button" 
                       onClick={() => handleMarkRead(item.id)}
                       title="Marcar como lida"
-                      style={{ padding: '4px' }}
+                      type="button"
                     >
                       <AppIcon name="check" size={14} />
                     </button>

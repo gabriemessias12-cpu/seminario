@@ -1,189 +1,401 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
+
+type FeedbackTone = 'success' | 'warning';
+
+interface ModuleDraft {
+  title: string;
+  description: string;
+  coverUrl: string;
+  open: boolean;
+  savedAt: number;
+}
+
+interface ContentHistoryItem {
+  id: string;
+  usuarioNome: string;
+  entidade: 'modulo' | 'aula';
+  entidadeTitulo: string;
+  acao: 'criado' | 'atualizado' | 'excluido';
+  criadoEm: string;
+  detalhes?: Record<string, unknown> | null;
+}
+
+const MODULE_DRAFT_KEY = 'admin:aulas:new-module-draft';
+
+function formatHistoryAction(item: ContentHistoryItem): string {
+  const actionLabel =
+    item.acao === 'criado' ? 'criou' : item.acao === 'atualizado' ? 'atualizou' : 'removeu';
+  const entityLabel = item.entidade === 'modulo' ? 'o modulo' : 'a aula';
+  return `${item.usuarioNome} ${actionLabel} ${entityLabel}`;
+}
 
 export default function AdminAulas() {
   const navigate = useNavigate();
   const [modulos, setModulos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>('warning');
+  const [history, setHistory] = useState<ContentHistoryItem[]>([]);
   const token = localStorage.getItem('accessToken');
 
   const [showNewModule, setShowNewModule] = useState(false);
   const [newModTitle, setNewModTitle] = useState('');
   const [newModDesc, setNewModDesc] = useState('');
   const [newModCapa, setNewModCapa] = useState('');
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+
+  const dateTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }),
+    [],
+  );
 
   const loadData = () => {
     setLoading(true);
-    fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
-      .then(setModulos)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    setHistoryLoading(true);
+
+    Promise.all([
+      fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
+      fetch('/api/admin/conteudo-historico?limit=12', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
+    ])
+      .then(([modulosData, historyData]) => {
+        setModulos(Array.isArray(modulosData) ? modulosData : []);
+        setHistory(Array.isArray(historyData) ? historyData : []);
+      })
+      .catch(() => {
+        setFeedbackTone('warning');
+        setFeedback('Nao foi possivel carregar os modulos e o historico agora.');
+      })
+      .finally(() => {
+        setLoading(false);
+        setHistoryLoading(false);
+      });
   };
+
+  useEffect(() => {
+    const draft = readDraft<ModuleDraft>(MODULE_DRAFT_KEY);
+    if (draft) {
+      setShowNewModule(draft.open || Boolean(draft.title || draft.description || draft.coverUrl));
+      setNewModTitle(draft.title || '');
+      setNewModDesc(draft.description || '');
+      setNewModCapa(draft.coverUrl || '');
+      setDraftSavedAt(draft.savedAt || null);
+    }
+    setDraftReady(true);
+  }, []);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const handleCreateModulo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newModTitle) return;
+  useEffect(() => {
+    if (!draftReady) {
+      return;
+    }
+
+    const hasDraft = Boolean(showNewModule || newModTitle.trim() || newModDesc.trim() || newModCapa.trim());
+    if (!hasDraft) {
+      clearDraft(MODULE_DRAFT_KEY);
+      setDraftSavedAt(null);
+      return;
+    }
+
+    const nextSavedAt = Date.now();
+    writeDraft<ModuleDraft>(MODULE_DRAFT_KEY, {
+      title: newModTitle,
+      description: newModDesc,
+      coverUrl: newModCapa,
+      open: showNewModule,
+      savedAt: nextSavedAt,
+    });
+    setDraftSavedAt(nextSavedAt);
+  }, [draftReady, newModCapa, newModDesc, newModTitle, showNewModule]);
+
+  const clearModuleDraft = () => {
+    clearDraft(MODULE_DRAFT_KEY);
+    setNewModTitle('');
+    setNewModDesc('');
+    setNewModCapa('');
+    setShowNewModule(false);
+    setDraftSavedAt(null);
+  };
+
+  const handleCreateModulo = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newModTitle.trim()) {
+      return;
+    }
+
     try {
-      const res = await fetch('/api/admin/modulo', {
+      const response = await fetch('/api/admin/modulo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ titulo: newModTitle, descricao: newModDesc, capaUrl: newModCapa })
+        body: JSON.stringify({
+          titulo: newModTitle.trim(),
+          descricao: newModDesc.trim(),
+          capaUrl: newModCapa.trim(),
+        }),
       });
-      if (res.ok) {
-        setNewModTitle('');
-        setNewModDesc('');
-        setNewModCapa('');
-        setShowNewModule(false);
-        loadData();
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Nao foi possivel criar o modulo.');
       }
-    } catch (err) {
-      console.error(err);
+
+      clearModuleDraft();
+      setFeedbackTone('success');
+      setFeedback('Modulo criado, registrado no historico e sincronizado com a lista.');
+      loadData();
+    } catch (error) {
+      setFeedbackTone('warning');
+      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel criar o modulo.');
     }
   };
 
   const handleDeleteModulo = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este modulo e todas as suas aulas? Esta acao e irreversivel.')) return;
+    if (!confirm('Deseja realmente excluir este modulo e todas as suas aulas? Esta acao e irreversivel.')) {
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/admin/modulo/${id}`, {
+      const response = await fetch(`/api/admin/modulo/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) loadData();
-    } catch (err) {
-      console.error(err);
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Nao foi possivel excluir o modulo.');
+      }
+
+      setFeedbackTone('success');
+      setFeedback('Modulo removido e historico atualizado em tempo real.');
+      loadData();
+    } catch (error) {
+      setFeedbackTone('warning');
+      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel excluir o modulo.');
     }
   };
 
   return (
     <>
-        <div className="page-header page-header-split">
-          <div>
-            <h1>Gestao de Conteudo</h1>
-            <p>Gerencie modulos, aulas por arquivo ou YouTube e a estrutura do Seminario Teologico.</p>
+      <div className="page-header page-header-split">
+        <div>
+          <h1>Gestao de Conteudo</h1>
+          <p>Gerencie modulos, aulas por arquivo ou YouTube e a estrutura do Seminario Teologico.</p>
+        </div>
+        <div className="page-header-actions">
+          <button className="btn btn-outline" onClick={() => setShowNewModule((current) => !current)} type="button">
+            {showNewModule ? 'Cancelar' : 'Novo Modulo'}
+          </button>
+          <button className="btn btn-accent" onClick={() => navigate('/admin/aula/nova')} type="button">
+            Nova Aula
+          </button>
+        </div>
+      </div>
+
+      {feedback && <div className={`inline-feedback ${feedbackTone}`}>{feedback}</div>}
+
+      {showNewModule && (
+        <form className="panel-card page-surface-narrow mb-3" onSubmit={handleCreateModulo}>
+          <div className="page-header-split mb-2">
+            <h3 className="section-title">Cadastrar Novo Modulo</h3>
+            <button className="btn btn-outline btn-sm" onClick={clearModuleDraft} type="button">
+              Limpar rascunho
+            </button>
           </div>
-          <div className="page-header-actions">
-            <button className="btn btn-outline" onClick={() => setShowNewModule(!showNewModule)}>
-              {showNewModule ? 'Cancelar' : 'Novo Modulo'}
-            </button>
-            <button className="btn btn-accent" onClick={() => navigate('/admin/aula/nova')}>
-              Nova Aula
-            </button>
+
+          <div className="search-field mb-3">
+            <input
+              aria-label="Titulo do modulo"
+              placeholder="Titulo do modulo"
+              value={newModTitle}
+              onChange={(event) => setNewModTitle(event.target.value)}
+            />
+          </div>
+
+          <div className="search-field mb-3">
+            <input
+              aria-label="URL da imagem de capa"
+              placeholder="URL da imagem de capa (Opcional)"
+              value={newModCapa}
+              onChange={(event) => setNewModCapa(event.target.value)}
+            />
+          </div>
+
+          <textarea
+            aria-label="Descricao do modulo"
+            className="filter-select"
+            placeholder="Descricao curta"
+            style={{ width: '100%', minHeight: '96px', marginBottom: '1rem', padding: '0.85rem' }}
+            value={newModDesc}
+            onChange={(event) => setNewModDesc(event.target.value)}
+          />
+
+          <div className="surface-stack">
+            <div className="inline-feedback neutral">
+              {draftSavedAt
+                ? `Rascunho salvo automaticamente em ${dateTimeFormatter.format(draftSavedAt)}.`
+                : 'Este formulario salva o rascunho automaticamente enquanto voce digita.'}
+            </div>
+            <button className="btn btn-primary" type="submit">Salvar Modulo</button>
+          </div>
+        </form>
+      )}
+
+      <div className="panel-card page-surface-narrow mb-3">
+        <div className="page-header-split mb-2">
+          <div>
+            <h3 className="section-title">Historico de Conteudo</h3>
+            <p className="text-muted">Cada criacao, edicao ou exclusao de modulo e aula fica registrada no servidor.</p>
           </div>
         </div>
 
-        {showNewModule && (
-          <form className="panel-card" onSubmit={handleCreateModulo} style={{ marginBottom: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Cadastrar Novo Modulo</h3>
-            <div className="search-field" style={{ marginBottom: '1rem', border: '1px solid var(--border-color)' }}>
-              <input 
-                placeholder="Titulo do modulo" 
-                value={newModTitle} 
-                onChange={e => setNewModTitle(e.target.value)} 
-                style={{ padding: '0.75rem' }}
-              />
-            </div>
-            <div className="search-field" style={{ marginBottom: '1rem', border: '1px solid var(--border-color)' }}>
-              <input 
-                placeholder="URL da Imagem de Capa (Opcional)" 
-                value={newModCapa} 
-                onChange={e => setNewModCapa(e.target.value)} 
-                style={{ padding: '0.75rem' }}
-              />
-            </div>
-            <textarea 
-              className="filter-select" 
-              placeholder="Descricao curta" 
-              value={newModDesc} 
-              onChange={e => setNewModDesc(e.target.value)}
-              style={{ width: '100%', minHeight: '80px', marginBottom: '1rem', padding: '0.75rem' }}
-            />
-            <button className="btn btn-primary" type="submit">Salvar Modulo</button>
-          </form>
-        )}
-
-        {loading ? (
-          <div className="skeleton" style={{ height: 300 }} />
+        {historyLoading ? (
+          <div className="skeleton" style={{ height: 160 }} />
+        ) : history.length ? (
+          <div className="surface-stack">
+            {history.map((item) => (
+              <div className="surface-muted" key={item.id}>
+                <div className="inline-meta-row">
+                  <strong>{formatHistoryAction(item)}</strong>
+                  <span>{dateTimeFormatter.format(new Date(item.criadoEm))}</span>
+                </div>
+                <p className="text-muted">
+                  {item.entidadeTitulo}
+                  {item.entidade === 'aula' && item.detalhes?.videoTipo ? ` · ${String(item.detalhes.videoTipo)}` : ''}
+                </p>
+              </div>
+            ))}
+          </div>
         ) : (
-          modulos.map((modulo) => (
-            <div className="module-section" key={modulo.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <h2 style={{ margin: 0 }}>{modulo.titulo}</h2>
-                <button 
-                  className="btn btn-outline btn-sm" 
-                  style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
-                  onClick={() => handleDeleteModulo(modulo.id)}
-                >
-                  Excluir Modulo
-                </button>
-              </div>
-              <p className="module-desc">{modulo.descricao}</p>
-
-              <div className="table-container" style={{ marginBottom: '1.5rem' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Aula</th>
-                      <th>Status</th>
-                      <th>Video</th>
-                      <th>Alunos</th>
-                      <th>% Medio</th>
-                      <th>Acoes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modulo.aulas.map((aula: any) => {
-                      const totalAlunos = aula.progressos?.length || 0;
-                      const mediaConclusao = totalAlunos > 0
-                        ? Math.round(aula.progressos.reduce((sum: number, progresso: any) => sum + progresso.percentualAssistido, 0) / totalAlunos)
-                        : 0;
-
-                      return (
-                        <tr key={aula.id}>
-                          <td style={{ fontWeight: 500 }}>{aula.titulo}</td>
-                          <td>
-                            <span className={`badge ${aula.publicado ? 'badge-success' : 'badge-warning'}`}>
-                              {aula.publicado ? 'Publicado' : 'Rascunho'}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${String(aula.urlVideo || '').includes('youtube.com') ? 'badge-info' : aula.urlVideo ? 'badge-success' : 'badge-warning'}`}>
-                              {String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem video'}
-                            </span>
-                          </td>
-                          <td>{totalAlunos}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <div className="progress-bar" style={{ width: 60 }}>
-                                <div className="progress-bar-fill" style={{ width: `${mediaConclusao}%` }} />
-                              </div>
-                              <span className="text-sm">{mediaConclusao}%</span>
-                            </div>
-                          </td>
-                           <td>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <button className="btn btn-outline btn-sm" title="Editar Aula" onClick={() => navigate(`/admin/aula/${aula.id}/editar`)}>
-                                <AppIcon name="settings" size={14} />
-                              </button>
-                              <button className="btn btn-outline btn-sm" title="Fazer Chamada" onClick={() => navigate(`/admin/chamada?aulaId=${aula.id}`)}>
-                                <AppIcon name="shield" size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))
+          <div className="empty-panel">
+            <AppIcon name="clock" size={18} />
+            <p>Nenhuma alteracao de modulo ou aula foi registrada ainda.</p>
+          </div>
         )}
+      </div>
+
+      {loading ? (
+        <div className="skeleton" style={{ height: 300 }} />
+      ) : modulos.length ? (
+        modulos.map((modulo) => (
+          <div className="module-section" key={modulo.id}>
+            <div className="page-header-split" style={{ marginBottom: '0.5rem' }}>
+              <h2>{modulo.titulo}</h2>
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
+                type="button"
+                onClick={() => handleDeleteModulo(modulo.id)}
+              >
+                Excluir Modulo
+              </button>
+            </div>
+            <p className="module-desc">{modulo.descricao}</p>
+
+            <div className="table-container" style={{ marginBottom: '1.5rem' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Aula</th>
+                    <th>Status</th>
+                    <th>Video</th>
+                    <th>Alunos</th>
+                    <th>% Medio</th>
+                    <th>Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modulo.aulas.map((aula: any) => {
+                    const totalAlunos = aula.progressos?.length || 0;
+                    const mediaConclusao = totalAlunos > 0
+                      ? Math.round(
+                        aula.progressos.reduce(
+                          (sum: number, progresso: any) => sum + progresso.percentualAssistido,
+                          0,
+                        ) / totalAlunos,
+                      )
+                      : 0;
+
+                    return (
+                      <tr key={aula.id}>
+                        <td style={{ fontWeight: 500 }}>{aula.titulo}</td>
+                        <td>
+                          <span className={`badge ${aula.publicado ? 'badge-success' : 'badge-warning'}`}>
+                            {aula.publicado ? 'Publicado' : 'Rascunho'}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              String(aula.urlVideo || '').includes('youtube.com')
+                                ? 'badge-info'
+                                : aula.urlVideo
+                                  ? 'badge-success'
+                                  : 'badge-warning'
+                            }`}
+                          >
+                            {String(aula.urlVideo || '').includes('youtube.com')
+                              ? 'YouTube'
+                              : aula.urlVideo
+                                ? 'Arquivo'
+                                : 'Sem video'}
+                          </span>
+                        </td>
+                        <td>{totalAlunos}</td>
+                        <td>
+                          <div className="chart-inline-progress">
+                            <div className="progress-bar">
+                              <div className="progress-bar-fill" style={{ width: `${mediaConclusao}%` }} />
+                            </div>
+                            <span className="text-sm">{mediaConclusao}%</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <button
+                              aria-label={`Editar aula ${aula.titulo}`}
+                              className="btn btn-outline btn-sm"
+                              title="Editar Aula"
+                              onClick={() => navigate(`/admin/aula/${aula.id}/editar`)}
+                              type="button"
+                            >
+                              <AppIcon name="settings" size={14} />
+                            </button>
+                            <button
+                              aria-label={`Fazer chamada da aula ${aula.titulo}`}
+                              className="btn btn-outline btn-sm"
+                              title="Fazer Chamada"
+                              onClick={() => navigate(`/admin/chamada?aulaId=${aula.id}`)}
+                              type="button"
+                            >
+                              <AppIcon name="shield" size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="empty-panel">
+          <AppIcon name="book" size={20} />
+          <p>Nenhum modulo foi cadastrado ainda.</p>
+        </div>
+      )}
     </>
   );
 }

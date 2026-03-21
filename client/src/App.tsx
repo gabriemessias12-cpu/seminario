@@ -41,7 +41,7 @@ function ProtectedRoute({ children, role }: { children: ReactNode; role: 'aluno'
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+      <div aria-busy="true" aria-live="polite" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <div className="skeleton" style={{ width: 200, height: 30 }} />
       </div>
     );

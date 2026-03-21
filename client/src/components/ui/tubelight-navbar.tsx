@@ -38,20 +38,20 @@ export function NavBar({ items, className, brand, actions, actionsInline = false
   return (
     <div
       className={cn(
-        "fixed top-0 left-1/2 z-50 w-[min(1320px,calc(100vw-1rem))] -translate-x-1/2 px-1 pt-3 sm:pt-5",
+        "nav-shell fixed top-0 left-1/2 z-50 w-[min(1320px,calc(100vw-0.75rem))] -translate-x-1/2 px-1 pt-2 sm:pt-5",
         className,
       )}
     >
-      <div className="rounded-[32px] border border-white/10 bg-[rgba(16,10,28,0.86)] shadow-[0_24px_70px_rgba(7,4,16,0.42)] backdrop-blur-xl">
-        <div className="flex flex-wrap items-center gap-3 px-3 py-3 sm:flex-nowrap sm:px-4">
-          {brand ? <div className="flex min-w-0 shrink-0 items-center">{brand}</div> : null}
+      <div className="nav-surface rounded-[28px] border border-white/10 bg-[rgba(16,10,28,0.86)] shadow-[0_24px_70px_rgba(7,4,16,0.42)] backdrop-blur-xl">
+        <div className="nav-row flex flex-wrap items-center gap-2.5 px-2.5 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-4 sm:py-3">
+          {brand ? <div className="nav-brand-slot flex min-w-0 flex-1 shrink items-center sm:flex-none">{brand}</div> : null}
 
-          <div className="order-3 flex w-full min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-2 sm:w-auto sm:flex-1 sm:justify-center">
+          <div className="nav-items-track order-3 flex w-full min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-2 sm:w-auto sm:flex-1 sm:justify-center">
             {items.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.name;
               const commonClassName = cn(
-                "relative inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition-colors",
+                "nav-item relative inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-full px-3.5 py-2 text-[0.82rem] font-semibold transition-colors sm:px-5 sm:py-2.5 sm:text-sm",
                 "text-white hover:text-white",
                 isActive && "bg-white/8 text-white",
               );
@@ -88,6 +88,7 @@ export function NavBar({ items, className, brand, actions, actionsInline = false
                 return (
                   <a
                     key={item.name}
+                    aria-label={item.name}
                     href={item.url}
                     onClick={() => setActiveTab(item.name)}
                     className={commonClassName}
@@ -100,6 +101,7 @@ export function NavBar({ items, className, brand, actions, actionsInline = false
               return (
                 <Link
                   key={item.name}
+                  aria-label={item.name}
                   to={item.url}
                   onClick={() => setActiveTab(item.name)}
                   className={commonClassName}
@@ -110,14 +112,14 @@ export function NavBar({ items, className, brand, actions, actionsInline = false
             })}
 
             {actions && actionsInline ? (
-              <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
+              <div className="nav-actions-slot ml-auto flex shrink-0 items-center gap-2 pl-2">
                 {actions}
               </div>
             ) : null}
           </div>
 
           {actions && !actionsInline ? (
-            <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">
+            <div className="nav-actions-slot order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">
               {actions}
             </div>
           ) : null}

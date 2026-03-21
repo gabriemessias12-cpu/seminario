@@ -5,13 +5,14 @@ export default function AdminRelatorios() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState('');
   const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
     fetch('/api/admin/relatorios', { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then(setData)
-      .catch(console.error)
+      .catch(() => setError('Nao foi possivel carregar os relatorios agora.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -63,13 +64,15 @@ export default function AdminRelatorios() {
           <span>Engajamento, acessos e desempenho geral do seminario</span>
         </section>
 
+        {error && <div className="inline-feedback warning">{error}</div>}
+
         {loading ? (
           <div className="skeleton" style={{ height: 400 }} />
-        ) : data && (
+        ) : data ? (
           <>
             <div className="card mb-3">
               <div className="content-panel-toolbar admin-toolbar-compact">
-                <h3 style={{ fontSize: '1.1rem' }}>Relatorio de engajamento por aula</h3>
+                <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio de engajamento por aula</h3>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const rows = [
                     ['Aula', 'Visualizacoes', '% Medio Conclusao', 'Media Quiz', 'Total Quizzes'],
@@ -82,7 +85,7 @@ export default function AdminRelatorios() {
                     ])
                   ];
                   exportCSV(rows, 'relatorio-engajamento.csv');
-                }}>
+                }} type="button">
                   Exportar CSV
                 </button>
               </div>
@@ -113,8 +116,8 @@ export default function AdminRelatorios() {
                         <td style={{ fontWeight: 500 }}>{aula.titulo}</td>
                         <td>{aula.totalVisualizacoes}</td>
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div className="progress-bar" style={{ width: 60 }}>
+                          <div className="chart-inline-progress">
+                            <div className="progress-bar">
                               <div className="progress-bar-fill" style={{ width: `${aula.mediaConclusao}%` }} />
                             </div>
                             <span className="text-sm">{aula.mediaConclusao}%</span>
@@ -135,7 +138,7 @@ export default function AdminRelatorios() {
 
             <div className="card">
               <div className="content-panel-toolbar admin-toolbar-compact">
-                <h3 style={{ fontSize: '1.1rem' }}>Relatorio de acesso</h3>
+                <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio de acesso</h3>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const rows = [
                     ['Usuario', 'Email', 'Data/Hora', 'IP', 'Dispositivo'],
@@ -148,7 +151,7 @@ export default function AdminRelatorios() {
                     ])
                   ];
                   exportCSV(rows, 'relatorio-acesso.csv');
-                }}>
+                }} type="button">
                   Exportar CSV
                 </button>
               </div>
@@ -179,11 +182,11 @@ export default function AdminRelatorios() {
 
             <div className="card mt-3">
               <div className="content-panel-toolbar admin-toolbar-compact">
-                <h3 style={{ fontSize: '1.1rem' }}>Relatorio academico por aluno</h3>
+                <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio academico por aluno</h3>
                 <div className="page-header-actions print-hide">
                   <div className="search-field compact">
                     <AppIcon name="search" size={16} />
-                    <input placeholder="Buscar aluno por nome ou email" value={search} onChange={(event) => setSearch(event.target.value)} />
+                    <input aria-label="Buscar aluno por nome ou email" placeholder="Buscar aluno por nome ou email" value={search} onChange={(event) => setSearch(event.target.value)} />
                   </div>
                 </div>
                 <button className="btn btn-outline btn-sm" onClick={() => {
@@ -200,7 +203,7 @@ export default function AdminRelatorios() {
                     ])
                   ];
                   exportCSV(rows, 'relatorio-academico.csv');
-                }}>
+                }} type="button">
                   Exportar CSV
                 </button>
               </div>
@@ -248,7 +251,7 @@ export default function AdminRelatorios() {
 
             <div className="card mt-3">
               <div className="content-panel-toolbar admin-toolbar-compact">
-                <h3 style={{ fontSize: '1.1rem' }}>Desempenho por avaliacao</h3>
+                <h3 className="section-title" style={{ marginBottom: 0 }}>Desempenho por avaliacao</h3>
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const rows = [
                     ['Avaliacao', 'Tipo', 'Formato', 'Vinculo', 'Entregas', 'Corrigidas', 'Media notas', 'Media acerto objetivo'],
@@ -317,6 +320,11 @@ export default function AdminRelatorios() {
               </div>
             </div>
           </>
+        ) : (
+          <div className="empty-panel">
+            <AppIcon name="reports" size={20} />
+            <p>Nenhum relatorio consolidado ainda.</p>
+          </div>
         )}
     </>
   );

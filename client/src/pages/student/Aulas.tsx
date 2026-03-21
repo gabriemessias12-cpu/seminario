@@ -7,6 +7,7 @@ export default function StudentAulas() {
   const navigate = useNavigate();
   const [modulos, setModulos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [busca, setBusca] = useState('');
 
@@ -16,7 +17,7 @@ export default function StudentAulas() {
     })
       .then((response) => response.json())
       .then(setModulos)
-      .catch(console.error)
+      .catch(() => setError('Nao foi possivel carregar os conteudos agora.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -72,6 +73,7 @@ export default function StudentAulas() {
     <div className="layout student-layout">
       <Sidebar type="student" />
       <main className="main-content student-main">
+        {error && <div className="inline-feedback warning">{error}</div>}
         <section className="student-topbar">
           <div>
             <span className="section-kicker">Catalogo</span>
@@ -87,7 +89,7 @@ export default function StudentAulas() {
         </section>
 
         <section className="catalog-shell">
-          <div className="catalog-highlight" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div className="catalog-highlight catalog-highlight-row">
             <div>
               <span className="section-kicker">Trilhas ativas</span>
               <h2>{modulos.length} modulos organizados para estudo continuo</h2>
@@ -121,13 +123,14 @@ export default function StudentAulas() {
             <div className="search-field">
               <AppIcon name="search" size={16} />
               <input
+                aria-label="Buscar conteudo"
                 value={busca}
                 onChange={(event) => setBusca(event.target.value)}
                 placeholder="Buscar conteudo, assunto ou descricao"
               />
             </div>
 
-            <select className="filter-select" value={filtroStatus} onChange={(event) => setFiltroStatus(event.target.value)}>
+            <select aria-label="Filtrar por status" className="filter-select" value={filtroStatus} onChange={(event) => setFiltroStatus(event.target.value)}>
               <option value="todos">Todos os status</option>
               <option value="nao_iniciada">Nao iniciadas</option>
               <option value="em_andamento">Em andamento</option>
@@ -169,8 +172,8 @@ export default function StudentAulas() {
                               <span className={`badge ${status.variant}`}>{status.label}</span>
                             </div>
                             <p>{aula.descricao}</p>
-                            <div className="lesson-list-meta" style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                              <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                            <div className="lesson-list-meta">
+                              <span className="inline-meta-row">
                                 <AppIcon name="clock" size={14} />
                                 {Math.max(1, Math.floor(aula.duracaoSegundos / 60))} min
                               </span>

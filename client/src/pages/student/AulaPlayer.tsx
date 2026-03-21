@@ -79,6 +79,7 @@ export default function StudentAulaPlayer() {
   const [assistantError, setAssistantError] = useState('');
   const [completionLoading, setCompletionLoading] = useState(false);
   const [lessonFeedback, setLessonFeedback] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const lessonControlsUnlocked = Boolean(aula?.controleVideo?.liberaSeek);
   const isYoutubeLesson = aula?.videoTipo === 'youtube';
@@ -94,6 +95,7 @@ export default function StudentAulaPlayer() {
   }, [duration]);
 
   useEffect(() => {
+    setLoadError('');
     Promise.all([
       fetch(`/api/aluno/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
       fetch('/api/aluno/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
@@ -120,7 +122,9 @@ export default function StudentAulaPlayer() {
         const moduloAtual = modules.find((module: any) => module.id === lessonData.moduloId);
         setPlaylist(moduloAtual?.aulas || []);
       })
-      .catch(console.error)
+      .catch(() => {
+        setLoadError('Nao foi possivel carregar esta aula agora.');
+      })
       .finally(() => setLoading(false));
   }, [id, token]);
 
@@ -606,9 +610,10 @@ export default function StudentAulaPlayer() {
     <div className="layout student-layout">
       <Sidebar type="student" />
       <main className="main-content student-main">
+        {loadError && <div className="inline-feedback warning">{loadError}</div>}
         <section className="student-topbar">
           <div>
-            <div style={{ marginBottom: '1rem' }}>
+            <div className="print-hide" style={{ marginBottom: '1rem' }}>
               <button className="text-link-button" type="button" onClick={() => navigate('/aulas')}>
                 <AppIcon name="arrow-left" size={16} />
                 <span>Voltar para conteudos</span>
@@ -686,10 +691,11 @@ export default function StudentAulaPlayer() {
 
                 <div className="player-control-row">
                   <div className="player-control-group">
-                    <button className="player-circle-button" type="button" onClick={togglePlay}>
+                    <button aria-label={playing ? 'Pausar video' : 'Reproduzir video'} className="player-circle-button" type="button" onClick={togglePlay}>
                       <AppIcon name={playing ? 'pause' : 'play'} size={16} />
                     </button>
                     <button
+                      aria-label={volume === 0 ? 'Ativar audio' : 'Silenciar audio'}
                       className="player-circle-button"
                       type="button"
                       onClick={() => {
@@ -710,6 +716,7 @@ export default function StudentAulaPlayer() {
                       <AppIcon name={volume === 0 ? 'mute' : 'volume'} size={16} />
                     </button>
                     <input
+                      aria-label="Controle de volume"
                       className="volume-range"
                       type="range"
                       min="0"
@@ -765,7 +772,13 @@ export default function StudentAulaPlayer() {
 
             <div className="tabs tabs-advanced">
               {tabs.map((tab) => (
-                <button key={tab.key} className={`tab ${activeTab === tab.key ? 'active' : ''}`} onClick={() => setActiveTab(tab.key)}>
+                <button
+                  aria-pressed={activeTab === tab.key}
+                  key={tab.key}
+                  className={`tab ${activeTab === tab.key ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.key)}
+                  type="button"
+                >
                   <AppIcon name={tab.icon} size={14} />
                   <span>{tab.label}</span>
                 </button>
@@ -773,8 +786,8 @@ export default function StudentAulaPlayer() {
             </div>
 
             <div className="panel-card lesson-content-panel">
-              {activeTab === 'resumo' && <div className="rich-text-block"><h3>Resumo</h3><div style={{ whiteSpace: 'pre-wrap' }}>{aula.resumo || 'Resumo nao disponivel.'}</div></div>}
-              {activeTab === 'transcricao' && <div className="rich-text-block"><h3>Transcricao</h3><div style={{ whiteSpace: 'pre-wrap' }}>{aula.transcricao || 'Transcricao nao disponivel.'}</div></div>}
+              {activeTab === 'resumo' && <div className="rich-text-block"><h3>Resumo</h3><div className="player-rich-copy">{aula.resumo || 'Resumo nao disponivel.'}</div></div>}
+              {activeTab === 'transcricao' && <div className="rich-text-block"><h3>Transcricao</h3><div className="player-rich-copy">{aula.transcricao || 'Transcricao nao disponivel.'}</div></div>}
 
               {activeTab === 'pontos' && (
                 <div className="rich-list-block">
@@ -862,36 +875,36 @@ export default function StudentAulaPlayer() {
               )}
 
               {activeTab === 'assistente' && (
-                <div className="assistant-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div className="assistant-panel">
                   <div className="assistant-header">
                     <h3>Assistente da aula</h3>
-                    <p style={{ color: 'var(--text-secondary)' }}>Tire suas duvidas baseadas na transcricao desta aula.</p>
+                    <p>Tire suas duvidas baseadas na transcricao desta aula.</p>
                   </div>
                   
-                  <div className="assistant-ask-box" style={{ padding: '1.5rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                    <textarea className="form-textarea" value={assistantQuestion} onChange={(event) => setAssistantQuestion(event.target.value)} rows={4} placeholder="Digite sua pergunta sobre esta aula." style={{ marginBottom: '1rem' }} />
+                  <div className="assistant-ask-box assistant-surface">
+                    <textarea aria-label="Pergunta para o assistente da aula" className="form-textarea" value={assistantQuestion} onChange={(event) => setAssistantQuestion(event.target.value)} rows={4} placeholder="Digite sua pergunta sobre esta aula." />
                     <button className="btn btn-accent" type="button" onClick={handleAssistantAsk} disabled={assistantLoading}>
                       <AppIcon name="search" size={14} />
                       <span>{assistantLoading ? 'Consultando...' : 'Perguntar ao assistente'}</span>
                     </button>
-                    {assistantError && <div className="inline-feedback warning" style={{ marginTop: '1rem' }}>{assistantError}</div>}
+                    {assistantError && <div className="inline-feedback warning">{assistantError}</div>}
                   </div>
                   
-                  <div className="assistant-thread" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div className="assistant-thread">
                     {assistantMessages.length ? assistantMessages.map((message) => (
-                      <article className="assistant-entry" key={message.id} style={{ padding: '1.5rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)' }}>
-                        <div className="assistant-question" style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-subtle)' }}>
-                          <strong style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--color-primary)' }}>Sua pergunta</strong>
+                      <article className="assistant-entry assistant-surface" key={message.id}>
+                        <div className="assistant-question">
+                          <strong>Sua pergunta</strong>
                           <p>{message.pergunta}</p>
                         </div>
                         <div className="assistant-answer">
-                          <strong style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--color-accent)' }}>Resposta</strong>
-                          <p style={{ whiteSpace: 'pre-wrap' }}>{message.resposta}</p>
+                          <strong>Resposta</strong>
+                          <p className="player-rich-copy">{message.resposta}</p>
                         </div>
                       </article>
                     )) : (
-                      <div className="empty-panel" style={{ padding: '3rem', textAlign: 'center', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                        <div style={{ color: 'var(--color-primary)', marginBottom: '1rem' }}>
+                      <div className="empty-panel assistant-surface">
+                        <div>
                           <AppIcon name="notes" size={24} />
                         </div>
                         <p>Voce ainda nao fez perguntas nesta aula.</p>
@@ -920,10 +933,17 @@ export default function StudentAulaPlayer() {
                           else if (quizAnswers[questionIndex] === alternativaIndex) className += ' incorrect';
                         }
                         return (
-                          <div key={alternativaIndex} className={className} onClick={() => !quizSubmitted && setQuizAnswers({ ...quizAnswers, [questionIndex]: alternativaIndex })}>
+                          <button
+                            aria-pressed={quizAnswers[questionIndex] === alternativaIndex}
+                            className={className}
+                            disabled={quizSubmitted}
+                            key={alternativaIndex}
+                            onClick={() => !quizSubmitted && setQuizAnswers({ ...quizAnswers, [questionIndex]: alternativaIndex })}
+                            type="button"
+                          >
                             <div className="quiz-option-radio" />
                             <span>{alternativa.texto}</span>
-                          </div>
+                          </button>
                         );
                       })}
                       {quizSubmitted && question.explicacao && <div className="quiz-explanation">{question.explicacao}</div>}

@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
 import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { processAIPipeline } from '../services/ai-mock.js';
+import { logContentChange } from '../services/content-change-log.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
 import { getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
@@ -33,6 +34,18 @@ function readBoolean(value: unknown, fallback = false): boolean {
   }
 
   return fallback;
+}
+
+function parseStoredDetails(value: string | null): Record<string, unknown> | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 // Multer setup for video uploads
@@ -426,6 +439,20 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
       }
     });
 
+    await logContentChange(prisma, req, {
+      entity: 'aula',
+      action: 'criado',
+      entityId: aula.id,
+      title: aula.titulo,
+      details: {
+        moduloId,
+        moduloTitulo: modulo?.titulo || null,
+        publicado: shouldPublish,
+        videoTipo: getLessonVideoKind(aula.urlVideo),
+        origem: videoFile ? 'upload' : youtubeUrl ? 'youtube' : 'sem-video',
+      },
+    });
+
     // Fire AI pipeline asynchronously
     processAIPipeline(aula.id, titulo, descricao || '', { modulo: modulo?.titulo }).then(async (aiResult) => {
       await prisma.aula.update({
@@ -500,7 +527,13 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
 
     const aulaAtual = await prisma.aula.findUnique({
       where: { id: aulaId },
-      select: { urlVideo: true, duracaoSegundos: true }
+      select: {
+        titulo: true,
+        moduloId: true,
+        publicado: true,
+        urlVideo: true,
+        duracaoSegundos: true,
+      }
     });
 
     if (!aulaAtual) {
@@ -532,6 +565,27 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
       }
     });
 
+    await logContentChange(prisma, req, {
+      entity: 'aula',
+      action: 'atualizado',
+      entityId: aula.id,
+      title: aula.titulo,
+      details: {
+        antes: {
+          titulo: aulaAtual.titulo,
+          moduloId: aulaAtual.moduloId,
+          publicado: aulaAtual.publicado,
+          videoTipo: getLessonVideoKind(aulaAtual.urlVideo),
+        },
+        depois: {
+          titulo: aula.titulo,
+          moduloId: aula.moduloId,
+          publicado: aula.publicado,
+          videoTipo: getLessonVideoKind(aula.urlVideo),
+        },
+      },
+    });
+
     res.json(aula);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar aula' });
@@ -547,7 +601,34 @@ router.delete('/aula/:id', async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    const aulaAtual = await prisma.aula.findUnique({
+      where: { id: aulaId },
+      select: {
+        id: true,
+        titulo: true,
+        moduloId: true,
+        modulo: { select: { titulo: true } },
+      },
+    });
+
+    if (!aulaAtual) {
+      res.status(404).json({ error: 'Aula nao encontrada' });
+      return;
+    }
+
     await prisma.aula.delete({ where: { id: aulaId } });
+
+    await logContentChange(prisma, req, {
+      entity: 'aula',
+      action: 'excluido',
+      entityId: aulaAtual.id,
+      title: aulaAtual.titulo,
+      details: {
+        moduloId: aulaAtual.moduloId,
+        moduloTitulo: aulaAtual.modulo?.titulo || null,
+      },
+    });
+
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro ao excluir aula' });
@@ -566,6 +647,19 @@ router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> =>
         ordem: parseInt(ordem || '0')
       }
     });
+
+    await logContentChange(prisma, req, {
+      entity: 'modulo',
+      action: 'criado',
+      entityId: modulo.id,
+      title: modulo.titulo,
+      details: {
+        descricao: modulo.descricao,
+        capaUrl: modulo.capaUrl,
+        ordem: modulo.ordem,
+      },
+    });
+
     res.json(modulo);
   } catch (error) {
     console.error(error);
@@ -583,6 +677,21 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const moduloAtual = await prisma.modulo.findUnique({
+      where: { id: moduloId },
+      select: {
+        titulo: true,
+        descricao: true,
+        capaUrl: true,
+        ordem: true,
+      },
+    });
+
+    if (!moduloAtual) {
+      res.status(404).json({ error: 'Modulo nao encontrado' });
+      return;
+    }
+
     const modulo = await prisma.modulo.update({
       where: { id: moduloId },
       data: {
@@ -592,6 +701,23 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
         ordem: ordem ? parseInt(ordem) : undefined
       }
     });
+
+    await logContentChange(prisma, req, {
+      entity: 'modulo',
+      action: 'atualizado',
+      entityId: modulo.id,
+      title: modulo.titulo,
+      details: {
+        antes: moduloAtual,
+        depois: {
+          titulo: modulo.titulo,
+          descricao: modulo.descricao,
+          capaUrl: modulo.capaUrl,
+          ordem: modulo.ordem,
+        },
+      },
+    });
+
     res.json(modulo);
   } catch (error) {
     console.error(error);
@@ -608,7 +734,34 @@ router.delete('/modulo/:id', async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    const moduloAtual = await prisma.modulo.findUnique({
+      where: { id: moduloId },
+      select: {
+        id: true,
+        titulo: true,
+        descricao: true,
+        _count: { select: { aulas: true } },
+      },
+    });
+
+    if (!moduloAtual) {
+      res.status(404).json({ error: 'Modulo nao encontrado' });
+      return;
+    }
+
     await prisma.modulo.delete({ where: { id: moduloId } });
+
+    await logContentChange(prisma, req, {
+      entity: 'modulo',
+      action: 'excluido',
+      entityId: moduloAtual.id,
+      title: moduloAtual.titulo,
+      details: {
+        descricao: moduloAtual.descricao,
+        totalAulasRemovidas: moduloAtual._count.aulas,
+      },
+    });
+
     res.json({ ok: true });
   } catch (error) {
     console.error(error);
@@ -626,6 +779,27 @@ router.get('/modulos', async (_req: AuthRequest, res: Response): Promise<void> =
     res.json(modulos);
   } catch {
     res.status(500).json({ error: 'Erro' });
+  }
+});
+
+// GET /api/admin/conteudo-historico
+router.get('/conteudo-historico', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const rawLimit = Number(readString(req.query.limit as string | string[] | undefined) || '15');
+    const take = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 15;
+
+    const historico = await prisma.registroMudancaConteudo.findMany({
+      orderBy: { criadoEm: 'desc' },
+      take,
+    });
+
+    res.json(historico.map((item) => ({
+      ...item,
+      detalhes: parseStoredDetails(item.detalhes),
+    })));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao carregar historico de conteudo' });
   }
 });
 

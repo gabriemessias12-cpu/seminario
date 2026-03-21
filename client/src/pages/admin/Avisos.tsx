@@ -6,41 +6,45 @@ export default function AdminAvisos() {
   const [alunos, setAlunos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
   const [titulo, setTitulo] = useState('');
   const [mensagem, setMensagem] = useState('');
-  const [alunoId, setAlunoId] = useState(''); // Empty = All
+  const [alunoId, setAlunoId] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+      .then((response) => response.json())
       .then(setAlunos)
-      .catch(console.error)
+      .catch(() => setFeedback('Nao foi possivel carregar a lista de alunos.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [token]);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSend = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!titulo || !mensagem) return;
 
     setSending(true);
-    setSuccess(false);
+    setFeedback('');
+
     try {
-      const res = await fetch('/api/admin/notificacao', {
+      const response = await fetch('/api/admin/notificacao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ titulo, mensagem, alunoId: alunoId || null })
       });
 
-      if (res.ok) {
-        setSuccess(true);
-        setTitulo('');
-        setMensagem('');
-        setAlunoId('');
+      if (!response.ok) {
+        setFeedback('Nao foi possivel enviar o aviso.');
+        return;
       }
-    } catch (err) {
-      console.error(err);
+
+      setFeedback('Aviso enviado com sucesso.');
+      setTitulo('');
+      setMensagem('');
+      setAlunoId('');
+    } catch {
+      setFeedback('Erro ao comunicar com o servidor.');
     } finally {
       setSending(false);
     }
@@ -48,64 +52,64 @@ export default function AdminAvisos() {
 
   return (
     <>
-        <div className="page-header">
-          <h1>Central de Avisos</h1>
-          <p>Envie comunicados importantes para todos os alunos ou para um especifico.</p>
+      <div className="page-header">
+        <h1>Central de Avisos</h1>
+        <p>Envie comunicados importantes para todos os alunos ou para um especifico.</p>
+      </div>
+
+      {feedback && (
+        <div className={`inline-feedback ${feedback.includes('sucesso') ? 'success' : 'warning'}`}>
+          {feedback}
         </div>
+      )}
 
-        <div className="panel-card" style={{ maxWidth: '600px' }}>
-          <form onSubmit={handleSend}>
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Destinatario</label>
-              <select 
-                className="filter-select" 
-                style={{ width: '100%' }}
-                value={alunoId}
-                onChange={e => setAlunoId(e.target.value)}
-              >
-                <option value="">TODOS OS ALUNOS (Geral)</option>
-                {alunos.map(aluno => (
-                  <option key={aluno.id} value={aluno.id}>{aluno.nome} ({aluno.email})</option>
-                ))}
-              </select>
-            </div>
+      <div className="panel-card page-surface-narrow">
+        <form onSubmit={handleSend}>
+          <div className="form-group">
+            <label className="form-label">Destinatario</label>
+            <select
+              className="filter-select"
+              value={alunoId}
+              onChange={(event) => setAlunoId(event.target.value)}
+              disabled={loading}
+            >
+              <option value="">TODOS OS ALUNOS (Geral)</option>
+              {alunos.map((aluno) => (
+                <option key={aluno.id} value={aluno.id}>{aluno.nome} ({aluno.email})</option>
+              ))}
+            </select>
+          </div>
 
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Titulo do Aviso</label>
-              <div className="search-field" style={{ border: '1px solid var(--border-color)' }}>
-                <input 
-                  placeholder="Ex: Mudanca no hórario da aula de quarta" 
-                  value={titulo}
-                  onChange={e => setTitulo(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Mensagem</label>
-              <textarea 
-                className="filter-select"
-                placeholder="Escreva aqui o comunicado detalhado..."
-                style={{ width: '100%', minHeight: '150px', padding: '1rem' }}
-                value={mensagem}
-                onChange={e => setMensagem(e.target.value)}
+          <div className="form-group">
+            <label className="form-label">Titulo do aviso</label>
+            <div className="search-field">
+              <input
+                placeholder="Ex: Mudanca no horario da aula de quarta"
+                value={titulo}
+                onChange={(event) => setTitulo(event.target.value)}
                 required
               />
             </div>
+          </div>
 
-            {success && (
-              <div className="badge badge-success" style={{ display: 'block', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-                Aviso enviado com sucesso!
-              </div>
-            )}
+          <div className="form-group">
+            <label className="form-label">Mensagem</label>
+            <textarea
+              className="form-textarea"
+              placeholder="Escreva aqui o comunicado detalhado..."
+              rows={6}
+              value={mensagem}
+              onChange={(event) => setMensagem(event.target.value)}
+              required
+            />
+          </div>
 
-            <button className="btn btn-primary" type="submit" disabled={sending} style={{ width: '100%' }}>
-              <AppIcon name="bell" size={16} />
-              {sending ? 'Enviando...' : 'Disparar Comunicado'}
-            </button>
-          </form>
-        </div>
+          <button className="btn btn-primary w-full" disabled={sending || loading} type="submit">
+            <AppIcon name="bell" size={16} />
+            {sending ? 'Enviando...' : 'Disparar comunicado'}
+          </button>
+        </form>
+      </div>
     </>
   );
 }

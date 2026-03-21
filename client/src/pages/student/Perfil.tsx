@@ -16,8 +16,10 @@ export default function StudentPerfil() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [passwordFeedback, setPasswordFeedback] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const loadPerfil = () => {
+    setLoadError('');
     fetch('/api/aluno/perfil', {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -27,7 +29,7 @@ export default function StudentPerfil() {
         setEditNome(data.user?.nome || '');
         setEditTel(data.user?.telefone || '');
       })
-      .catch(console.error)
+      .catch(() => setLoadError('Nao foi possivel carregar os dados do perfil agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -130,6 +132,7 @@ export default function StudentPerfil() {
     <div className="layout student-layout">
       <Sidebar type="student" />
       <main className="main-content student-main">
+        {loadError && <div className="inline-feedback warning">{loadError}</div>}
         <section className="student-topbar">
           <div>
             <span className="section-kicker">Perfil</span>

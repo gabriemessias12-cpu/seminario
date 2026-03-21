@@ -13,13 +13,14 @@ export default function AdminMateriais() {
   const [modulos, setModulos] = useState<any[]>([]);
   const [aulaSelecionada, setAulaSelecionada] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState('');
   const token = localStorage.getItem('accessToken');
 
   const loadMateriais = () => {
     fetch('/api/admin/materiais', { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then(setMateriais)
-      .catch(console.error)
+      .catch(() => setFeedback('Nao foi possivel carregar os materiais agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -30,7 +31,7 @@ export default function AdminMateriais() {
       .then((data) => {
         if (Array.isArray(data)) setModulos(data);
       })
-      .catch(console.error);
+      .catch(() => setFeedback('Nao foi possivel carregar a relacao de aulas.'));
   }, []);
 
   const handleUpload = async (event: React.FormEvent) => {
@@ -48,37 +49,50 @@ export default function AdminMateriais() {
     }
     formData.append('arquivo', arquivo);
 
-    await fetch('/api/admin/material', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData
-    });
+    try {
+      const response = await fetch('/api/admin/material', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
 
-    setTitulo('');
-    setDescricao('');
-    setCategoria('geral');
-    setAulaSelecionada('');
-    setArquivo(null);
-    setShowForm(false);
-    setSubmitting(false);
-    loadMateriais();
+      if (!response.ok) {
+        setFeedback('Nao foi possivel enviar o material.');
+        return;
+      }
+
+      setTitulo('');
+      setDescricao('');
+      setCategoria('geral');
+      setAulaSelecionada('');
+      setArquivo(null);
+      setShowForm(false);
+      setFeedback('Material enviado com sucesso.');
+      loadMateriais();
+    } catch {
+      setFeedback('Erro ao enviar o material.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <>
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="page-header page-header-split">
           <div>
             <h1>Materiais de Apoio</h1>
             <p>{materiais.length} materiais cadastrados</p>
           </div>
-          <button className="btn btn-accent" onClick={() => setShowForm(!showForm)}>
+          <button className="btn btn-accent" onClick={() => setShowForm(!showForm)} type="button">
             {showForm ? 'Fechar' : 'Upload'}
           </button>
         </div>
 
+        {feedback && <div className="inline-feedback warning">{feedback}</div>}
+
         {showForm && (
-          <div className="card mb-3" style={{ maxWidth: 600 }}>
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Upload de material</h3>
+          <div className="card mb-3 page-surface-narrow">
+            <h3 className="section-title">Upload de material</h3>
             <form onSubmit={handleUpload}>
               <div className="form-group">
                 <label className="form-label">Titulo</label>
@@ -113,10 +127,10 @@ export default function AdminMateriais() {
               </div>
               <div className="form-group">
                 <label className="form-label">Arquivo</label>
-                <input type="file" accept=".pdf,.epub,.docx" onChange={(event) => setArquivo(event.target.files?.[0] || null)} className="form-input" style={{ padding: '0.5rem' }} />
+                <input type="file" accept=".pdf,.epub,.docx" onChange={(event) => setArquivo(event.target.files?.[0] || null)} className="form-input file-input" />
               </div>
               <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <label className="checkbox-row">
                   <input type="checkbox" checked={permiteDownload} onChange={(event) => setPermiteDownload(event.target.checked)} />
                   <span>Permitir download pelos alunos</span>
                 </label>
@@ -144,12 +158,12 @@ export default function AdminMateriais() {
                 </tr>
               </thead>
               <tbody>
-                {materiais.map((material) => (
+                {materiais.length ? materiais.map((material) => (
                   <tr key={material.id}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div className="table-entity">
                         <AppIcon name="file" size={16} />
-                        <div>
+                        <div className="table-entity-copy">
                           <div style={{ fontWeight: 500 }}>{material.titulo}</div>
                           {material.descricao && <div className="text-muted text-sm">{material.descricao.substring(0, 50)}</div>}
                         </div>
@@ -161,7 +175,11 @@ export default function AdminMateriais() {
                     <td className="text-muted">{material.materiaisAula?.map((item: any) => item.aula?.titulo).join(', ') || '-'}</td>
                     <td className="text-muted">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td className="text-muted" colSpan={6}>Nenhum material cadastrado ainda.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

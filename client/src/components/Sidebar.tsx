@@ -56,13 +56,13 @@ export default function Sidebar({ type }: SidebarProps) {
       items={items}
       className={type === 'admin' ? 'dashboard-navbar admin-nav-floating' : 'dashboard-navbar'}
       brand={(
-        <Link className="flex items-center gap-3 text-white" to={type === 'admin' ? '/admin/dashboard' : '/dashboard'}>
-          <BrandMark className="h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
-          <div className="min-w-0">
-            <strong className="block truncate text-base font-semibold leading-none text-white">
+        <Link className="nav-brand-link flex min-w-0 items-center gap-3 text-white" to={type === 'admin' ? '/admin/dashboard' : '/dashboard'}>
+          <BrandMark className="nav-brand-mark h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
+          <div className="nav-brand-copy min-w-0">
+            <strong className="nav-brand-title block truncate text-base font-semibold leading-none text-white">
               {type === 'admin' ? 'IBVN Admin' : 'Area do Aluno'}
             </strong>
-            <span className="block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
+            <span className="nav-brand-subtitle block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
               {type === 'admin' ? 'Instituto Biblico Vinha Nova' : 'Seminario Teologico IBVN'}
             </span>
           </div>
@@ -70,7 +70,7 @@ export default function Sidebar({ type }: SidebarProps) {
       )}
       actions={(
         <>
-          <div className="hidden items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-white lg:flex">
+          <div className="nav-user-chip hidden items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-white lg:flex">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-white">
               {initials}
             </div>
@@ -82,6 +82,7 @@ export default function Sidebar({ type }: SidebarProps) {
             </div>
           </div>
           <button
+            aria-label="Encerrar sessao"
             className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             onClick={handleLogout}
             type="button"

@@ -9,6 +9,7 @@ export default function AdminAlunoDetalhes() {
   const [aluno, setAluno] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
+  const [loadError, setLoadError] = useState('');
   const token = localStorage.getItem('accessToken');
 
   const handlePrint = () => {
@@ -19,7 +20,7 @@ export default function AdminAlunoDetalhes() {
     fetch(`/api/admin/aluno/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then(setAluno)
-      .catch(console.error)
+      .catch(() => setLoadError('Nao foi possivel carregar o relatorio do aluno.'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -37,7 +38,10 @@ export default function AdminAlunoDetalhes() {
   if (!aluno) {
     return (
       <>
-        <p>Aluno nao encontrado.</p>
+        <div className="empty-panel">
+          <AppIcon name="students" size={20} />
+          <p>Aluno nao encontrado.</p>
+        </div>
       </>
     );
   }
@@ -53,7 +57,7 @@ export default function AdminAlunoDetalhes() {
 
   return (
     <>
-        {feedback && <div className="inline-feedback warning">{feedback}</div>}
+        {(feedback || loadError) && <div className="inline-feedback warning">{feedback || loadError}</div>}
 
         <div className="page-header page-header-split print-hide">
           <button className="btn btn-ghost" onClick={() => navigate('/admin/alunos')} type="button">
@@ -109,7 +113,7 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Progresso por aula</h3>
+          <h3 className="section-title">Progresso por aula</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -128,8 +132,8 @@ export default function AdminAlunoDetalhes() {
                     <td style={{ fontWeight: 500 }}>{progresso.aula?.titulo}</td>
                     <td className="text-muted">{progresso.aula?.modulo?.titulo}</td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div className="progress-bar" style={{ width: 80 }}>
+                      <div className="chart-inline-progress">
+                        <div className="progress-bar">
                           <div className={`progress-bar-fill ${progresso.concluido ? 'completed' : ''}`} style={{ width: `${progresso.percentualAssistido}%` }} />
                         </div>
                         <span className="text-sm">{Math.round(progresso.percentualAssistido)}%</span>
@@ -150,7 +154,7 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Presenca</h3>
+          <h3 className="section-title">Presenca</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -178,7 +182,7 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Frequencia por materia</h3>
+          <h3 className="section-title">Frequencia por materia</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -214,7 +218,7 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Boletim por materia</h3>
+          <h3 className="section-title">Boletim por materia</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -246,7 +250,7 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Entregas e correcoes</h3>
+          <h3 className="section-title">Entregas e correcoes</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -304,7 +308,7 @@ export default function AdminAlunoDetalhes() {
 
         {aluno.resultadosQuiz?.length > 0 && (
           <div className="card mb-3">
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Resultados dos quizzes</h3>
+            <h3 className="section-title">Resultados dos quizzes</h3>
             <div className="table-container">
               <table>
                 <thead>
@@ -329,7 +333,7 @@ export default function AdminAlunoDetalhes() {
         )}
 
         <div className="card">
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Historico de login</h3>
+          <h3 className="section-title">Historico de login</h3>
           <div className="table-container">
             <table>
               <thead>
@@ -344,7 +348,7 @@ export default function AdminAlunoDetalhes() {
                   <tr key={login.id}>
                     <td>{new Date(login.dataHora).toLocaleString('pt-BR')}</td>
                     <td className="text-muted">{login.ip}</td>
-                    <td className="text-muted" style={{ fontSize: '0.8rem', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{login.dispositivo?.substring(0, 50)}</td>
+                    <td className="text-muted"><span className="table-device-text">{login.dispositivo?.substring(0, 50)}</span></td>
                   </tr>
                 ))}
               </tbody>

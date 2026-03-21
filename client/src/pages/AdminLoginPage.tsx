@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
           <p>Acesso restrito do IBVN - Instituto Biblico Vinha Nova</p>
         </div>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && <div className="login-error" role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

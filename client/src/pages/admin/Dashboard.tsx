@@ -6,13 +6,14 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
     fetch('/api/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then(setData)
-      .catch(console.error)
+      .catch(() => setError('Nao foi possivel carregar o painel administrativo agora.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -23,13 +24,15 @@ export default function AdminDashboard() {
           <p>Visao geral do IBVN e do Seminario Teologico.</p>
         </div>
 
+        {error && <div className="inline-feedback warning">{error}</div>}
+
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          <div className="stat-grid-auto">
             {[1, 2, 3, 4].map((item) => <div key={item} className="skeleton" style={{ height: 100 }} />)}
           </div>
-        ) : data && (
+        ) : data ? (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="stat-grid-auto mb-3">
               {[
                 { icon: 'students' as const, className: 'purple', value: data.totalAlunos, label: 'Total de alunos' },
                 { icon: 'check' as const, className: 'green', value: data.alunosAtivos, label: 'Ativos nos ultimos 7 dias' },
@@ -48,7 +51,7 @@ export default function AdminDashboard() {
 
             <div className="grid-2">
               <div className="card">
-                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Percentual medio assistido por aula</h3>
+                <h3 className="section-title">Percentual medio assistido por aula</h3>
                 <div className="bar-chart">
                   {data.aulasStats?.map((aula: any, index: number) => (
                     <div key={aula.id} className="bar" style={{ height: `${Math.max(aula.mediaConclusao, 5)}%` }}>
@@ -60,22 +63,30 @@ export default function AdminDashboard() {
               </div>
 
               <div className="card">
-                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Alunos que precisam de atencao</h3>
+                <h3 className="section-title">Alunos que precisam de atencao</h3>
                 {data.alunosAtencao?.length ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div className="attention-list">
                     {data.alunosAtencao.map((aluno: any) => (
                       <div
                         key={aluno.id}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                        className="attention-item"
                         onClick={() => navigate(`/admin/aluno/${aluno.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            navigate(`/admin/aluno/${aluno.id}`);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-full)', background: 'var(--color-error)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, color: 'white' }}>
+                        <div className="table-entity">
+                          <div className="attention-item-avatar">
                             {aluno.nome?.[0]}
                           </div>
-                          <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{aluno.nome}</div>
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>{aluno.email}</div>
+                          <div className="attention-item-copy">
+                            <div className="table-entity-copy">{aluno.nome}</div>
+                            <div className="text-muted text-sm">{aluno.email}</div>
                           </div>
                         </div>
                         <span className="badge badge-error">{aluno.progressoMedio}%</span>
@@ -89,7 +100,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="card mt-3">
-              <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Atividade recente</h3>
+              <h3 className="section-title">Atividade recente</h3>
               <div className="table-container">
                 <table>
                   <thead>
@@ -101,21 +112,30 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.atividadeRecente?.map((item: any) => (
+                    {data.atividadeRecente?.length ? data.atividadeRecente.map((item: any) => (
                       <tr key={item.id}>
                         <td style={{ fontWeight: 500 }}>{item.usuario?.nome}</td>
                         <td><span className="badge badge-success">Login</span></td>
                         <td className="text-muted">{new Date(item.dataHora).toLocaleString('pt-BR')}</td>
-                        <td className="text-muted" style={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.dispositivo?.substring(0, 40)}
+                        <td className="text-muted">
+                          <span className="table-device-text">{item.dispositivo?.substring(0, 40)}</span>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td className="text-muted" colSpan={4}>Nenhuma atividade recente encontrada.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           </>
+        ) : (
+          <div className="empty-panel">
+            <AppIcon name="reports" size={20} />
+            <p>Os dados do painel ainda nao estao disponiveis.</p>
+          </div>
         )}
     </>
   );

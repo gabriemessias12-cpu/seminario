@@ -53,9 +53,11 @@ export default function StudentAvaliacoes() {
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
+  const [pageError, setPageError] = useState('');
 
   const loadData = () => {
     setLoading(true);
+    setPageError('');
     fetch('/api/aluno/avaliacoes', {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -72,7 +74,7 @@ export default function StudentAvaliacoes() {
           ])
         ));
       })
-      .catch(console.error)
+      .catch(() => setPageError('Nao foi possivel carregar as avaliacoes agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -153,6 +155,7 @@ export default function StudentAvaliacoes() {
     <div className="layout student-layout">
       <Sidebar type="student" />
       <main className="main-content student-main">
+        {pageError && <div className="inline-feedback warning">{pageError}</div>}
         <section className="student-topbar">
           <div>
             <span className="section-kicker">Fase 3</span>
@@ -189,15 +192,15 @@ export default function StudentAvaliacoes() {
           <div className="content-panel-toolbar admin-toolbar-compact mb-3">
             <div className="search-field">
               <AppIcon name="search" size={16} />
-              <input placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
+              <input aria-label="Buscar avaliacao" placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
             </div>
             <div className="page-header-actions">
-              <select className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
+              <select aria-label="Filtrar tipo de avaliacao" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
                 <option value="todos">Todos os tipos</option>
                 <option value="trabalho">Trabalhos</option>
                 <option value="prova">Provas</option>
               </select>
-              <select className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+              <select aria-label="Filtrar status de avaliacao" className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
                 <option value="todos">Todos os status</option>
                 <option value="pendente">Pendentes</option>
                 <option value="enviado">Enviadas</option>

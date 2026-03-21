@@ -8,18 +8,15 @@ import { NavBar } from '../components/ui/tubelight-navbar';
 const leadershipSlides = [
   {
     src: '/brand/1.jpg',
-    title: 'Pr. Marcondes',
-    role: 'Presidencia pastoral'
+    title: 'Pr. Marcondes'
   },
   {
     src: '/brand/2.jpg',
-    title: 'Pra. Allana',
-    role: 'Cuidado e conducao ministerial'
+    title: 'Pra. Allana'
   },
   {
     src: '/brand/3.jpg',
-    title: 'Ralfer',
-    role: 'Coordenacao do seminario'
+    title: 'Ralfer'
   }
 ];
 
@@ -136,16 +133,16 @@ export default function LandingPage() {
       <NavBar
         actionsInline
         actions={(
-          <button className="btn btn-primary btn-sm whitespace-nowrap" onClick={() => navigate('/login')}>
+          <button className="btn btn-primary btn-sm whitespace-nowrap" onClick={() => navigate('/login')} type="button">
             Area do Aluno
           </button>
         )}
         brand={(
-          <div className="flex items-center gap-3 text-white">
-            <BrandMark className="h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
-            <div className="min-w-0">
-              <strong className="block truncate text-lg font-semibold leading-none text-white">IBVN</strong>
-              <span className="block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
+          <div className="nav-brand-link flex min-w-0 items-center gap-3 text-white">
+            <BrandMark className="nav-brand-mark h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
+            <div className="nav-brand-copy min-w-0">
+              <strong className="nav-brand-title block truncate text-lg font-semibold leading-none text-white">IBVN</strong>
+              <span className="nav-brand-subtitle block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
                 Instituto Biblico Vinha Nova
               </span>
             </div>
@@ -172,7 +169,7 @@ export default function LandingPage() {
               </div>
 
               <div className="landing-hero-actions">
-                <button className="btn btn-primary btn-lg" onClick={() => navigate('/login')}>
+                <button className="btn btn-primary btn-lg" onClick={() => navigate('/login')} type="button">
                   Entrar no seminario
                 </button>
                 <a className="btn btn-outline btn-lg" href="#trilhas">
@@ -182,7 +179,6 @@ export default function LandingPage() {
             </div>
 
             <div className="landing-hero-quote-card">
-              <span className="section-kicker">Declaracao pastoral</span>
               <blockquote>"Teologia de verdade Incendeia o coracao"</blockquote>
               <p>Pr. Ralfer Fernandes</p>
             </div>
@@ -226,20 +222,11 @@ export default function LandingPage() {
             <div className="landing-carousel-card">
               <div className="landing-carousel-visual">
                 <img alt={currentSlide.title} className="landing-carousel-image" src={currentSlide.src} />
-                <div className="landing-carousel-overlay">
-                  <div>
-                    <span className="section-kicker">Lideranca</span>
-                    <h3>{currentSlide.title}</h3>
-                    <p>{currentSlide.role}</p>
-                  </div>
-                  <div className="landing-carousel-count">
-                    {String(activeSlide + 1).padStart(2, '0')} / {String(leadershipSlides.length).padStart(2, '0')}
-                  </div>
-                </div>
               </div>
 
               <div className="landing-carousel-controls">
                 <button
+                  aria-label="Foto anterior da lideranca"
                   className="player-circle-button"
                   onClick={() => setActiveSlide((current) => (current - 1 + leadershipSlides.length) % leadershipSlides.length)}
                   type="button"
@@ -260,6 +247,7 @@ export default function LandingPage() {
                 </div>
 
                 <button
+                  aria-label="Proxima foto da lideranca"
                   className="player-circle-button"
                   onClick={() => setActiveSlide((current) => (current + 1) % leadershipSlides.length)}
                   type="button"
