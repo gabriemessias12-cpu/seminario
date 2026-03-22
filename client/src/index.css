@@ -595,8 +595,8 @@ th {
   color: var(--text-secondary);
   font-weight: var(--font-weight-strong);
   border-bottom: 1px solid var(--border-color);
-  vertical-align: top;
-  overflow-wrap: anywhere;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 td {

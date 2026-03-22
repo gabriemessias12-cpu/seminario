@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm list:*)",
+      "Bash(npm cache:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\(''''dependencies'''',{}\\).get\\(''''youtube-transcript'''',''''NOT FOUND''''\\)\\)\")",
+      "Bash(ls c:/Users/Windows/seminario/server/node_modules/y*)",
+      "Bash(find /c/Users/Windows/seminario -type f -name *.prisma)",
+      "Bash(find /c/Users/Windows/seminario/client/src -name *objective* -o -name *assessment*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(npm show:*)",
+      "Bash(node -e \"const { YoutubeTranscript } = require\\(''youtube-transcript''\\); YoutubeTranscript.fetchTranscript\\(''L9pDQRaRkns''\\).then\\(r => console.log\\(''OK'', r.slice\\(0,2\\)\\)\\).catch\\(e => console.error\\(''ERR'', e.message\\)\\)\")",
+      "Bash(node -e \"import\\(''youtube-transcript''\\).then\\(m => { console.log\\(Object.keys\\(m\\)\\); const YT = m.YoutubeTranscript || m.default; return YT.fetchTranscript\\(''L9pDQRaRkns''\\); }\\).then\\(r => console.log\\(''OK'', JSON.stringify\\(r.slice\\(0,2\\)\\)\\)\\).catch\\(e => console.error\\(''ERR'', e.message\\)\\)\")",
+      "Bash(node --input-type=module:*)",
+      "Bash(npm uninstall:*)",
+      "Read(//c/Users/Windows/**)",
+      "Bash(grep -n \"case ''map-pin''\\\\|default:\\\\|return null\" /c/Users/Windows/seminario/client/src/components/AppIcon.tsx)"
+    ]
+  }
+}

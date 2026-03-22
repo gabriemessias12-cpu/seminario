@@ -2,11 +2,22 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
 
+interface SecurityAlert {
+  id: string;
+  mensagem: string;
+  ip?: string;
+  dispositivo?: string;
+  criadoEm: string;
+  lido: boolean;
+  usuario: { id: string; nome: string; email: string };
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [alertas, setAlertas] = useState<SecurityAlert[]>([]);
   const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
@@ -15,7 +26,22 @@ export default function AdminDashboard() {
       .then(setData)
       .catch(() => setError('Nao foi possivel carregar o painel administrativo agora.'))
       .finally(() => setLoading(false));
+
+    fetch('/api/admin/alertas-seguranca', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((data: SecurityAlert[]) => { if (Array.isArray(data)) setAlertas(data); })
+      .catch(() => {});
   }, []);
+
+  const marcarLido = async (id: string) => {
+    await fetch(`/api/admin/alerta-seguranca/${id}/ler`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setAlertas(prev => prev.map(a => a.id === id ? { ...a, lido: true } : a));
+  };
+
+  const naoLidos = alertas.filter(a => !a.lido);
 
   return (
     <>
@@ -32,6 +58,33 @@ export default function AdminDashboard() {
           </div>
         ) : data ? (
           <>
+            {naoLidos.length > 0 && (
+              <div className="panel-card mb-3" style={{ borderLeft: '3px solid var(--color-error, #ef4444)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <AppIcon name="alert-triangle" size={18} />
+                  <h3 className="section-title" style={{ margin: 0, color: 'var(--color-error, #ef4444)' }}>
+                    Alertas de seguranca ({naoLidos.length})
+                  </h3>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {naoLidos.map(alerta => (
+                    <div key={alerta.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', background: 'rgba(239,68,68,0.07)', borderRadius: 8, padding: '0.6rem 0.75rem' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>{alerta.mensagem}</p>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', opacity: 0.6 }}>
+                          {new Date(alerta.criadoEm).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${alerta.usuario.id}`)} type="button">Ver aluno</button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => marcarLido(alerta.id)} type="button">Dispensar</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="stat-grid-auto mb-3">
               {[
                 { icon: 'students' as const, className: 'purple', value: data.totalAlunos, label: 'Total de alunos' },

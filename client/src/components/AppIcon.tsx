@@ -36,7 +36,11 @@ type IconName =
   | 'facebook'
   | 'youtube'
   | 'spotify'
-  | 'map-pin';
+  | 'map-pin'
+  | 'fullscreen'
+  | 'fullscreen-exit'
+  | 'alert-triangle'
+  | 'users';
 
 interface AppIconProps {
   name: IconName;
@@ -324,6 +328,41 @@ export default function AppIcon({ name, size = 20, className, strokeWidth = 1.8 
           <>
             <path d="M12 20s5.5-5.4 5.5-10A5.5 5.5 0 1 0 6.5 10c0 4.6 5.5 10 5.5 10Z" {...common} />
             <circle cx="12" cy="10" r="2.1" {...common} />
+          </>
+        );
+      case 'fullscreen':
+        return (
+          <>
+            <path d="M8 3H5a2 2 0 0 0-2 2v3" {...common} />
+            <path d="M21 8V5a2 2 0 0 0-2-2h-3" {...common} />
+            <path d="M3 16v3a2 2 0 0 0 2 2h3" {...common} />
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3" {...common} />
+          </>
+        );
+      case 'fullscreen-exit':
+        return (
+          <>
+            <path d="M8 3v3a2 2 0 0 1-2 2H3" {...common} />
+            <path d="M21 8h-3a2 2 0 0 1-2-2V3" {...common} />
+            <path d="M3 16h3a2 2 0 0 1 2 2v3" {...common} />
+            <path d="M16 21v-3a2 2 0 0 1 2-2h3" {...common} />
+          </>
+        );
+      case 'alert-triangle':
+        return (
+          <>
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" {...common} />
+            <line x1="12" y1="9" x2="12" y2="13" {...common} />
+            <line x1="12" y1="17" x2="12.01" y2="17" {...common} />
+          </>
+        );
+      case 'users':
+        return (
+          <>
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" {...common} />
+            <circle cx="9" cy="7" r="4" {...common} />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" {...common} />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" {...common} />
           </>
         );
       default:

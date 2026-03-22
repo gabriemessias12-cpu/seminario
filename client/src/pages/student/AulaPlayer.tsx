@@ -52,6 +52,8 @@ export default function StudentAulaPlayer() {
   const token = localStorage.getItem('accessToken');
   const videoRef = useRef<HTMLVideoElement>(null);
   const youtubeHostRef = useRef<HTMLDivElement>(null);
+  const playerStageRef = useRef<HTMLDivElement>(null);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const youtubePlayerRef = useRef<any>(null);
   const progressInterval = useRef<number | null>(null);
   const demoInterval = useRef<number | null>(null);
@@ -81,6 +83,8 @@ export default function StudentAulaPlayer() {
   const [lessonFeedback, setLessonFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const lessonControlsUnlocked = Boolean(aula?.controleVideo?.liberaSeek);
   const isYoutubeLesson = aula?.videoTipo === 'youtube';
@@ -378,6 +382,24 @@ export default function StudentAulaPlayer() {
     if (progress?.posicaoAtualSegundos) video.currentTime = progress.posicaoAtualSegundos;
   };
 
+  const resetControlsTimer = useCallback(() => {
+    setControlsVisible(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(() => setControlsVisible(false), 3000);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = playerStageRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  }, []);
+
   const togglePlay = useCallback(() => {
     if (isYoutubeLesson) {
       const player = youtubePlayerRef.current;
@@ -461,6 +483,12 @@ export default function StudentAulaPlayer() {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay]);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   const quizData = useMemo(() => {
     if (!aula?.quizzes?.[0]?.questoes) return [];
@@ -662,11 +690,15 @@ export default function StudentAulaPlayer() {
         <div className="lesson-player-shell">
           <section className="lesson-player-main">
             <div
+              ref={playerStageRef}
               className="lesson-player-stage"
               onContextMenu={(event) => event.preventDefault()}
               onCopy={(event) => event.preventDefault()}
               onCut={(event) => event.preventDefault()}
               onDragStart={(event) => event.preventDefault()}
+              onMouseMove={resetControlsTimer}
+              onTouchStart={resetControlsTimer}
+              onMouseLeave={() => playing && setControlsVisible(false)}
             >
               {isYoutubeLesson ? (
                 <div className="youtube-player-shell">
@@ -717,7 +749,14 @@ export default function StudentAulaPlayer() {
                     : `Assistido ate ${maxWatched < 1 && duration > 0 && playing ? '<1' : maxWatched}%`}
               </div>
 
-              <div className="player-controls">
+              <div
+                className="player-controls"
+                style={{
+                  opacity: controlsVisible ? 1 : 0,
+                  pointerEvents: controlsVisible ? 'auto' : 'none',
+                  transition: 'opacity 0.4s ease'
+                }}
+              >
                 <div className={`player-seekbar ${!completed && !lessonControlsUnlocked ? 'locked' : ''}`} onClick={handleSeek}>
                   <div className="player-seekbar-watched" style={{ width: `${maxWatched}%` }} />
                   <div className="player-seekbar-fill" style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
@@ -728,6 +767,9 @@ export default function StudentAulaPlayer() {
                     <button aria-label={playing ? 'Pausar video' : 'Reproduzir video'} className="player-circle-button" type="button" onClick={togglePlay}>
                       <AppIcon name={playing ? 'pause' : 'play'} size={16} />
                     </button>
+                    <span className="player-time">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                  </div>
+                  <div className="player-control-group">
                     <button
                       aria-label={volume === 0 ? 'Ativar audio' : 'Silenciar audio'}
                       className="player-circle-button"
@@ -736,12 +778,8 @@ export default function StudentAulaPlayer() {
                         const nextVolume = volume === 0 ? 1 : 0;
                         setVolume(nextVolume);
                         if (isYoutubeLesson) {
-                          if (nextVolume === 0) {
-                            youtubePlayerRef.current?.mute?.();
-                          } else {
-                            youtubePlayerRef.current?.unMute?.();
-                            youtubePlayerRef.current?.setVolume?.(Math.round(nextVolume * 100));
-                          }
+                          if (nextVolume === 0) youtubePlayerRef.current?.mute?.();
+                          else { youtubePlayerRef.current?.unMute?.(); youtubePlayerRef.current?.setVolume?.(Math.round(nextVolume * 100)); }
                         } else if (videoRef.current) {
                           videoRef.current.volume = nextVolume;
                         }
@@ -749,38 +787,17 @@ export default function StudentAulaPlayer() {
                     >
                       <AppIcon name={volume === 0 ? 'mute' : 'volume'} size={16} />
                     </button>
-                    <input
-                      aria-label="Controle de volume"
-                      className="volume-range"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={volume}
-                      onChange={(event) => {
-                        const nextVolume = parseFloat(event.target.value);
-                        setVolume(nextVolume);
-                        if (isYoutubeLesson) {
-                          youtubePlayerRef.current?.setVolume?.(Math.round(nextVolume * 100));
-                        } else if (videoRef.current) {
-                          videoRef.current.volume = nextVolume;
-                        }
-                      }}
-                      disabled={demoMode}
-                    />
-                    <span className="player-time">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                    <button
+                      aria-label={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+                      className="player-circle-button"
+                      type="button"
+                      onClick={toggleFullscreen}
+                    >
+                      <AppIcon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'} size={16} />
+                    </button>
                   </div>
-                  <div className="player-status-text">
-                    {completed
-                      ? 'Conteudo concluido'
-                      : lessonControlsUnlocked
-                        ? `Seek liberado por presenca ${aula?.controleVideo?.origem || 'confirmada'}`
-                        : isYoutubeLesson
-                          ? 'Sem presenca confirmada: pausa liberada e navegacao travada no player.'
-                          : 'Sem presenca confirmada: somente pausa, sem pular'}
                 </div>
               </div>
-            </div>
             </div>
 
             <div className="lesson-meta-band">

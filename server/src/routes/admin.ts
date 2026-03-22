@@ -1890,6 +1890,30 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   }
 });
 
+// GET /api/admin/alertas-seguranca — list security alerts (unread first)
+router.get('/alertas-seguranca', async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const alertas = await prisma.alertaSeguranca.findMany({
+      orderBy: [{ lido: 'asc' }, { criadoEm: 'desc' }],
+      include: { usuario: { select: { id: true, nome: true, email: true } } },
+      take: 100
+    });
+    res.json(alertas);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro' });
+  }
+});
+
+// PUT /api/admin/alerta-seguranca/:id/ler — mark alert as read
+router.put('/alerta-seguranca/:id/ler', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    await prisma.alertaSeguranca.update({ where: { id: req.params.id }, data: { lido: true } });
+    res.json({ ok: true });
+  } catch {
+    res.status(404).json({ error: 'Alerta nao encontrado.' });
+  }
+});
+
 // GET /api/admin/brand/lideranca — returns current leadership slides config
 router.get('/brand/lideranca', (_req: AuthRequest, res: Response): void => {
   const config = readBrandConfig();

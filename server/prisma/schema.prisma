@@ -32,6 +32,7 @@ model User {
   interacoesIA      InteracaoIA[]
   entregasAvaliacao EntregaAvaliacao[]
   registrosConteudo RegistroMudancaConteudo[]
+  alertasSeguranca  AlertaSeguranca[]
 }
 
 model Modulo {
@@ -247,6 +248,19 @@ model InteracaoIA {
 
   aluno User  @relation(fields: [alunoId], references: [id])
   aula  Aula? @relation(fields: [aulaId], references: [id])
+}
+
+model AlertaSeguranca {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  tipo        String   // 'novo_ip'
+  mensagem    String
+  ip          String?
+  dispositivo String?
+  lido        Boolean  @default(false)
+  criadoEm   DateTime @default(now())
+
+  usuario User @relation(fields: [usuarioId], references: [id])
 }
 
 model RegistroMudancaConteudo {
