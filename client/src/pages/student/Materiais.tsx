@@ -3,29 +3,28 @@ import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
 import { apiUrl } from '../../lib/api';
 
+function getFileUrl(urlArquivo: string) {
+  return urlArquivo.startsWith('/uploads/') ? `/api${urlArquivo}` : apiUrl(urlArquivo);
+}
+
 export default function StudentMateriais() {
   const [materiais, setMateriais] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [busca, setBusca] = useState('');
-  const [materialSelecionado, setMaterialSelecionado] = useState<any | null>(null);
-  const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
     fetch('/api/aluno/materiais', {
       headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
     })
       .then((response) => response.json())
-      .then((data) => {
-        setMateriais(data);
-        setMaterialSelecionado(data[0] || null);
-      })
+      .then(setMateriais)
       .catch(() => setError('Nao foi possivel carregar a biblioteca agora.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const categorias = useMemo(() => ['todos', ...new Set(materiais.map((material) => material.categoria))], [materiais]);
+  const categorias = useMemo(() => ['todos', ...new Set(materiais.map((m) => m.categoria))], [materiais]);
 
   const filtrados = useMemo(() => {
     return materiais.filter((material) => {
@@ -45,7 +44,7 @@ export default function StudentMateriais() {
             <span className="section-kicker">Biblioteca</span>
             <h1 className="student-page-title">Materiais de apoio</h1>
             <p className="student-page-subtitle">
-              Acesse PDFs, apostilas e arquivos complementares com visualizacao integrada e download controlado.
+              Acesse PDFs, apostilas e arquivos complementares disponibilizados pelo seminario.
             </p>
           </div>
         </section>
@@ -56,13 +55,13 @@ export default function StudentMateriais() {
               <span className="section-kicker">FILTROS</span>
               <h3>Refine a biblioteca</h3>
             </div>
-            
+
             <div className="library-filter-toolbar">
               <div className="search-field">
                 <AppIcon name="search" size={16} />
-                <input aria-label="Buscar material" value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar material" />
+                <input aria-label="Buscar material" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar material" />
               </div>
-            
+
               <div className="category-filter-list">
                 {categorias.map((categoria) => (
                   <button
@@ -95,82 +94,45 @@ export default function StudentMateriais() {
               </div>
             ) : (
               <>
-                <div className="resource-grid">
-                  {filtrados.map((material) => (
-                    <article className={`resource-browser-card ${materialSelecionado?.id === material.id ? 'active' : ''}`} key={material.id}>
-                      <div className="resource-browser-body">
-                        <div className="resource-card-head">
-                          <div className="resource-browser-icon">
-                            <AppIcon name="file" size={18} />
-                          </div>
-                          <strong>{material.titulo}</strong>
-                        </div>
-                        <p>{material.descricao}</p>
-                        <div className="resource-browser-meta">
-                          <span className="badge badge-purple">{material.categoria}</span>
-                          <span>{material.tipo.toUpperCase()}</span>
-                        </div>
-                      </div>
-                      <button className="btn btn-outline btn-sm" type="button" onClick={() => { setMaterialSelecionado(material); setPdfError(false); }}>
-                        Abrir
-                      </button>
-                    </article>
-                  ))}
-                </div>
-
-                {!filtrados.length && (
+                {!filtrados.length ? (
                   <div className="empty-panel">
                     <AppIcon name="search" size={20} />
                     <p>Nenhum material corresponde aos filtros atuais.</p>
                   </div>
-                )}
-
-                {materialSelecionado && filtrados.some((item) => item.id === materialSelecionado.id) ? (
-                  <div className="panel-card material-preview-panel">
-                    <div className="material-preview-header">
-                      <div>
-                        <span className="section-kicker">Visualizacao</span>
-                        <h3>{materialSelecionado.titulo}</h3>
-                        <p>{materialSelecionado.descricao}</p>
-                      </div>
-                      <div className="resource-actions">
-                        <a className="btn btn-outline btn-sm" href={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)} target="_blank" rel="noreferrer">
-                          <AppIcon name="external" size={14} />
-                          <span>Nova guia</span>
-                        </a>
-                        {materialSelecionado.permiteDownload && (
-                          <a className="btn btn-primary btn-sm" href={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)} download>
-                            <AppIcon name="download" size={14} />
-                            <span>Download</span>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    {materialSelecionado.tipo === 'pdf' && !pdfError ? (
-                      <iframe
-                        key={materialSelecionado.id}
-                        title={materialSelecionado.titulo}
-                        src={materialSelecionado.urlArquivo.startsWith('/uploads/') ? `/api${materialSelecionado.urlArquivo}` : apiUrl(materialSelecionado.urlArquivo)}
-                        className="material-preview-frame"
-                        onError={() => setPdfError(true)}
-                      />
-                    ) : materialSelecionado.tipo === 'pdf' && pdfError ? (
-                      <div className="empty-panel">
-                        <AppIcon name="file" size={20} />
-                        <p>Não foi possível visualizar este arquivo. Use "Nova guia" para abri-lo.</p>
-                      </div>
-                    ) : (
-                      <div className="empty-panel">
-                        <AppIcon name="external" size={20} />
-                        <p>Preview indisponivel para este formato. Abra o arquivo em uma nova guia.</p>
-                      </div>
-                    )}
-                  </div>
                 ) : (
-                  <div className="empty-panel">
-                    <AppIcon name="file" size={20} />
-                    <p>Selecione um material para visualizar.</p>
+                  <div className="resource-grid">
+                    {filtrados.map((material) => {
+                      const fileUrl = getFileUrl(material.urlArquivo);
+                      return (
+                        <article className="resource-browser-card" key={material.id}>
+                          <div className="resource-browser-body">
+                            <div className="resource-card-head">
+                              <div className="resource-browser-icon">
+                                <AppIcon name="file" size={18} />
+                              </div>
+                              <strong>{material.titulo}</strong>
+                            </div>
+                            {material.descricao && <p>{material.descricao}</p>}
+                            <div className="resource-browser-meta">
+                              <span className="badge badge-purple">{material.categoria}</span>
+                              <span>{material.tipo.toUpperCase()}</span>
+                            </div>
+                          </div>
+                          <div className="resource-actions" style={{ marginTop: '0.75rem' }}>
+                            <a className="btn btn-outline btn-sm" href={fileUrl} target="_blank" rel="noreferrer">
+                              <AppIcon name="external" size={14} />
+                              <span>Abrir</span>
+                            </a>
+                            {material.permiteDownload && (
+                              <a className="btn btn-primary btn-sm" href={fileUrl} download>
+                                <AppIcon name="download" size={14} />
+                                <span>Download</span>
+                              </a>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </>
