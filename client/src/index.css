@@ -604,8 +604,8 @@ td {
   font-size: 0.9rem;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  vertical-align: top;
-  overflow-wrap: anywhere;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 tbody tr {
