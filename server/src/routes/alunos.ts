@@ -348,6 +348,8 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
         permiteConclusaoManual: podeControlarLivremente,
         origem: podeControlarLivremente ? presenca?.metodo : 'restrito'
       },
+      // Quiz only available when transcript exists (no transcript = no quiz)
+      quizzes: aula.transcricao ? aula.quizzes : [],
       melhorResultado,
       interacoesIA: interacoesIA.map(parseInteractionRecord),
       ia: iaStatus
@@ -1176,6 +1178,11 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
 
     if (!aula) {
       res.status(404).json({ error: 'Aula nao encontrada' });
+      return;
+    }
+
+    if (!aula.transcricao) {
+      res.status(400).json({ error: 'O assistente esta disponivel apenas para aulas com transcricao. Aguarde o administrador adicionar a transcricao desta aula.' });
       return;
     }
 

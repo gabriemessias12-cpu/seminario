@@ -7,7 +7,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
 import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
-import { processAIPipeline } from '../services/ai-mock.js';
+import { processAIPipeline, processIAFromTranscript } from '../services/ai-mock.js';
 import { logContentChange } from '../services/content-change-log.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
@@ -1684,6 +1684,53 @@ async function transcribeChunk(chunkFile: string, provider: NonNullable<ReturnTy
   const data = await res.json() as { text: string };
   return data.text?.trim() ?? '';
 }
+
+// POST /api/admin/aula/:id/processar-ia — save transcript and generate IA content via OpenAI
+router.post('/aula/:id/processar-ia', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const aulaId = readString(req.params.id);
+    if (!aulaId) { res.status(400).json({ error: 'ID invalido' }); return; }
+
+    const transcricao = (req.body?.transcricao ?? '').toString().trim();
+    if (!transcricao) { res.status(400).json({ error: 'Transcricao e obrigatoria.' }); return; }
+
+    const aula = await prisma.aula.findUnique({
+      where: { id: aulaId },
+      include: { modulo: true }
+    });
+    if (!aula) { res.status(404).json({ error: 'Aula nao encontrada' }); return; }
+
+    // Save transcript and mark as processing
+    await prisma.aula.update({ where: { id: aulaId }, data: { transcricao, statusIA: 'processando' } });
+
+    // Generate enrichment content from transcript
+    const result = await processIAFromTranscript(aulaId, aula.titulo, transcricao, { modulo: aula.modulo?.titulo });
+
+    await prisma.aula.update({
+      where: { id: aulaId },
+      data: {
+        resumo: result.resumo,
+        pontosChave: result.pontosChave,
+        versiculos: result.versiculos,
+        glossario: result.glossario,
+        statusIA: 'concluido'
+      }
+    });
+
+    // Create or update quiz
+    const existingQuiz = await prisma.quiz.findFirst({ where: { aulaId } });
+    if (existingQuiz) {
+      await prisma.quiz.update({ where: { id: existingQuiz.id }, data: { questoes: result.quiz } });
+    } else {
+      await prisma.quiz.create({ data: { aulaId, questoes: result.quiz } });
+    }
+
+    res.json({ ok: true, provider: result.provider });
+  } catch (error) {
+    console.error('Processar IA error:', error);
+    res.status(500).json({ error: 'Erro ao processar IA.' });
+  }
+});
 
 // POST /api/admin/aula/:id/gerar-transcricao — local Whisper (free) with API fallback
 router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {

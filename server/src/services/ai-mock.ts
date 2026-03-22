@@ -462,6 +462,217 @@ function serializePipeline(payload: PipelinePayload) {
   };
 }
 
+const enrichmentSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    resumo: { type: 'string' },
+    pontosChave: {
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 6,
+      maxItems: 10
+    },
+    versiculos: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          referencia: { type: 'string' },
+          texto: { type: 'string' }
+        },
+        required: ['referencia', 'texto']
+      },
+      minItems: 3,
+      maxItems: 6
+    },
+    glossario: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          termo: { type: 'string' },
+          definicao: { type: 'string' }
+        },
+        required: ['termo', 'definicao']
+      },
+      minItems: 4,
+      maxItems: 6
+    },
+    quiz: {
+      type: 'array',
+      minItems: 5,
+      maxItems: 5,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          pergunta: { type: 'string' },
+          alternativas: {
+            type: 'array',
+            minItems: 4,
+            maxItems: 4,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                texto: { type: 'string' },
+                correta: { type: 'boolean' }
+              },
+              required: ['texto', 'correta']
+            }
+          },
+          explicacao: { type: 'string' }
+        },
+        required: ['pergunta', 'alternativas', 'explicacao']
+      }
+    }
+  },
+  required: ['resumo', 'pontosChave', 'versiculos', 'glossario', 'quiz']
+};
+
+type EnrichmentPayload = Omit<PipelinePayload, 'transcricao'>;
+
+function buildFallbackEnrichment(titulo: string, transcricao: string): EnrichmentPayload {
+  const title = compactText(titulo);
+  const text = compactText(transcricao);
+  const matched = getMatchedResource(title, text);
+
+  const sentences = text.split(/[.!?]/).map((s) => s.trim()).filter((s) => s.length > 20);
+
+  const pontosChave: string[] = sentences.slice(0, 6).map((s) => s.endsWith('.') ? s : `${s}.`);
+  while (pontosChave.length < 6) {
+    pontosChave.push(`Estude com atenção o conteúdo apresentado nesta aula sobre ${title.toLowerCase()}.`);
+  }
+
+  const versiculos = matched?.verses || [
+    { referencia: 'Salmo 119:105', texto: 'Lâmpada para os meus pés é a tua palavra e luz para o meu caminho.' },
+    { referencia: '2 Timóteo 3:16', texto: 'Toda a Escritura é inspirada por Deus e útil para o ensino.' },
+    { referencia: 'Tiago 1:5', texto: 'Se, porém, algum de vós necessita de sabedoria, peça-a a Deus.' }
+  ];
+
+  const glossario = [
+    ...(matched?.glossary || []),
+    { termo: 'Doutrina', definicao: `Ensino bíblico sistematizado sobre ${title.toLowerCase()}.` },
+    { termo: 'Aplicação', definicao: `Movimento de levar o conteúdo de ${title.toLowerCase()} para a vida e o ministério.` },
+    { termo: 'Discernimento', definicao: 'Capacidade espiritual e bíblica de avaliar ideias e decisões à luz das Escrituras.' }
+  ].slice(0, 5);
+
+  const quiz: QuizQuestion[] = [
+    {
+      pergunta: `Qual é o tema central abordado na aula "${title}"?`,
+      alternativas: [
+        { texto: title, correta: true },
+        { texto: 'Filosofia medieval', correta: false },
+        { texto: 'Administração eclesiástica', correta: false },
+        { texto: 'História do Império Romano', correta: false }
+      ],
+      explicacao: `A aula trata de ${title.toLowerCase()} conforme apresentado na transcrição.`
+    },
+    {
+      pergunta: 'Qual postura é esperada do aluno ao estudar esse conteúdo?',
+      alternativas: [
+        { texto: 'Leitura atenta, reflexão bíblica e aplicação prática.', correta: true },
+        { texto: 'Tratar como informação sem vínculo com a vida cristã.', correta: false },
+        { texto: 'Ignorar o contexto bíblico e histórico.', correta: false },
+        { texto: 'Priorizar opiniões pessoais acima das Escrituras.', correta: false }
+      ],
+      explicacao: 'O estudo teológico saudável exige fidelidade bíblica, reflexão e aplicação.'
+    },
+    {
+      pergunta: 'O que melhor caracteriza o desenvolvimento desta aula?',
+      alternativas: [
+        { texto: pontosChave[0], correta: true },
+        { texto: 'A aula defende que doutrina e prática são opostos.', correta: false },
+        { texto: 'O contexto bíblico deve ser ignorado.', correta: false },
+        { texto: 'A Bíblia não é suficiente para o ministério.', correta: false }
+      ],
+      explicacao: 'A alternativa correta deriva dos pontos centrais da transcrição.'
+    },
+    {
+      pergunta: 'Qual resultado é esperado do estudo desta aula?',
+      alternativas: [
+        { texto: `Compreender ${title.toLowerCase()} e aplicar de forma bíblica e responsável.`, correta: true },
+        { texto: 'Substituir o conteúdo por especulações pessoais.', correta: false },
+        { texto: 'Reduzir o estudo a impressões superficiais.', correta: false },
+        { texto: 'Depender apenas de experiência pessoal.', correta: false }
+      ],
+      explicacao: `O objetivo é aprofundar a compreensão de ${title.toLowerCase()} de forma fiel e ministerial.`
+    },
+    {
+      pergunta: 'Qual é a importância da transcrição da aula para o aprendizado?',
+      alternativas: [
+        { texto: 'Serve como base para revisão, quiz e assistente de perguntas.', correta: true },
+        { texto: 'É apenas um recurso de acessibilidade sem valor pedagógico.', correta: false },
+        { texto: 'Substitui completamente o vídeo da aula.', correta: false },
+        { texto: 'É gerada apenas para fins administrativos.', correta: false }
+      ],
+      explicacao: 'A transcrição alimenta o resumo, os pontos-chave, o quiz e o assistente de IA.'
+    }
+  ];
+
+  return {
+    resumo: [
+      `Esta aula apresenta o tema "${title}" com base no conteúdo exposto na transcrição.`,
+      sentences.slice(0, 3).join(' ') || `O conteúdo organiza os fundamentos essenciais sobre ${title.toLowerCase()}.`,
+      'O aluno é encorajado a revisar os pontos-chave e aplicar o aprendizado em seu contexto ministerial.'
+    ].join('\n\n'),
+    pontosChave,
+    versiculos,
+    glossario,
+    quiz
+  };
+}
+
+// Generate resumo, pontosChave, versiculos, glossario, quiz from an existing transcript
+export async function processIAFromTranscript(
+  _aulaId: string,
+  titulo: string,
+  transcricao: string,
+  options?: { modulo?: string }
+): Promise<{ resumo: string; pontosChave: string; versiculos: string; glossario: string; quiz: string; provider: string }> {
+  const fallback = buildFallbackEnrichment(titulo, transcricao);
+
+  const serialize = (payload: EnrichmentPayload) => ({
+    resumo: payload.resumo,
+    pontosChave: JSON.stringify(payload.pontosChave),
+    versiculos: JSON.stringify(payload.versiculos),
+    glossario: JSON.stringify(payload.glossario),
+    quiz: JSON.stringify(payload.quiz)
+  });
+
+  if (!isOpenAIConfigured()) {
+    return { ...serialize(fallback), provider: 'local' };
+  }
+
+  try {
+    const payload = await callOpenAIStructured<EnrichmentPayload>(
+      'seminario_enrichment',
+      enrichmentSchema,
+      [
+        'Você é um professor de teologia do Seminário Vinha Nova.',
+        'Responda em português do Brasil.',
+        'Use APENAS o conteúdo da transcrição fornecida.',
+        'Não invente informações fora da transcrição.',
+        'O quiz deve avaliar exatamente o que foi ensinado na transcrição, com 4 alternativas e apenas 1 correta.'
+      ].join(' '),
+      [
+        `Gere o material didático para a aula "${titulo}" (Módulo: ${options?.modulo || 'Não informado'}) com base na transcrição abaixo.`,
+        '',
+        `TRANSCRIÇÃO:\n${truncateText(transcricao, 6000)}`,
+        '',
+        'Gere: resumo da aula, 6-10 pontos-chave, 3-6 versículos bíblicos relacionados ao conteúdo, 4-6 termos do glossário e 5 questões de quiz.'
+      ].join('\n')
+    );
+    return { ...serialize(payload), provider: 'openai' };
+  } catch (error) {
+    console.error('Falha ao enriquecer aula com OpenAI:', error);
+    return { ...serialize(fallback), provider: 'local' };
+  }
+}
+
 export function getAIConfig() {
   loadEnvFiles();
 

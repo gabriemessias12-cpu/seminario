@@ -33,6 +33,9 @@ export default function AdminAulaEditar() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [video, setVideo] = useState<File | null>(null);
   const [clearVideo, setClearVideo] = useState(false);
+  const [transcricao, setTranscricao] = useState('');
+  const [processingIA, setProcessingIA] = useState(false);
+  const [iaFeedback, setIaFeedback] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
@@ -63,6 +66,9 @@ export default function AdminAulaEditar() {
 
         setAula(aulaData);
         setModulos(moduleList);
+
+        // Transcript always loaded from server (not drafts)
+        setTranscricao(aulaData.transcricao || '');
 
         if (storedDraft) {
           setTitulo(storedDraft.titulo || aulaData.titulo);
@@ -159,12 +165,38 @@ export default function AdminAulaEditar() {
         setTranscriptFeedback(data.error || 'Transcricao parcial salva.');
       } else {
         const provider = data.provider ? ` via ${data.provider}` : '';
-        setTranscriptFeedback(`Transcricao gerada com sucesso${provider} (${data.chars} caracteres, ${data.chunks ?? 1} parte${data.chunks !== 1 ? 's' : ''}). Ja esta disponivel na aula.`);
+        setTranscriptFeedback(`Transcricao obtida com sucesso${provider} (${data.chars} caracteres). Revise abaixo e clique em "Salvar transcricao e gerar conteudo com IA".`);
+        // Reload transcript from server into textarea
+        const aulaRes = await fetch(`/api/admin/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (aulaRes.ok) {
+          const aulaData = await aulaRes.json();
+          setTranscricao(aulaData.transcricao || '');
+        }
       }
     } catch (error) {
       setTranscriptFeedback(error instanceof Error ? error.message : 'Nao foi possivel gerar a transcricao.');
     } finally {
       setGeneratingTranscript(false);
+    }
+  };
+
+  const handleProcessIA = async () => {
+    if (!id || !transcricao.trim()) return;
+    setProcessingIA(true);
+    setIaFeedback('');
+    try {
+      const response = await fetch(`/api/admin/aula/${id}/processar-ia`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcricao: transcricao.trim() })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Erro ao processar IA');
+      setIaFeedback(`Conteudo gerado com sucesso via ${data.provider}. Versiculos, pontos-chave, glossario e quiz atualizados.`);
+    } catch (error) {
+      setIaFeedback(error instanceof Error ? error.message : 'Erro ao gerar conteudo com IA.');
+    } finally {
+      setProcessingIA(false);
     }
   };
 
@@ -381,6 +413,35 @@ export default function AdminAulaEditar() {
 
           {feedback && <div className="inline-feedback warning">{feedback}</div>}
 
+          <div className="surface-stack">
+            <div className="form-group">
+              <label className="form-label">Transcricao da aula</label>
+              <p className="form-helper-text">
+                Cole aqui a transcricao da aula. Sem transcricao, o assistente de IA e o quiz ficam indisponiveis para os alunos.
+              </p>
+              <textarea
+                className="form-textarea"
+                rows={10}
+                placeholder="Cole ou digite a transcricao da aula aqui..."
+                value={transcricao}
+                onChange={(e) => setTranscricao(e.target.value)}
+              />
+            </div>
+            {iaFeedback && (
+              <div className={`inline-feedback ${iaFeedback.startsWith('Conteudo gerado') ? 'success' : 'warning'}`}>
+                {iaFeedback}
+              </div>
+            )}
+            <button
+              className="btn btn-primary"
+              disabled={processingIA || !transcricao.trim()}
+              onClick={handleProcessIA}
+              type="button"
+            >
+              {processingIA ? 'Gerando versiculos, pontos-chave, glossario e quiz...' : 'Salvar transcricao e gerar conteudo com IA'}
+            </button>
+          </div>
+
           {aula?.videoTipo === 'youtube' && (
             <div className="surface-stack">
               {transcriptFeedback && (
@@ -389,7 +450,7 @@ export default function AdminAulaEditar() {
                 </div>
               )}
               <button className="btn btn-outline" disabled={generatingTranscript} onClick={handleGenerateTranscript} type="button">
-                {generatingTranscript ? 'Baixando audio e transcrevendo (pode levar 20-60 min para aulas longas)...' : 'Gerar transcricao (Whisper local — gratuito)'}
+                {generatingTranscript ? 'Buscando transcricao automatica...' : 'Buscar transcricao automatica do YouTube'}
               </button>
             </div>
           )}
