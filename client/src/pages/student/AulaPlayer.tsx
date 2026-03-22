@@ -95,13 +95,29 @@ export default function StudentAulaPlayer() {
   }, [duration]);
 
   useEffect(() => {
+    // Reset all lesson state before loading new lesson to avoid leaking previous lesson's progress
     setLoadError('');
+    setAula(null);
+    setPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setMaxWatched(0);
+    setCompleted(false);
+    setNotes('');
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(null);
+    setYoutubeVideoId(null);
+    setAssistantMessages([]);
+    setLessonFeedback('');
+    currentTimeRef.current = 0;
+    durationRef.current = 0;
+
     Promise.all([
       fetch(`/api/aluno/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
       fetch('/api/aluno/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
     ])
       .then(([lessonData, modules]) => {
-        setPlaying(false);
         setAula(lessonData);
         setAssistantMessages(lessonData.interacoesIA || []);
 
