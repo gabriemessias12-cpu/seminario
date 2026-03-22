@@ -344,7 +344,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
 router.get('/aula/:id/ytk', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const aulaId = readString(req.params.id);
-    const userId = req.userId;
+    const userId = req.user?.userId;
     if (!aulaId || !userId) {
       res.status(400).json({ error: 'Parametros invalidos' });
       return;
