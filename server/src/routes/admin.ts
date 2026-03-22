@@ -1433,7 +1433,55 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
   }
 });
 
-// POST /api/admin/aula/:id/gerar-transcricao — uses yt-dlp + OpenAI Whisper
+// Splits audio file into chunks of `chunkSecs` seconds using ffmpeg
+async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSecs = 1200): Promise<string[]> {
+  const { stdout } = await execAsync(
+    `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${audioFile}"`
+  );
+  const totalSecs = parseFloat(stdout.trim());
+  if (!totalSecs || Number.isNaN(totalSecs)) throw new Error('Nao foi possivel determinar a duracao do audio.');
+
+  const numChunks = Math.ceil(totalSecs / chunkSecs);
+  const chunks: string[] = [];
+
+  for (let i = 0; i < numChunks; i++) {
+    const start = i * chunkSecs;
+    const chunkFile = path.join(tempDir, `chunk-${String(i).padStart(3, '0')}.mp3`);
+    // 32kbps mono 16kHz — enough for speech, keeps chunks small (~4.6MB per 20min)
+    await execAsync(
+      `ffmpeg -y -i "${audioFile}" -ss ${start} -t ${chunkSecs} -ar 16000 -ac 1 -b:a 32k -f mp3 "${chunkFile}"`,
+      { timeout: 120000 }
+    );
+    chunks.push(chunkFile);
+  }
+
+  return chunks;
+}
+
+async function transcribeChunk(chunkFile: string, apiKey: string): Promise<string> {
+  const audioBuffer = await readFile(chunkFile);
+  const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+  const formData = new FormData();
+  formData.append('file', blob, path.basename(chunkFile));
+  formData.append('model', 'whisper-1');
+  formData.append('language', 'pt');
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Whisper HTTP ${res.status}: ${err}`);
+  }
+
+  const data = await res.json() as { text: string };
+  return data.text?.trim() ?? '';
+}
+
+// POST /api/admin/aula/:id/gerar-transcricao — yt-dlp download + ffmpeg chunking + OpenAI Whisper
 router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   const aulaId = readString(req.params.id);
   if (!aulaId) {
@@ -1464,55 +1512,41 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   }
 
   const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
-  const tempAudio = path.join(tempDir, 'audio.mp3');
+  const rawAudio = path.join(tempDir, 'raw.mp3');
 
   try {
-    // Download audio-only at low quality (48kbps) via yt-dlp
+    // 1. Download audio-only via yt-dlp (no quality restriction here — ffmpeg will re-encode)
     await execAsync(
-      `yt-dlp -x --audio-format mp3 --audio-quality 48K --no-playlist --no-warnings -o "${tempAudio}" "https://www.youtube.com/watch?v=${videoId}"`,
-      { timeout: 180000 }
+      `yt-dlp -x --audio-format mp3 --no-playlist --no-warnings -o "${rawAudio}" "https://www.youtube.com/watch?v=${videoId}"`,
+      { timeout: 600000 } // 10 min for long videos
     );
 
-    const { size } = await stat(tempAudio);
-    const MAX_BYTES = 24 * 1024 * 1024; // 24MB (Whisper limit is 25MB)
-    if (size > MAX_BYTES) {
-      res.status(422).json({ error: `Audio muito longo (${Math.round(size / 1024 / 1024)}MB). O limite do Whisper e 25MB (~1h de audio). Divida o video ou use uma versao mais curta.` });
-      return;
+    // 2. Split into 20-min chunks at 32kbps mono 16kHz (~4.6MB each — well under Whisper's 25MB)
+    const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
+
+    // 3. Transcribe each chunk sequentially
+    const parts: string[] = [];
+    for (const chunk of chunks) {
+      const part = await transcribeChunk(chunk, apiKey);
+      if (part) parts.push(part);
     }
 
-    // Send to OpenAI Whisper
-    const audioBuffer = await readFile(tempAudio);
-    const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-    const formData = new FormData();
-    formData.append('file', blob, 'audio.mp3');
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'pt');
-
-    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData
-    });
-
-    if (!whisperRes.ok) {
-      const errText = await whisperRes.text();
-      console.error('Whisper error:', errText);
-      res.status(502).json({ error: `Erro no Whisper (${whisperRes.status}). Verifique o credito da conta OpenAI.` });
-      return;
-    }
-
-    const { text } = await whisperRes.json() as { text: string };
-    const transcricao = text.trim();
+    const transcricao = parts.join(' ').replace(/\s+/g, ' ').trim();
 
     await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
-    res.json({ ok: true, chars: transcricao.length });
+
+    const minutes = chunks.length * 20;
+    const estimatedCost = (minutes * 0.006).toFixed(2);
+    res.json({ ok: true, chars: transcricao.length, chunks: chunks.length, estimatedCostUsd: estimatedCost });
   } catch (error) {
     console.error('Transcricao error:', error);
     const msg = error instanceof Error ? error.message : '';
-    if (msg.includes('yt-dlp') || msg.includes('ERROR')) {
-      res.status(422).json({ error: 'Nao foi possivel baixar o audio do YouTube. O video pode ser privado ou restrito.' });
+    if (msg.includes('yt-dlp') || msg.toLowerCase().includes('unable to') || msg.includes('ERROR')) {
+      res.status(422).json({ error: 'Nao foi possivel baixar o audio do YouTube. O video pode ser privado, restrito ou indisponivel.' });
+    } else if (msg.includes('Whisper HTTP')) {
+      res.status(502).json({ error: `Erro na API OpenAI. Verifique o credito da conta. Detalhe: ${msg}` });
     } else {
-      res.status(500).json({ error: 'Erro ao gerar transcricao via Whisper.' });
+      res.status(500).json({ error: 'Erro ao gerar transcricao.' });
     }
   } finally {
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});

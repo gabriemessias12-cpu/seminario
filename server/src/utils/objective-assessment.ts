@@ -68,7 +68,7 @@ export function parseObjectiveQuestions(value: unknown): ObjectiveQuestion[] {
       const gabarito = typeof question.gabarito === 'string' && question.gabarito.trim()
         ? question.gabarito.trim()
         : null;
-      return [{ id, tipo, enunciado, gabarito, explicacao }];
+      return [{ id, tipo, enunciado, gabarito, explicacao } as ObjectiveQuestion];
     }
 
     // objetiva
