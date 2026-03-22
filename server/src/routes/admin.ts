@@ -23,7 +23,7 @@ const execAsync = promisify(exec);
 async function getYoutubeDuration(videoId: string): Promise<number> {
   try {
     const { stdout } = await execAsync(
-      `yt-dlp --print duration --no-playlist -q "https://www.youtube.com/watch?v=${videoId}"`,
+      `yt-dlp --print duration --no-playlist -q --extractor-args "youtube:player_client=ios,mweb" "https://www.youtube.com/watch?v=${videoId}"`,
       { timeout: 30000 }
     );
     const secs = Number(stdout.trim());
@@ -1674,7 +1674,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   try {
     // 1. Download audio-only via yt-dlp
     await execAsync(
-      `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -P "${tempDir}" -o "audio.%(ext)s" "https://www.youtube.com/watch?v=${videoId}"`,
+      `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --extractor-args "youtube:player_client=ios,mweb" -P "${tempDir}" -o "audio.%(ext)s" "https://www.youtube.com/watch?v=${videoId}"`,
       { timeout: 600000 }
     );
 
