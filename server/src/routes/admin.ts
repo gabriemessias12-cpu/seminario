@@ -1458,22 +1458,47 @@ async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSec
   return chunks;
 }
 
-async function transcribeChunk(chunkFile: string, apiKey: string): Promise<string> {
+function getTranscriptionProvider(): { endpoint: string; apiKey: string; model: string; provider: string } {
+  const groqKey = process.env.GROQ_API_KEY?.trim();
+  if (groqKey) {
+    return {
+      endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+      apiKey: groqKey,
+      model: 'whisper-large-v3-turbo',
+      provider: 'Groq'
+    };
+  }
+  const openaiKey = process.env.OPENAI_API_KEY?.trim();
+  if (openaiKey) {
+    return {
+      endpoint: 'https://api.openai.com/v1/audio/transcriptions',
+      apiKey: openaiKey,
+      model: 'whisper-1',
+      provider: 'OpenAI'
+    };
+  }
+  throw new Error('Nenhuma API de transcricao configurada. Defina GROQ_API_KEY (gratis) ou OPENAI_API_KEY.');
+}
+
+async function transcribeChunk(chunkFile: string, provider: ReturnType<typeof getTranscriptionProvider>): Promise<string> {
   const audioBuffer = await readFile(chunkFile);
   const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
   const formData = new FormData();
   formData.append('file', blob, path.basename(chunkFile));
-  formData.append('model', 'whisper-1');
+  formData.append('model', provider.model);
   formData.append('language', 'pt');
 
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const res = await fetch(provider.endpoint, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${provider.apiKey}` },
     body: formData
   });
 
   if (!res.ok) {
     const err = await res.text();
+    if (res.status === 429) {
+      throw new Error(`RATE_LIMIT: ${err}`);
+    }
     throw new Error(`Whisper HTTP ${res.status}: ${err}`);
   }
 
@@ -1486,12 +1511,6 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   const aulaId = readString(req.params.id);
   if (!aulaId) {
     res.status(400).json({ error: 'ID invalido' });
-    return;
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) {
-    res.status(503).json({ error: 'OpenAI nao configurado no servidor.' });
     return;
   }
 
@@ -1514,37 +1533,79 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
   const rawAudio = path.join(tempDir, 'raw.mp3');
 
+  let provider: ReturnType<typeof getTranscriptionProvider>;
   try {
-    // 1. Download audio-only via yt-dlp (no quality restriction here — ffmpeg will re-encode)
+    provider = getTranscriptionProvider();
+  } catch (e) {
+    res.status(503).json({ error: e instanceof Error ? e.message : 'API nao configurada.' });
+    return;
+  }
+
+  try {
+    // 1. Download audio-only via yt-dlp
     await execAsync(
       `yt-dlp -x --audio-format mp3 --no-playlist --no-warnings -o "${rawAudio}" "https://www.youtube.com/watch?v=${videoId}"`,
-      { timeout: 600000 } // 10 min for long videos
+      { timeout: 600000 }
     );
 
-    // 2. Split into 20-min chunks at 32kbps mono 16kHz (~4.6MB each — well under Whisper's 25MB)
+    // 2. Split into 20-min chunks at 32kbps mono 16kHz (~4.6MB each)
     const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
 
-    // 3. Transcribe each chunk sequentially
+    // 3. Transcribe each chunk — save partial progress if rate-limited
     const parts: string[] = [];
+    let rateLimited = false;
+    let completedChunks = 0;
+
     for (const chunk of chunks) {
-      const part = await transcribeChunk(chunk, apiKey);
-      if (part) parts.push(part);
+      try {
+        const part = await transcribeChunk(chunk, provider);
+        if (part) parts.push(part);
+        completedChunks++;
+      } catch (chunkError) {
+        const msg = chunkError instanceof Error ? chunkError.message : '';
+        if (msg.startsWith('RATE_LIMIT')) {
+          rateLimited = true;
+          break;
+        }
+        throw chunkError;
+      }
     }
 
     const transcricao = parts.join(' ').replace(/\s+/g, ' ').trim();
 
-    await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
+    // Save whatever was transcribed so far
+    if (transcricao) {
+      await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
+    }
 
-    const minutes = chunks.length * 20;
-    const estimatedCost = (minutes * 0.006).toFixed(2);
-    res.json({ ok: true, chars: transcricao.length, chunks: chunks.length, estimatedCostUsd: estimatedCost });
+    if (rateLimited) {
+      const minutesDone = completedChunks * 20;
+      const minutesTotal = chunks.length * 20;
+      res.status(206).json({
+        ok: false,
+        partial: true,
+        chars: transcricao.length,
+        completedChunks,
+        totalChunks: chunks.length,
+        provider: provider.provider,
+        error: `Limite diario do Groq atingido apos ${minutesDone} min (de ${minutesTotal} min). A transcricao parcial foi salva. Clique novamente amanha para continuar, ou configure OPENAI_API_KEY como alternativa.`
+      });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      chars: transcricao.length,
+      chunks: chunks.length,
+      provider: provider.provider
+    });
   } catch (error) {
     console.error('Transcricao error:', error);
     const msg = error instanceof Error ? error.message : '';
     if (msg.includes('yt-dlp') || msg.toLowerCase().includes('unable to') || msg.includes('ERROR')) {
-      res.status(422).json({ error: 'Nao foi possivel baixar o audio do YouTube. O video pode ser privado, restrito ou indisponivel.' });
+      res.status(422).json({ error: 'Nao foi possivel baixar o audio. O video pode ser privado, restrito ou indisponivel.' });
     } else if (msg.includes('Whisper HTTP')) {
-      res.status(502).json({ error: `Erro na API OpenAI. Verifique o credito da conta. Detalhe: ${msg}` });
+      res.status(502).json({ error: `Erro na API de transcricao. Detalhe: ${msg}` });
     } else {
       res.status(500).json({ error: 'Erro ao gerar transcricao.' });
     }

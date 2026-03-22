@@ -162,8 +162,12 @@ export default function AdminAulaEditar() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Erro ao gerar transcricao');
-      const custo = data.estimatedCostUsd ? ` | Custo estimado: U$${data.estimatedCostUsd}` : '';
-      setTranscriptFeedback(`Transcricao gerada com sucesso (${data.chars} caracteres, ${data.chunks ?? 1} parte${data.chunks !== 1 ? 's' : ''}${custo}). Ja esta disponivel na aula.`);
+      if (data.partial) {
+        setTranscriptFeedback(data.error || 'Transcricao parcial salva.');
+      } else {
+        const provider = data.provider ? ` via ${data.provider}` : '';
+        setTranscriptFeedback(`Transcricao gerada com sucesso${provider} (${data.chars} caracteres, ${data.chunks ?? 1} parte${data.chunks !== 1 ? 's' : ''}). Ja esta disponivel na aula.`);
+      }
     } catch (error) {
       setTranscriptFeedback(error instanceof Error ? error.message : 'Nao foi possivel gerar a transcricao.');
     } finally {
