@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import AvatarCropModal from '../../components/AvatarCropModal';
 import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type FeedbackTone = 'success' | 'warning';
@@ -46,6 +47,8 @@ export default function AdminAulas() {
   const [newModTitle, setNewModTitle] = useState('');
   const [newModDesc, setNewModDesc] = useState('');
   const [newModCapaFile, setNewModCapaFile] = useState<File | null>(null);
+  const [cropCapaFile, setCropCapaFile] = useState<File | null>(null);
+  const [cropCapaTarget, setCropCapaTarget] = useState<'new' | string>('new'); // 'new' or moduloId
   const [uploadingCapaId, setUploadingCapaId] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
@@ -161,22 +164,25 @@ export default function AdminAulas() {
     }
   };
 
-  const handleEditCapa = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    const moduloId = editingCapaIdRef.current;
-    if (!file || !moduloId) return;
-    setUploadingCapaId(moduloId);
+  const handleCropCapaConfirm = async (blob: Blob) => {
+    const target = cropCapaTarget;
+    setCropCapaFile(null);
+    if (target === 'new') {
+      setNewModCapaFile(new File([blob], 'capa.jpg', { type: 'image/jpeg' }));
+      return;
+    }
+    setUploadingCapaId(target);
     try {
       const fd = new FormData();
-      fd.append('capa', file);
-      const response = await fetch(`/api/admin/modulo/${moduloId}/capa`, {
+      fd.append('capa', blob, 'capa.jpg');
+      const response = await fetch(`/api/admin/modulo/${target}/capa`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Erro ao salvar capa.');
-      setModulos((prev) => prev.map((m) => m.id === moduloId ? { ...m, capaUrl: data.capaUrl } : m));
+      setModulos((prev) => prev.map((m) => m.id === target ? { ...m, capaUrl: data.capaUrl } : m));
       setFeedbackTone('success');
       setFeedback('Capa do modulo atualizada.');
     } catch (error) {
@@ -185,8 +191,24 @@ export default function AdminAulas() {
     } finally {
       setUploadingCapaId(null);
       editingCapaIdRef.current = null;
-      if (editCapaRef.current) editCapaRef.current.value = '';
     }
+  };
+
+  const handleEditCapa = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const moduloId = editingCapaIdRef.current;
+    if (!file || !moduloId) return;
+    if (editCapaRef.current) editCapaRef.current.value = '';
+    setCropCapaTarget(moduloId);
+    setCropCapaFile(file);
+  };
+
+  const handleNewCapaSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (newModCapaRef.current) newModCapaRef.current.value = '';
+    setCropCapaTarget('new');
+    setCropCapaFile(file);
   };
 
   const handleDeleteModulo = async (id: string) => {
@@ -216,6 +238,17 @@ export default function AdminAulas() {
 
   return (
     <>
+      {cropCapaFile && (
+        <AvatarCropModal
+          file={cropCapaFile}
+          shape="rect"
+          aspectRatio={16 / 9}
+          outputSize={960}
+          onConfirm={handleCropCapaConfirm}
+          onCancel={() => { setCropCapaFile(null); editingCapaIdRef.current = null; }}
+        />
+      )}
+
       <div className="page-header page-header-split">
         <div>
           <h1>Gestao de Conteudo</h1>
@@ -258,7 +291,7 @@ export default function AdminAulas() {
               ref={newModCapaRef}
               style={{ display: 'block' }}
               type="file"
-              onChange={(e) => setNewModCapaFile(e.target.files?.[0] ?? null)}
+              onChange={handleNewCapaSelect}
             />
             {newModCapaFile && <p style={{ fontSize: '0.75rem', marginTop: '0.3rem', opacity: 0.7 }}>{newModCapaFile.name}</p>}
           </div>

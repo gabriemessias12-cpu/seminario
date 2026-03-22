@@ -5,6 +5,7 @@ interface Aluno {
   id: string;
   nome: string;
   email: string;
+  foto?: string | null;
   ativo: boolean;
   ultimoAcesso?: string | null;
   progressoGeral: number;
@@ -177,7 +178,11 @@ export default function AdminAlunos() {
                     <tr key={aluno.id}>
                       <td>
                         <div className="table-entity">
-                          <div className="table-entity-avatar">{aluno.nome?.[0]}</div>
+                          <div className="table-entity-avatar" style={{ overflow: 'hidden', padding: 0 }}>
+                            {aluno.foto
+                              ? <img alt="" src={aluno.foto} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              : aluno.nome?.[0]}
+                          </div>
                           <div className="table-entity-copy">
                             <strong>{aluno.nome}</strong>
                           </div>
@@ -221,7 +226,11 @@ export default function AdminAlunos() {
               {filtered.length ? filtered.map((aluno) => (
                 <div className="admin-list-card" key={aluno.id}>
                   <div className="admin-list-card-header">
-                    <div className="table-entity-avatar">{aluno.nome?.[0]}</div>
+                    <div className="table-entity-avatar" style={{ overflow: 'hidden', padding: 0 }}>
+                      {aluno.foto
+                        ? <img alt="" src={aluno.foto} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        : aluno.nome?.[0]}
+                    </div>
                     <div className="admin-list-card-info">
                       <strong>{aluno.nome}</strong>
                       <span className="text-muted text-sm">{aluno.email}</span>

@@ -20,6 +20,7 @@ import AdminMateriais from './pages/admin/Materiais';
 import AdminChamada from './pages/admin/Chamada';
 import AdminAvisos from './pages/admin/Avisos';
 import AdminRelatorios from './pages/admin/Relatorios';
+import AdminConfiguracoes from './pages/admin/Configuracoes';
 import AdminLayout from './components/layouts/AdminLayout';
 import { ReactNode } from 'react';
 
@@ -34,6 +35,7 @@ export const adminSidebarItems = [
   { path: '/admin/chamada', icon: 'attendance' as const, label: 'Chamada' },
   { path: '/admin/avisos', icon: 'bell' as const, label: 'Avisos' },
   { path: '/admin/relatorios', icon: 'reports' as const, label: 'Relatorios' },
+  { path: '/admin/configuracoes', icon: 'settings' as const, label: 'Configuracoes' },
 ];
 
 function ProtectedRoute({ children, role }: { children: ReactNode; role: 'aluno' | 'admin' }) {
@@ -95,6 +97,7 @@ function AppRoutes() {
               <Route path="chamada" element={<AdminChamada />} />
               <Route path="avisos" element={<AdminAvisos />} />
               <Route path="relatorios" element={<AdminRelatorios />} />
+              <Route path="configuracoes" element={<AdminConfiguracoes />} />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Routes>
           </AdminLayout>

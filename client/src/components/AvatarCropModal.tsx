@@ -4,9 +4,19 @@ interface Props {
   file: File;
   onConfirm: (blob: Blob) => void;
   onCancel: () => void;
+  shape?: 'circle' | 'rect';
+  aspectRatio?: number; // width/height, e.g. 16/9 or 3/4
+  outputSize?: number;  // output square/width px
 }
 
-export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
+export default function AvatarCropModal({
+  file,
+  onConfirm,
+  onCancel,
+  shape = 'circle',
+  aspectRatio,
+  outputSize = 400
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -15,7 +25,10 @@ export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const SIZE = 280; // preview crop size in px
+
+  // Preview area dimensions
+  const PREVIEW_W = 280;
+  const PREVIEW_H = aspectRatio ? Math.round(PREVIEW_W / aspectRatio) : 280;
 
   useEffect(() => {
     const img = new Image();
@@ -37,27 +50,37 @@ export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const scale = zoom * Math.min(SIZE / img.width, SIZE / img.height);
+    const scale = zoom * Math.min(PREVIEW_W / img.width, PREVIEW_H / img.height);
     const drawW = img.width * scale;
     const drawH = img.height * scale;
-    const x = SIZE / 2 - drawW / 2 + offsetX;
-    const y = SIZE / 2 - drawH / 2 + offsetY;
+    const x = PREVIEW_W / 2 - drawW / 2 + offsetX;
+    const y = PREVIEW_H / 2 - drawH / 2 + offsetY;
 
-    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.clearRect(0, 0, PREVIEW_W, PREVIEW_H);
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
+    if (shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(PREVIEW_W / 2, PREVIEW_H / 2, Math.min(PREVIEW_W, PREVIEW_H) / 2, 0, Math.PI * 2);
+      ctx.clip();
+    } else {
+      ctx.beginPath();
+      ctx.roundRect(0, 0, PREVIEW_W, PREVIEW_H, 8);
+      ctx.clip();
+    }
     ctx.drawImage(img, x, y, drawW, drawH);
     ctx.restore();
 
-    // Circle border
+    // Border
     ctx.beginPath();
-    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 1, 0, Math.PI * 2);
+    if (shape === 'circle') {
+      ctx.arc(PREVIEW_W / 2, PREVIEW_H / 2, Math.min(PREVIEW_W, PREVIEW_H) / 2 - 1, 0, Math.PI * 2);
+    } else {
+      ctx.roundRect(1, 1, PREVIEW_W - 2, PREVIEW_H - 2, 8);
+    }
     ctx.strokeStyle = 'rgba(130,80,255,0.8)';
     ctx.lineWidth = 2;
     ctx.stroke();
-  }, [zoom, offsetX, offsetY, imgRef.current]);
+  }, [zoom, offsetX, offsetY, imgRef.current, shape, PREVIEW_W, PREVIEW_H]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     setDragging(true);
@@ -77,23 +100,27 @@ export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
     const img = imgRef.current;
     if (!img) return;
     const out = canvasRef.current!;
-    out.width = 400;
-    out.height = 400;
+    const outH = aspectRatio ? Math.round(outputSize / aspectRatio) : outputSize;
+    out.width = outputSize;
+    out.height = outH;
     const ctx = out.getContext('2d')!;
 
-    const scale = zoom * Math.min(SIZE / img.width, SIZE / img.height);
+    const scale = zoom * Math.min(PREVIEW_W / img.width, PREVIEW_H / img.height);
     const drawW = img.width * scale;
     const drawH = img.height * scale;
-    const x = SIZE / 2 - drawW / 2 + offsetX;
-    const y = SIZE / 2 - drawH / 2 + offsetY;
+    const x = PREVIEW_W / 2 - drawW / 2 + offsetX;
+    const y = PREVIEW_H / 2 - drawH / 2 + offsetY;
 
-    // Scale from preview (SIZE) to output (400)
-    const ratio = 400 / SIZE;
+    const ratioX = outputSize / PREVIEW_W;
+    const ratioY = outH / PREVIEW_H;
+
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(200, 200, 200, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(img, x * ratio, y * ratio, drawW * ratio, drawH * ratio);
+    if (shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(outputSize / 2, outH / 2, Math.min(outputSize, outH) / 2, 0, Math.PI * 2);
+      ctx.clip();
+    }
+    ctx.drawImage(img, x * ratioX, y * ratioY, drawW * ratioX, drawH * ratioY);
     ctx.restore();
 
     out.toBlob((blob) => { if (blob) onConfirm(blob); }, 'image/jpeg', 0.92);
@@ -111,7 +138,7 @@ export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
         display: 'flex', flexDirection: 'column', gap: '1rem',
         boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
       }}>
-        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#fff' }}>Ajustar foto</h3>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#fff' }}>Ajustar imagem</h3>
         <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
           Arraste para reposicionar · Use o zoom para ajustar
         </p>
@@ -119,10 +146,11 @@ export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <canvas
             ref={previewRef}
-            width={SIZE}
-            height={SIZE}
+            width={PREVIEW_W}
+            height={PREVIEW_H}
             style={{
-              borderRadius: '50%', cursor: dragging ? 'grabbing' : 'grab',
+              borderRadius: shape === 'circle' ? '50%' : 8,
+              cursor: dragging ? 'grabbing' : 'grab',
               touchAction: 'none', userSelect: 'none',
               maxWidth: '100%'
             }}
@@ -163,7 +191,7 @@ export default function AvatarCropModal({ file, onConfirm, onCancel }: Props) {
             }}
             type="button"
           >
-            Salvar foto
+            Salvar
           </button>
         </div>
 

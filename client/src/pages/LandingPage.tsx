@@ -6,11 +6,12 @@ import AppIcon from '../components/AppIcon';
 import BrandMark from '../components/BrandMark';
 import { NavBar } from '../components/ui/tubelight-navbar';
 
-const leadershipSlides = [
-  { src: '/brand/1.jpg', name: 'Pr. Marcondes Gomes' },
-  { src: '/brand/2.jpg', name: 'Pra. Allana Marques', objectPosition: 'center 45%' },
-  { src: '/brand/3.jpg', name: 'Pr. Ralfer Fernandes', objectPosition: 'center 40%' }
-];
+interface LeadershipSlide {
+  slot: number;
+  name: string;
+  url: string;
+  objectPosition: string;
+}
 
 const posterImages = [
   '/brand/639692652_18107974729765512_7043268077148406277_n.jpg',
@@ -23,16 +24,30 @@ const posterImages = [
   '/brand/641464610_18107976949765512_2159498015526745229_n.jpg'
 ];
 
+const DEFAULT_SLIDES: LeadershipSlide[] = [
+  { slot: 1, url: '/brand/1.jpg', name: 'Pr. Marcondes Gomes', objectPosition: 'center center' },
+  { slot: 2, url: '/brand/2.jpg', name: 'Pra. Allana Marques', objectPosition: 'center 45%' },
+  { slot: 3, url: '/brand/3.jpg', name: 'Pr. Ralfer Fernandes', objectPosition: 'center 40%' }
+];
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(0);
+  const [leadershipSlides, setLeadershipSlides] = useState<LeadershipSlide[]>(DEFAULT_SLIDES);
+
+  useEffect(() => {
+    fetch('/api/brand/lideranca')
+      .then(r => r.json())
+      .then((data: LeadershipSlide[]) => { if (Array.isArray(data) && data.length) setLeadershipSlides(data); })
+      .catch(() => { /* keep defaults */ });
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       setActiveSlide((current) => (current + 1) % leadershipSlides.length);
     }, 6000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [leadershipSlides.length]);
 
   const mapHref =
     'https://www.google.com/maps/search/?api=1&query=Igreja+Vinha+Nova+Av.+Conselheiro+Julius+Arp+14+Olaria+Nova+Friburgo+RJ';
@@ -236,13 +251,13 @@ export default function LandingPage() {
               <div className="landing-carousel-visual" style={{ position: 'relative', overflow: 'hidden' }}>
                 <AnimatePresence mode="wait">
                   <motion.img
-                    key={currentSlide.src}
+                    key={currentSlide.url}
                     alt={currentSlide.name}
                     animate={{ opacity: 1 }}
                     className="landing-carousel-image"
                     exit={{ opacity: 0 }}
                     initial={{ opacity: 0 }}
-                    src={currentSlide.src}
+                    src={currentSlide.url}
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: currentSlide.objectPosition }}
                     transition={{ duration: 0.7, ease: 'easeInOut' }}
                   />

@@ -176,6 +176,42 @@ const uploadAvatar = multer({
   }
 });
 
+const brandStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, path.resolve('uploads/brand')),
+  filename: (req: any, _file, cb) => {
+    const slot = String(req.params?.slot ?? '1').replace(/[^0-9]/g, '');
+    cb(null, `lideranca-${slot}.jpg`);
+  }
+});
+const uploadBrand = multer({
+  storage: brandStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens sao permitidas.'));
+    cb(null, true);
+  }
+});
+
+const BRAND_CONFIG_PATH = path.resolve('uploads/brand/config.json');
+const DEFAULT_LEADERSHIP = [
+  { slot: 1, name: 'Pr. Marcondes Gomes', objectPosition: 'center center' },
+  { slot: 2, name: 'Pra. Allana Marques', objectPosition: 'center 45%' },
+  { slot: 3, name: 'Pr. Ralfer Fernandes', objectPosition: 'center 40%' }
+];
+
+function readBrandConfig(): typeof DEFAULT_LEADERSHIP {
+  try {
+    const raw = fs.readFileSync(BRAND_CONFIG_PATH, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_LEADERSHIP.map(d => ({ ...d }));
+  }
+}
+
+function writeBrandConfig(config: typeof DEFAULT_LEADERSHIP) {
+  fs.writeFileSync(BRAND_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+}
+
 // All admin routes require auth + admin role
 router.use(authMiddleware);
 router.use(adminMiddleware);
@@ -890,11 +926,12 @@ router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthR
     const modulo = await prisma.modulo.findUnique({ where: { id: moduloId }, select: { capaUrl: true } });
     if (!modulo) { res.status(404).json({ error: 'Modulo nao encontrado.' }); return; }
 
-    if (modulo.capaUrl?.startsWith('/uploads/thumbnails/')) {
-      fs.unlink(path.resolve(modulo.capaUrl.replace(/^\//, '')), () => {});
+    if (modulo.capaUrl) {
+      const oldPath = path.resolve(modulo.capaUrl.replace(/^\/(api\/)?/, ''));
+      fs.unlink(oldPath, () => {});
     }
 
-    const capaUrl = `/uploads/thumbnails/${req.file.filename}`;
+    const capaUrl = `/api/uploads/thumbnails/${req.file.filename}`;
     await prisma.modulo.update({ where: { id: moduloId }, data: { capaUrl } });
     res.json({ capaUrl });
   } catch (error) {
@@ -1850,6 +1887,49 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     } else {
       res.status(500).json({ error: msg || 'Erro ao gerar transcricao.' });
     }
+  }
+});
+
+// GET /api/admin/brand/lideranca — returns current leadership slides config
+router.get('/brand/lideranca', (_req: AuthRequest, res: Response): void => {
+  const config = readBrandConfig();
+  const slides = config.map((entry) => {
+    const filePath = path.resolve(`uploads/brand/lideranca-${entry.slot}.jpg`);
+    const hasUpload = fs.existsSync(filePath);
+    return {
+      slot: entry.slot,
+      name: entry.name,
+      objectPosition: entry.objectPosition,
+      url: hasUpload ? `/api/uploads/brand/lideranca-${entry.slot}.jpg` : `/brand/${entry.slot}.jpg`
+    };
+  });
+  res.json(slides);
+});
+
+// PUT /api/admin/brand/lideranca/:slot — upload photo and/or update name
+router.put('/brand/lideranca/:slot', uploadBrand.single('foto'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const slot = Number(req.params.slot);
+    if (![1, 2, 3].includes(slot)) { res.status(400).json({ error: 'Slot invalido. Use 1, 2 ou 3.' }); return; }
+
+    const config = readBrandConfig();
+    const entry = config.find(e => e.slot === slot);
+    if (!entry) { res.status(404).json({ error: 'Slot nao encontrado.' }); return; }
+
+    if (req.body?.name) entry.name = String(req.body.name).trim();
+    if (req.body?.objectPosition) entry.objectPosition = String(req.body.objectPosition).trim();
+    writeBrandConfig(config);
+
+    const filePath = path.resolve(`uploads/brand/lideranca-${slot}.jpg`);
+    const hasUpload = fs.existsSync(filePath);
+    res.json({
+      slot: entry.slot,
+      name: entry.name,
+      objectPosition: entry.objectPosition,
+      url: hasUpload ? `/api/uploads/brand/lideranca-${slot}.jpg` : `/brand/${slot}.jpg`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao salvar.' });
   }
 });
 

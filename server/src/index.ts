@@ -20,7 +20,7 @@ const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-for (const dir of ['materials', 'thumbnails', 'videos', 'submissions', 'avatars']) {
+for (const dir of ['materials', 'thumbnails', 'videos', 'submissions', 'avatars', 'brand']) {
   fs.mkdirSync(path.join(uploadRoot, dir), { recursive: true });
 }
 
@@ -42,10 +42,29 @@ app.use('/uploads/avatars', express.static(path.join(uploadRoot, 'avatars')));
 app.use('/api/uploads/materials', express.static(path.join(uploadRoot, 'materials')));
 app.use('/api/uploads/thumbnails', express.static(path.join(uploadRoot, 'thumbnails')));
 app.use('/api/uploads/avatars', express.static(path.join(uploadRoot, 'avatars')));
+app.use('/api/uploads/brand', express.static(path.join(uploadRoot, 'brand')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/aluno', alunoRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Public brand endpoint — reads same config as admin
+app.get('/api/brand/lideranca', (_req, res) => {
+  const configPath = path.join(uploadRoot, 'brand', 'config.json');
+  const DEFAULT = [
+    { slot: 1, name: 'Pr. Marcondes Gomes', objectPosition: 'center center' },
+    { slot: 2, name: 'Pra. Allana Marques', objectPosition: 'center 45%' },
+    { slot: 3, name: 'Pr. Ralfer Fernandes', objectPosition: 'center 40%' }
+  ];
+  let config = DEFAULT;
+  try { config = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch { /* use defaults */ }
+  const slides = config.map((entry) => {
+    const filePath = path.join(uploadRoot, 'brand', `lideranca-${entry.slot}.jpg`);
+    const hasUpload = fs.existsSync(filePath);
+    return { ...entry, url: hasUpload ? `/api/uploads/brand/lideranca-${entry.slot}.jpg` : `/brand/${entry.slot}.jpg` };
+  });
+  res.json(slides);
+});
 
 app.get('/api/health', (_req, res) => {
   res.json({
