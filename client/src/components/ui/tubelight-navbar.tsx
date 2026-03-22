@@ -67,7 +67,7 @@ export function NavBar({ items, className, brand, actions, mobileActions, action
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm lg:hidden"
             onClick={() => setDrawerOpen(false)}
           />
         )}
@@ -82,7 +82,7 @@ export function NavBar({ items, className, brand, actions, mobileActions, action
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="fixed left-0 top-0 z-[70] h-full w-[min(300px,85vw)] border-r border-white/10 bg-[rgba(12,8,22,0.98)] shadow-2xl md:hidden flex flex-col"
+            className="fixed left-0 top-0 z-[70] h-full w-[min(300px,85vw)] border-r border-white/10 bg-[rgba(12,8,22,0.98)] shadow-2xl lg:hidden flex flex-col"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             {/* Drawer Header */}
@@ -170,7 +170,7 @@ export function NavBar({ items, className, brand, actions, mobileActions, action
             ) : null}
 
             {/* Desktop Nav Items (md+) */}
-            <div className="nav-items-track hidden min-w-0 flex-1 items-center justify-center gap-0.5 md:flex lg:gap-1">
+            <div className="nav-items-track hidden min-w-0 flex-1 items-center justify-center gap-0.5 lg:flex lg:gap-1">
               {items.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.name;
@@ -226,13 +226,13 @@ export function NavBar({ items, className, brand, actions, mobileActions, action
 
             {/* Desktop Actions slot (not inline) */}
             {actions && !actionsInline && (
-              <div className="nav-actions-slot hidden shrink-0 items-center gap-2 md:flex">
+              <div className="nav-actions-slot hidden shrink-0 items-center gap-2 lg:flex">
                 {actions}
               </div>
             )}
 
             {/* Mobile: actions + hamburger */}
-            <div className="ml-auto flex shrink-0 items-center gap-2 md:hidden">
+            <div className="ml-auto flex shrink-0 items-center gap-2 lg:hidden">
               {/* Show compact actions on mobile (profile button, or CTA button) */}
               {actions && (
                 <div className="flex shrink-0 items-center">

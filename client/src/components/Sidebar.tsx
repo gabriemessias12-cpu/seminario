@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   BarChart3,
   BellRing,
@@ -24,7 +24,6 @@ interface SidebarProps {
 
 export default function Sidebar({ type }: SidebarProps) {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +52,7 @@ export default function Sidebar({ type }: SidebarProps) {
   const handleLogout = () => {
     setShowLogoutPopup(false);
     logout();
-    navigate('/');
+    window.location.href = '/';
   };
 
   // Close popup on outside click

@@ -8,8 +8,8 @@ import { NavBar } from '../components/ui/tubelight-navbar';
 
 const leadershipSlides = [
   { src: '/brand/1.jpg', name: 'Pr. Marcondes Gomes' },
-  { src: '/brand/2.jpg', name: 'Pra. Allana Marques' },
-  { src: '/brand/3.jpg', name: 'Pr. Ralfer Fernandes' }
+  { src: '/brand/2.jpg', name: 'Pra. Allana Marques', objectPosition: 'center 45%' },
+  { src: '/brand/3.jpg', name: 'Pr. Ralfer Fernandes', objectPosition: 'center 40%' }
 ];
 
 const posterImages = [
@@ -243,7 +243,7 @@ export default function LandingPage() {
                     exit={{ opacity: 0 }}
                     initial={{ opacity: 0 }}
                     src={currentSlide.src}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: currentSlide.objectPosition }}
                     transition={{ duration: 0.7, ease: 'easeInOut' }}
                   />
                 </AnimatePresence>

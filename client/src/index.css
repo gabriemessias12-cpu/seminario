@@ -5818,7 +5818,7 @@ input[type="file"] { min-height: 44px; }
 /* ── AulaPlayer mobile ── */
 @media (max-width: 768px) {
   .lesson-player-shell {
-    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
     gap: 0 !important;
   }
 
@@ -6147,4 +6147,111 @@ input[type="file"] { min-height: 44px; }
 
   .print-only { display: block !important; }
   .pdf-header { display: flex !important; }
+}
+
+/* ========================================
+   Mobile responsive: student + materials + lesson player
+   ======================================== */
+@media (max-width: 768px) {
+  /* Prevent horizontal overflow in student area */
+  .student-layout .main-content,
+  .student-main {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  /* ── Lesson player: fix grid → 1 column ── */
+  .lesson-player-shell {
+    grid-template-columns: 1fr !important;
+    display: grid !important;
+  }
+
+  .lesson-player-stage {
+    min-height: 220px !important;
+    border-radius: 16px !important;
+  }
+
+  .lesson-meta-band {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .lesson-meta-card {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ── Profile page: stack hero ── */
+  .profile-hero {
+    grid-template-columns: 1fr !important;
+    display: grid !important;
+  }
+
+  .profile-summary-list div span {
+    text-align: right;
+  }
+
+  /* grid-2 inside profile form → 1 col earlier */
+  .profile-card-main .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Materials page: fix filter summary inline ── */
+  .library-filter-summary {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+  }
+
+  /* Shorter PDF preview on mobile */
+  .material-preview-frame {
+    min-height: 55vh !important;
+  }
+
+  /* Material preview header: stack actions below title */
+  .material-preview-header {
+    gap: 0.75rem;
+  }
+
+  .resource-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  /* ── General text overflow prevention ── */
+  .student-page-title,
+  .student-page-subtitle,
+  .section-kicker {
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Demo player text wraps */
+  .demo-player-state p {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Description/control cards full width */
+  .lesson-meta-band .lesson-meta-card p,
+  .lesson-meta-band .lesson-meta-card span {
+    word-break: break-word;
+  }
+
+  /* Player controls: volume range narrower */
+  .volume-range {
+    width: 64px !important;
+  }
+
+  /* Playlist in lesson player: full width below video */
+  .lesson-playlist {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-color);
+  }
 }
