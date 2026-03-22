@@ -56,7 +56,7 @@ const videoStorage = multer.diskStorage({
     cb(null, `${uuidv4()}${ext}`);
   }
 });
-const uploadVideo = multer({ storage: videoStorage, limits: { fileSize: 500 * 1024 * 1024 } });
+const uploadVideo = multer({ storage: videoStorage, limits: { fileSize: 20 * 1024 * 1024 * 1024 } }); // 20 GB
 
 const materialStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, path.resolve('uploads/materials')),
