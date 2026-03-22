@@ -23,7 +23,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ type }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -50,11 +50,17 @@ export default function Sidebar({ type }: SidebarProps) {
   const initials = user?.nome?.split(' ').map((item) => item[0]).slice(0, 2).join('').toUpperCase() || '?';
 
   const handleLogout = () => {
-    setShowLogoutPopup(false);
+    const refreshToken = localStorage.getItem('refreshToken');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    logout();
-    window.location.replace('/');
+    // Invalidate refresh token server-side (fire-and-forget)
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    }).catch(() => undefined);
+    // Hard navigate to login — bypasses React Router and any re-render race conditions
+    window.location.href = type === 'admin' ? '/admin' : '/login';
   };
 
   // Close popup on outside click
