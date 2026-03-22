@@ -94,6 +94,8 @@ export default function AdminAvaliacoes() {
   const [questoesObjetivas, setQuestoesObjetivas] = useState<ObjectiveQuestion[]>(buildInitialQuestions());
 
   const [correcoes, setCorrecoes] = useState<Record<string, { nota: string; comentarioCorrecao: string; status: string }>>({});
+  // Per-question manual grading: entregaId -> questaoId -> 'correta' | 'meio-certa' | 'errada' | null
+  const [questaoStatus, setQuestaoStatus] = useState<Record<string, Record<string, 'correta' | 'meio-certa' | 'errada'>>>({});
 
   const loadData = () => {
     setLoading(true);
@@ -279,6 +281,39 @@ export default function AdminAvaliacoes() {
       ));
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Nao foi possivel carregar as entregas.');
+    }
+  };
+
+  const handleQuestaoStatus = (
+    entregaId: string,
+    questaoId: string,
+    status: 'correta' | 'meio-certa' | 'errada',
+    allItems: ReturnType<typeof buildObjectiveReview>,
+    notaMaxima: number
+  ) => {
+    const next = {
+      ...questaoStatus,
+      [entregaId]: { ...(questaoStatus[entregaId] ?? {}), [questaoId]: status }
+    };
+    setQuestaoStatus(next);
+
+    // Auto-compute nota from all graded questions
+    const entregaStatuses = next[entregaId] ?? {};
+    const valorPorQuestao = notaMaxima / allItems.length;
+    let total = 0;
+    for (const item of allItems) {
+      const s = item.tipo === 'objetiva' ? (item.correta ? 'correta' : 'errada') : (entregaStatuses[item.id] ?? null);
+      if (s === 'correta') total += valorPorQuestao;
+      else if (s === 'meio-certa') total += valorPorQuestao * 0.5;
+    }
+    // Only auto-fill if all dissertativa questions have been graded
+    const dissertativas = allItems.filter(i => i.tipo === 'dissertativa');
+    const allGraded = dissertativas.every(i => entregaStatuses[i.id]);
+    if (allGraded || dissertativas.length === 0) {
+      setCorrecoes(current => ({
+        ...current,
+        [entregaId]: { ...current[entregaId], nota: String(Math.round(total * 100) / 100) }
+      }));
     }
   };
 
@@ -832,6 +867,30 @@ export default function AdminAvaliacoes() {
                                       {item.respostaTextoAluno || <em style={{ opacity: 0.5 }}>Sem resposta</em>}
                                     </p>
                                     {item.explicacao && <p className="assessment-answer-explanation" style={{ marginTop: '0.5rem' }}><strong>Contexto:</strong> {item.explicacao}</p>}
+                                    <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.6rem' }}>
+                                      {(['correta', 'meio-certa', 'errada'] as const).map((op) => {
+                                        const current = questaoStatus[entrega.id]?.[item.id];
+                                        const colors: Record<string, string> = { correta: 'var(--color-success, #22c55e)', 'meio-certa': '#f59e0b', errada: 'var(--color-error, #ef4444)' };
+                                        const labels = { correta: 'Correta', 'meio-certa': 'Meio certa', errada: 'Errada' };
+                                        const isActive = current === op;
+                                        return (
+                                          <button
+                                            key={op}
+                                            type="button"
+                                            style={{
+                                              padding: '0.25rem 0.65rem', borderRadius: 6, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                                              border: `1.5px solid ${colors[op]}`,
+                                              background: isActive ? colors[op] : 'transparent',
+                                              color: isActive ? '#fff' : colors[op],
+                                              transition: 'all 0.15s'
+                                            }}
+                                            onClick={() => handleQuestaoStatus(entrega.id, item.id, op, objectiveReview, selectedAvaliacao.notaMaxima)}
+                                          >
+                                            {labels[op]}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 ) : (
                                   <>
