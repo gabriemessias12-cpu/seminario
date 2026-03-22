@@ -6166,20 +6166,58 @@ input[type="file"] { min-height: 44px; }
     display: grid !important;
   }
 
+  .lesson-player-main {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .lesson-player-stage {
     min-height: 220px !important;
     border-radius: 16px !important;
   }
 
+  /* Two description cards stack vertically on mobile */
   .lesson-meta-band {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: column !important;
+    align-items: stretch !important;
     gap: 0.75rem;
   }
 
   .lesson-meta-card {
     width: 100%;
+    min-width: 0;
     box-sizing: border-box;
+    flex: none !important;
+  }
+
+  /* Player controls: status text wraps */
+  .player-control-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .player-status-text {
+    width: 100%;
+    font-size: 0.75rem !important;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  /* Tabs: horizontal scroll */
+  .tabs,
+  .tabs-advanced {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar,
+  .tabs-advanced::-webkit-scrollbar { display: none; }
+
+  .tab {
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   /* ── Profile page: stack hero ── */
