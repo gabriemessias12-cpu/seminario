@@ -73,6 +73,24 @@ const materialStorage = multer.diskStorage({
 });
 const uploadMaterial = multer({ storage: materialStorage, limits: { fileSize: 100 * 1024 * 1024 } });
 
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, path.resolve('uploads/avatars')),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Apenas imagens sao permitidas.'));
+    }
+    cb(null, true);
+  }
+});
+
 // All admin routes require auth + admin role
 router.use(authMiddleware);
 router.use(adminMiddleware);
@@ -343,6 +361,30 @@ router.put('/aluno/:id/toggle', async (req: AuthRequest, res: Response): Promise
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro' });
+  }
+});
+
+// PUT /api/admin/aluno/:id/foto
+router.put('/aluno/:id/foto', uploadAvatar.single('foto'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const alunoId = readString(req.params.id);
+    if (!alunoId) { res.status(400).json({ error: 'ID invalido' }); return; }
+    if (!req.file) { res.status(400).json({ error: 'Nenhum arquivo enviado.' }); return; }
+
+    const user = await prisma.user.findUnique({ where: { id: alunoId }, select: { foto: true } });
+    if (!user) { res.status(404).json({ error: 'Aluno nao encontrado.' }); return; }
+
+    if (user.foto) {
+      const oldPath = path.resolve(user.foto.replace(/^\//, ''));
+      fs.unlink(oldPath, () => {});
+    }
+
+    const fotoUrl = `/uploads/avatars/${req.file.filename}`;
+    await prisma.user.update({ where: { id: alunoId }, data: { foto: fotoUrl } });
+    res.json({ foto: fotoUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao salvar foto.' });
   }
 });
 

@@ -30,6 +30,24 @@ const submissionStorage = multer.diskStorage({
 });
 const uploadSubmission = multer({ storage: submissionStorage, limits: { fileSize: 1024 * 1024 * 1024 } });
 
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, path.resolve('uploads/avatars')),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Apenas imagens sao permitidas.'));
+    }
+    cb(null, true);
+  }
+});
+
 type ModuloComAulas = {
   aulas: Array<{
     presencas: Array<{ status: string; metodo: string; percentual: number }>;
@@ -1085,6 +1103,29 @@ router.put('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao atualizar perfil' });
+  }
+});
+
+// PUT /api/aluno/perfil/foto
+router.put('/perfil/foto', authMiddleware, uploadAvatar.single('foto'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    if (!req.file) {
+      res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+      return;
+    }
+    const fotoUrl = `/uploads/avatars/${req.file.filename}`;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { foto: true } });
+    // Delete old avatar file if exists
+    if (user?.foto) {
+      const oldPath = path.resolve(user.foto.replace(/^\//, ''));
+      fs.unlink(oldPath, () => {});
+    }
+    await prisma.user.update({ where: { id: userId }, data: { foto: fotoUrl } });
+    res.json({ foto: fotoUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao salvar foto.' });
   }
 });
 

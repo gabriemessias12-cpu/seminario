@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
@@ -14,9 +14,11 @@ export default function StudentPerfil() {
   const [confirmacaoSenha, setConfirmacaoSenha] = useState('');
   const [saving, setSaving] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [passwordFeedback, setPasswordFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const loadPerfil = () => {
     setLoadError('');
@@ -74,7 +76,32 @@ export default function StudentPerfil() {
     }
   };
 
-  const handlePasswordChange = async (event: FormEvent) => {
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    setFeedback('');
+    try {
+      const formData = new FormData();
+      formData.append('foto', file);
+      const response = await fetch('/api/aluno/perfil/foto', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+      if (!response.ok) { setFeedback(data.error || 'Erro ao salvar foto.'); return; }
+      setPerfil((current: any) => ({ ...current, user: { ...current.user, foto: data.foto } }));
+      setFeedback('Foto atualizada com sucesso.');
+    } catch {
+      setFeedback('Erro ao enviar foto.');
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
+  const handlePasswordChange = async (event: React.FormEvent) => {
     event.preventDefault();
     setPasswordFeedback('');
 
@@ -160,10 +187,27 @@ export default function StudentPerfil() {
         <section className="profile-hero">
           <div className="profile-card profile-card-main">
             <div className="profile-card-header">
-              <div className="profile-avatar-large">{initials}</div>
+              <div className="profile-avatar-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+                {user?.foto
+                  ? <img alt="Foto de perfil" className="profile-avatar-large" src={user.foto} style={{ objectFit: 'cover', borderRadius: '50%' }} />
+                  : <div className="profile-avatar-large">{initials}</div>
+                }
+                <button
+                  aria-label="Trocar foto"
+                  className="avatar-upload-btn"
+                  disabled={uploadingPhoto}
+                  onClick={() => photoInputRef.current?.click()}
+                  style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: '50%', background: 'var(--color-primary)', border: '2px solid var(--color-bg)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  type="button"
+                >
+                  <svg fill="none" height={13} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" width={13}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+                <input accept="image/*" onChange={handlePhotoChange} ref={photoInputRef} style={{ display: 'none' }} type="file" />
+              </div>
               <div>
                 <h2>{user?.nome}</h2>
                 <p>{user?.email}</p>
+                {uploadingPhoto && <p style={{ fontSize: '0.75rem', opacity: 0.6 }}>Enviando foto...</p>}
               </div>
             </div>
 

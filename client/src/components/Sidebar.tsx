@@ -77,8 +77,8 @@ export default function Sidebar({ type }: SidebarProps) {
         onClick={() => setShowLogoutPopup((v) => !v)}
         type="button"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-white">
-          {initials}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-white overflow-hidden">
+          {user?.foto ? <img alt="" className="h-full w-full object-cover" src={user.foto} /> : initials}
         </div>
         <div className="hidden min-w-0 lg:block">
           <strong className="block max-w-[120px] truncate text-sm leading-none text-white">{user?.nome}</strong>
@@ -106,8 +106,8 @@ export default function Sidebar({ type }: SidebarProps) {
 
           {/* User info */}
           <div className="flex items-center gap-3 px-4 py-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/20 text-base font-bold text-white">
-              {initials}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/20 text-base font-bold text-white overflow-hidden">
+              {user?.foto ? <img alt="" className="h-full w-full object-cover" src={user.foto} /> : initials}
             </div>
             <div className="min-w-0">
               <strong className="block truncate text-sm text-white">{user?.nome}</strong>
@@ -138,8 +138,8 @@ export default function Sidebar({ type }: SidebarProps) {
   const MobileActions = (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-white">
-          {initials}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-white overflow-hidden">
+          {user?.foto ? <img alt="" className="h-full w-full object-cover" src={user.foto} /> : initials}
         </div>
         <div className="min-w-0">
           <strong className="block truncate text-sm text-white">{user?.nome}</strong>

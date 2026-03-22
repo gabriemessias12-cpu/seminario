@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
@@ -10,7 +10,33 @@ export default function AdminAlunoDetalhes() {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem('accessToken');
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id) return;
+    setUploadingPhoto(true);
+    setFeedback('');
+    try {
+      const formData = new FormData();
+      formData.append('foto', file);
+      const response = await fetch(`/api/admin/aluno/${id}/foto`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await response.json();
+      if (!response.ok) { setFeedback(data.error || 'Erro ao salvar foto.'); return; }
+      setAluno((current: any) => ({ ...current, foto: data.foto }));
+    } catch {
+      setFeedback('Erro ao enviar foto.');
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -80,8 +106,22 @@ export default function AdminAlunoDetalhes() {
 
         <div className="card mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-            <div style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem', fontWeight: 700, color: 'white' }}>
-              {initials}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              {aluno.foto
+                ? <img alt="Foto do aluno" src={aluno.foto} style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', objectFit: 'cover', display: 'block' }} />
+                : <div style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem', fontWeight: 700, color: 'white' }}>{initials}</div>
+              }
+              <button
+                aria-label="Trocar foto"
+                disabled={uploadingPhoto}
+                onClick={() => photoInputRef.current?.click()}
+                style={{ position: 'absolute', bottom: -6, right: -6, width: 26, height: 26, borderRadius: '50%', background: 'var(--color-primary)', border: '2px solid var(--color-bg)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                title={uploadingPhoto ? 'Enviando...' : 'Trocar foto'}
+                type="button"
+              >
+                <svg fill="none" height={12} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" width={12}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </button>
+              <input accept="image/*" onChange={handlePhotoChange} ref={photoInputRef} style={{ display: 'none' }} type="file" />
             </div>
             <div>
               <h2 style={{ fontSize: '1.5rem', marginBottom: '0.15rem' }}>{aluno.nome}</h2>
