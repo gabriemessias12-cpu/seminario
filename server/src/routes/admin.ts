@@ -19,6 +19,47 @@ import { extractYouTubeVideoId, getLessonVideoKind, normalizeLessonVideoUrl } fr
 
 const execAsync = promisify(exec);
 
+// Fetch YouTube auto-generated transcript via InnerTube API (no yt-dlp, no Whisper)
+// Returns plain text or null if unavailable
+async function fetchYoutubeTranscript(videoId: string, preferLang = 'pt'): Promise<string | null> {
+  try {
+    const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)'
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
+        videoId
+      })
+    });
+    if (!playerRes.ok) return null;
+    const data = await playerRes.json() as any;
+    const tracks: any[] = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!Array.isArray(tracks) || tracks.length === 0) return null;
+    const track = tracks.find((t) => t.languageCode === preferLang) ?? tracks[0];
+    const xmlRes = await fetch(track.baseUrl as string);
+    if (!xmlRes.ok) return null;
+    const xml = await xmlRes.text();
+    // Parse <p t="..."><s>word</s><s t="..."> word</s></p> format
+    const segments: string[] = [];
+    const pMatches = xml.matchAll(/<p\s[^>]*>(<s[^>]*>[^<]*<\/s>)+<\/p>/g);
+    for (const pm of pMatches) {
+      const words: string[] = [];
+      for (const sm of pm[0].matchAll(/<s[^>]*>([^<]*)<\/s>/g)) {
+        words.push(sm[1]);
+      }
+      const line = words.join('').trim();
+      if (line) segments.push(line);
+    }
+    if (segments.length === 0) return null;
+    return segments.join(' ').replace(/\s+/g, ' ').trim();
+  } catch {
+    return null;
+  }
+}
+
 // Auto-detect YouTube video duration using yt-dlp (returns seconds, 0 on failure)
 async function getYoutubeDuration(videoId: string): Promise<number> {
   try {
@@ -1668,83 +1709,92 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     return;
   }
 
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
-  const rawAudio = path.join(tempDir, 'audio.mp3');
-
   try {
-    // 1. Download audio-only via yt-dlp
-    await execAsync(
-      `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --extractor-args "youtube:player_client=ios,mweb" -P "${tempDir}" -o "audio.%(ext)s" "https://www.youtube.com/watch?v=${videoId}"`,
-      { timeout: 600000 }
-    );
+    // 1. Try YouTube auto-generated transcript (instant, no audio download needed)
+    const ytTranscript = await fetchYoutubeTranscript(videoId);
+    if (ytTranscript) {
+      await prisma.aula.update({ where: { id: aulaId }, data: { transcricao: ytTranscript } });
+      res.json({ ok: true, chars: ytTranscript.length, chunks: 1, provider: 'YouTube Transcript' });
+      return;
+    }
 
-    // 2. Re-encode to 16kHz mono WAV for local Whisper
-    const processedAudio = path.join(tempDir, 'audio.wav');
-    await execAsync(
-      `ffmpeg -y -i "${rawAudio}" -ar 16000 -ac 1 "${processedAudio}"`,
-      { timeout: 300000 }
-    );
+    // 2. Fallback: download audio and transcribe with local Whisper
+    const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
+    const rawAudio = path.join(tempDir, 'audio.mp3');
 
-    let transcricao = '';
-    let provider = 'Whisper local';
-
-    // 3a. Try local faster-whisper first ($0, no limits)
     try {
-      transcricao = await transcribeLocal(processedAudio);
-    } catch (localError) {
-      console.warn('Local whisper unavailable, falling back to API:', localError instanceof Error ? localError.message : localError);
+      await execAsync(
+        `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --extractor-args "youtube:player_client=ios,mweb" -P "${tempDir}" -o "audio.%(ext)s" "https://www.youtube.com/watch?v=${videoId}"`,
+        { timeout: 600000 }
+      );
 
-      // 3b. Fallback: Groq or OpenAI API with chunking
-      const apiProvider = getApiTranscriptionProvider();
-      if (!apiProvider) {
-        throw new Error('Whisper local nao disponivel e nenhuma API configurada (GROQ_API_KEY ou OPENAI_API_KEY).');
-      }
+      const processedAudio = path.join(tempDir, 'audio.wav');
+      await execAsync(
+        `ffmpeg -y -i "${rawAudio}" -ar 16000 -ac 1 "${processedAudio}"`,
+        { timeout: 300000 }
+      );
 
-      const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
-      const parts: string[] = [];
-      let rateLimited = false;
-      let completedChunks = 0;
+      let transcricao = '';
+      let provider = 'Whisper local';
 
-      for (const chunk of chunks) {
-        try {
-          const part = await transcribeChunk(chunk, apiProvider);
-          if (part) parts.push(part);
-          completedChunks++;
-        } catch (chunkError) {
-          const msg = chunkError instanceof Error ? chunkError.message : '';
-          if (msg.startsWith('RATE_LIMIT')) { rateLimited = true; break; }
-          throw chunkError;
+      try {
+        transcricao = await transcribeLocal(processedAudio);
+      } catch (localError) {
+        console.warn('Local whisper unavailable, falling back to API:', localError instanceof Error ? localError.message : localError);
+
+        const apiProvider = getApiTranscriptionProvider();
+        if (!apiProvider) {
+          throw new Error('Legendas do YouTube indisponiveis, Whisper local nao disponivel e nenhuma API configurada (GROQ_API_KEY ou OPENAI_API_KEY).');
         }
+
+        const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
+        const parts: string[] = [];
+        let rateLimited = false;
+        let completedChunks = 0;
+
+        for (const chunk of chunks) {
+          try {
+            const part = await transcribeChunk(chunk, apiProvider);
+            if (part) parts.push(part);
+            completedChunks++;
+          } catch (chunkError) {
+            const msg = chunkError instanceof Error ? chunkError.message : '';
+            if (msg.startsWith('RATE_LIMIT')) { rateLimited = true; break; }
+            throw chunkError;
+          }
+        }
+
+        transcricao = parts.join(' ').replace(/\s+/g, ' ').trim();
+        provider = apiProvider.provider;
+
+        if (transcricao) {
+          await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
+        }
+
+        if (rateLimited) {
+          const minutesDone = completedChunks * 20;
+          const minutesTotal = chunks.length * 20;
+          res.status(206).json({
+            ok: false, partial: true, chars: transcricao.length,
+            completedChunks, totalChunks: chunks.length, provider: apiProvider.provider,
+            error: `Limite diario do Groq atingido apos ${minutesDone} min (de ${minutesTotal} min). Transcricao parcial salva. Tente novamente amanha.`
+          });
+          return;
+        }
+
+        res.json({ ok: true, chars: transcricao.length, chunks: chunks.length, provider });
+        return;
       }
 
-      transcricao = parts.join(' ').replace(/\s+/g, ' ').trim();
-      provider = apiProvider.provider;
-
+      transcricao = transcricao.replace(/\s+/g, ' ').trim();
       if (transcricao) {
         await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
       }
 
-      if (rateLimited) {
-        const minutesDone = completedChunks * 20;
-        const minutesTotal = chunks.length * 20;
-        res.status(206).json({
-          ok: false, partial: true, chars: transcricao.length,
-          completedChunks, totalChunks: chunks.length, provider: apiProvider.provider,
-          error: `Limite diario do Groq atingido apos ${minutesDone} min (de ${minutesTotal} min). Transcricao parcial salva. Tente novamente amanha.`
-        });
-        return;
-      }
-
-      res.json({ ok: true, chars: transcricao.length, chunks: chunks.length, provider });
-      return;
+      res.json({ ok: true, chars: transcricao.length, chunks: 1, provider });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
     }
-
-    transcricao = transcricao.replace(/\s+/g, ' ').trim();
-    if (transcricao) {
-      await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
-    }
-
-    res.json({ ok: true, chars: transcricao.length, chunks: 1, provider });
   } catch (error) {
     console.error('Transcricao error:', error);
     const msg = error instanceof Error ? error.message : String(error);
@@ -1753,8 +1803,6 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     } else {
       res.status(500).json({ error: msg || 'Erro ao gerar transcricao.' });
     }
-  } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 });
 
