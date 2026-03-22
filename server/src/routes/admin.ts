@@ -19,6 +19,34 @@ import { extractYouTubeVideoId, getLessonVideoKind, normalizeLessonVideoUrl } fr
 
 const execAsync = promisify(exec);
 
+// Auto-detect YouTube video duration using yt-dlp (returns seconds, 0 on failure)
+async function getYoutubeDuration(videoId: string): Promise<number> {
+  try {
+    const { stdout } = await execAsync(
+      `yt-dlp --print duration --no-playlist -q "https://www.youtube.com/watch?v=${videoId}"`,
+      { timeout: 30000 }
+    );
+    const secs = Number(stdout.trim());
+    return Number.isFinite(secs) && secs > 0 ? Math.round(secs) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Auto-detect local file duration using ffprobe (returns seconds, 0 on failure)
+async function getFileDuration(filePath: string): Promise<number> {
+  try {
+    const { stdout } = await execAsync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`,
+      { timeout: 15000 }
+    );
+    const secs = Number(stdout.trim());
+    return Number.isFinite(secs) && secs > 0 ? Math.round(secs) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 const router = Router();
 const prisma = new PrismaClient();
 
@@ -468,7 +496,6 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
     const dataPublicacao = readString(req.body.dataPublicacao);
     const videoFile = req.file;
     const youtubeUrl = normalizeLessonVideoUrl(readString(req.body.youtubeUrl));
-    const duracaoMinutos = Number(readString(req.body.duracaoMinutos) || '30');
 
     if (!titulo || !moduloId) {
       res.status(400).json({ error: 'Titulo e modulo sao obrigatorios.' });
@@ -490,6 +517,19 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
       select: { titulo: true }
     });
 
+    // Auto-detect duration from video source
+    let duracaoSegundos = 1800; // default 30min fallback
+    if (videoFile) {
+      const detected = await getFileDuration(path.join('uploads', 'videos', videoFile.filename));
+      if (detected > 0) duracaoSegundos = detected;
+    } else if (youtubeUrl) {
+      const ytId = extractYouTubeVideoId(youtubeUrl);
+      if (ytId) {
+        const detected = await getYoutubeDuration(ytId);
+        if (detected > 0) duracaoSegundos = detected;
+      }
+    }
+
     const aula = await prisma.aula.create({
       data: {
         titulo,
@@ -498,7 +538,7 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
         urlVideo: videoFile ? `/uploads/videos/${videoFile.filename}` : youtubeUrl,
         publicado: shouldPublish,
         dataPublicacao: dataPublicacao ? new Date(dataPublicacao) : (shouldPublish ? new Date() : null),
-        duracaoSegundos: Number.isFinite(duracaoMinutos) && duracaoMinutos > 0 ? Math.round(duracaoMinutos * 60) : 1800,
+        duracaoSegundos,
         statusIA: 'processando'
       }
     });
@@ -572,7 +612,6 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
     const videoFile = req.file;
     const youtubeUrlInput = readString(req.body.youtubeUrl);
     const youtubeUrl = youtubeUrlInput ? normalizeLessonVideoUrl(youtubeUrlInput) : null;
-    const duracaoMinutos = Number(readString(req.body.duracaoMinutos));
 
     if (!titulo || !moduloId) {
       res.status(400).json({ error: 'Titulo e modulo sao obrigatorios.' });
@@ -614,6 +653,19 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
           ? null
           : aulaAtual.urlVideo;
 
+    // Auto-detect duration only when video source changes
+    let duracaoSegundos = aulaAtual.duracaoSegundos;
+    if (videoFile) {
+      const detected = await getFileDuration(path.join('uploads', 'videos', videoFile.filename));
+      if (detected > 0) duracaoSegundos = detected;
+    } else if (youtubeUrlInput && youtubeUrl) {
+      const ytId = extractYouTubeVideoId(youtubeUrl);
+      if (ytId) {
+        const detected = await getYoutubeDuration(ytId);
+        if (detected > 0) duracaoSegundos = detected;
+      }
+    }
+
     const aula = await prisma.aula.update({
       where: { id: aulaId },
       data: {
@@ -623,9 +675,7 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
         publicado: shouldPublish,
         dataPublicacao: dataPublicacao ? new Date(dataPublicacao) : undefined,
         urlVideo: nextVideoUrl,
-        duracaoSegundos: Number.isFinite(duracaoMinutos) && duracaoMinutos > 0
-          ? Math.round(duracaoMinutos * 60)
-          : aulaAtual.duracaoSegundos
+        duracaoSegundos
       }
     });
 
@@ -1619,12 +1669,12 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   }
 
   const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
-  const rawAudio = path.join(tempDir, 'raw.mp3');
+  const rawAudio = path.join(tempDir, 'audio.mp3');
 
   try {
     // 1. Download audio-only via yt-dlp
     await execAsync(
-      `yt-dlp -x --audio-format mp3 --no-playlist --no-warnings -o "${rawAudio}" "https://www.youtube.com/watch?v=${videoId}"`,
+      `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist -P "${tempDir}" -o "audio.%(ext)s" "https://www.youtube.com/watch?v=${videoId}"`,
       { timeout: 600000 }
     );
 
@@ -1697,10 +1747,8 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     res.json({ ok: true, chars: transcricao.length, chunks: 1, provider });
   } catch (error) {
     console.error('Transcricao error:', error);
-    const msg = error instanceof Error ? error.message : '';
-    if (msg.includes('yt-dlp') || msg.toLowerCase().includes('unable to') || msg.includes('ERROR')) {
-      res.status(422).json({ error: 'Nao foi possivel baixar o audio. O video pode ser privado, restrito ou indisponivel.' });
-    } else if (msg.includes('Whisper HTTP')) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('Whisper HTTP')) {
       res.status(502).json({ error: `Erro na API de transcricao. Detalhe: ${msg}` });
     } else {
       res.status(500).json({ error: msg || 'Erro ao gerar transcricao.' });

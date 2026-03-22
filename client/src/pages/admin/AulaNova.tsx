@@ -12,7 +12,6 @@ interface LessonDraft {
   publicar: boolean;
   sourceType: MediaSourceType;
   youtubeUrl: string;
-  duracaoMinutos: string;
   savedAt: number;
 }
 
@@ -27,7 +26,6 @@ export default function AdminAulaNova() {
   const [publicar, setPublicar] = useState(true);
   const [sourceType, setSourceType] = useState<MediaSourceType>('youtube');
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [duracaoMinutos, setDuracaoMinutos] = useState('30');
   const [video, setVideo] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
@@ -58,7 +56,6 @@ export default function AdminAulaNova() {
           setPublicar(storedDraft.publicar);
           setSourceType(storedDraft.sourceType || 'youtube');
           setYoutubeUrl(storedDraft.youtubeUrl || '');
-          setDuracaoMinutos(storedDraft.duracaoMinutos || '30');
           setDraftSavedAt(storedDraft.savedAt || null);
 
           const draftModuleExists = moduleList.some((moduleItem) => moduleItem.id === storedDraft.moduloId);
@@ -81,7 +78,6 @@ export default function AdminAulaNova() {
       descricao.trim() ||
       moduloId ||
       youtubeUrl.trim() ||
-      duracaoMinutos.trim() ||
       sourceType !== 'youtube' ||
       publicar !== true,
     );
@@ -100,11 +96,10 @@ export default function AdminAulaNova() {
       publicar,
       sourceType,
       youtubeUrl,
-      duracaoMinutos,
       savedAt: nextSavedAt,
     });
     setDraftSavedAt(nextSavedAt);
-  }, [descricao, draftReady, duracaoMinutos, moduloId, publicar, sourceType, titulo, youtubeUrl]);
+  }, [descricao, draftReady, moduloId, publicar, sourceType, titulo, youtubeUrl]);
 
   const clearLessonDraft = () => {
     clearDraft(LESSON_DRAFT_KEY);
@@ -114,7 +109,6 @@ export default function AdminAulaNova() {
     setPublicar(true);
     setSourceType('youtube');
     setYoutubeUrl('');
-    setDuracaoMinutos('30');
     setVideo(null);
     setDraftSavedAt(null);
     setAiStatus('');
@@ -130,7 +124,6 @@ export default function AdminAulaNova() {
     formData.append('descricao', descricao);
     formData.append('moduloId', moduloId);
     formData.append('publicado', String(publicar));
-    formData.append('duracaoMinutos', duracaoMinutos);
 
     if (sourceType === 'upload' && video) {
       formData.append('video', video);
@@ -210,17 +203,6 @@ export default function AdminAulaNova() {
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Duracao estimada</label>
-              <input
-                className="form-input"
-                inputMode="numeric"
-                min={1}
-                type="number"
-                value={duracaoMinutos}
-                onChange={(event) => setDuracaoMinutos(event.target.value)}
-              />
-            </div>
           </div>
 
           <div className="form-group">

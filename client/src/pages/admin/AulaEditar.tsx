@@ -10,7 +10,6 @@ interface LessonDraft {
   descricao: string;
   moduloId: string;
   publicado: boolean;
-  duracaoMinutos: string;
   sourceType: MediaSourceType;
   youtubeUrl: string;
   clearVideo: boolean;
@@ -30,7 +29,6 @@ export default function AdminAulaEditar() {
   const [descricao, setDescricao] = useState('');
   const [moduloId, setModuloId] = useState('');
   const [publicado, setPublicado] = useState(false);
-  const [duracaoMinutos, setDuracaoMinutos] = useState('30');
   const [sourceType, setSourceType] = useState<MediaSourceType>('upload');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [video, setVideo] = useState<File | null>(null);
@@ -70,7 +68,6 @@ export default function AdminAulaEditar() {
           setTitulo(storedDraft.titulo || aulaData.titulo);
           setDescricao(storedDraft.descricao || '');
           setPublicado(storedDraft.publicado);
-          setDuracaoMinutos(storedDraft.duracaoMinutos || String(Math.max(1, Math.round((aulaData.duracaoSegundos || 1800) / 60))));
           setSourceType(storedDraft.sourceType || inferSourceType(aulaData));
           setYoutubeUrl(storedDraft.youtubeUrl || '');
           setClearVideo(Boolean(storedDraft.clearVideo));
@@ -83,7 +80,6 @@ export default function AdminAulaEditar() {
           setDescricao(aulaData.descricao || '');
           setModuloId(aulaData.moduloId);
           setPublicado(aulaData.publicado);
-          setDuracaoMinutos(String(Math.max(1, Math.round((aulaData.duracaoSegundos || 1800) / 60))));
           setSourceType(inferSourceType(aulaData));
           setYoutubeUrl(aulaData.youtubeUrl || '');
         }
@@ -104,7 +100,6 @@ export default function AdminAulaEditar() {
       titulo.trim() ||
       descricao.trim() ||
       moduloId ||
-      duracaoMinutos.trim() ||
       youtubeUrl.trim() ||
       clearVideo ||
       sourceType !== 'upload' ||
@@ -123,14 +118,13 @@ export default function AdminAulaEditar() {
       descricao,
       moduloId,
       publicado,
-      duracaoMinutos,
       sourceType,
       youtubeUrl,
       clearVideo,
       savedAt: nextSavedAt,
     });
     setDraftSavedAt(nextSavedAt);
-  }, [clearVideo, descricao, draftKey, draftReady, duracaoMinutos, id, moduloId, publicado, sourceType, titulo, youtubeUrl]);
+  }, [clearVideo, descricao, draftKey, draftReady, id, moduloId, publicado, sourceType, titulo, youtubeUrl]);
 
   const clearEditDraft = () => {
     if (!aula) {
@@ -142,7 +136,6 @@ export default function AdminAulaEditar() {
     setDescricao(aula.descricao || '');
     setModuloId(aula.moduloId);
     setPublicado(aula.publicado);
-    setDuracaoMinutos(String(Math.max(1, Math.round((aula.duracaoSegundos || 1800) / 60))));
     setSourceType(inferSourceType(aula));
     setYoutubeUrl(aula.youtubeUrl || '');
     setVideo(null);
@@ -188,7 +181,6 @@ export default function AdminAulaEditar() {
     formData.append('descricao', descricao);
     formData.append('moduloId', moduloId);
     formData.append('publicado', String(publicado));
-    formData.append('duracaoMinutos', duracaoMinutos);
 
     if (sourceType === 'youtube' && youtubeUrl.trim()) {
       formData.append('youtubeUrl', youtubeUrl.trim());
@@ -280,17 +272,6 @@ export default function AdminAulaEditar() {
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Duracao estimada</label>
-              <input
-                className="form-input"
-                inputMode="numeric"
-                min={1}
-                type="number"
-                value={duracaoMinutos}
-                onChange={(event) => setDuracaoMinutos(event.target.value)}
-              />
-            </div>
           </div>
 
           <div className="form-group">
