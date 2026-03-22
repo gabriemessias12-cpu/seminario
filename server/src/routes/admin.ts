@@ -1433,7 +1433,17 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
   }
 });
 
-// Splits audio file into chunks of `chunkSecs` seconds using ffmpeg
+// Transcribe audio using local faster-whisper (preferred — $0, no limits)
+async function transcribeLocal(audioFile: string): Promise<string> {
+  const scriptPath = path.join(process.cwd(), 'whisper_transcribe.py');
+  const { stdout } = await execAsync(
+    `python3 "${scriptPath}" "${audioFile}"`,
+    { timeout: 10800000, maxBuffer: 10 * 1024 * 1024 } // 3h timeout, 10MB buffer
+  );
+  return stdout.trim();
+}
+
+// Splits audio file into 20-min chunks for API fallback (Groq 25MB limit)
 async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSecs = 1200): Promise<string[]> {
   const { stdout } = await execAsync(
     `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${audioFile}"`
@@ -1447,7 +1457,6 @@ async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSec
   for (let i = 0; i < numChunks; i++) {
     const start = i * chunkSecs;
     const chunkFile = path.join(tempDir, `chunk-${String(i).padStart(3, '0')}.mp3`);
-    // 32kbps mono 16kHz — enough for speech, keeps chunks small (~4.6MB per 20min)
     await execAsync(
       `ffmpeg -y -i "${audioFile}" -ss ${start} -t ${chunkSecs} -ar 16000 -ac 1 -b:a 32k -f mp3 "${chunkFile}"`,
       { timeout: 120000 }
@@ -1458,7 +1467,7 @@ async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSec
   return chunks;
 }
 
-function getTranscriptionProvider(): { endpoint: string; apiKey: string; model: string; provider: string } {
+function getApiTranscriptionProvider(): { endpoint: string; apiKey: string; model: string; provider: string } | null {
   const groqKey = process.env.GROQ_API_KEY?.trim();
   if (groqKey) {
     return {
@@ -1477,10 +1486,10 @@ function getTranscriptionProvider(): { endpoint: string; apiKey: string; model: 
       provider: 'OpenAI'
     };
   }
-  throw new Error('Nenhuma API de transcricao configurada. Defina GROQ_API_KEY (gratis) ou OPENAI_API_KEY.');
+  return null;
 }
 
-async function transcribeChunk(chunkFile: string, provider: ReturnType<typeof getTranscriptionProvider>): Promise<string> {
+async function transcribeChunk(chunkFile: string, provider: NonNullable<ReturnType<typeof getApiTranscriptionProvider>>): Promise<string> {
   const audioBuffer = await readFile(chunkFile);
   const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
   const formData = new FormData();
@@ -1496,9 +1505,7 @@ async function transcribeChunk(chunkFile: string, provider: ReturnType<typeof ge
 
   if (!res.ok) {
     const err = await res.text();
-    if (res.status === 429) {
-      throw new Error(`RATE_LIMIT: ${err}`);
-    }
+    if (res.status === 429) throw new Error(`RATE_LIMIT: ${err}`);
     throw new Error(`Whisper HTTP ${res.status}: ${err}`);
   }
 
@@ -1506,7 +1513,7 @@ async function transcribeChunk(chunkFile: string, provider: ReturnType<typeof ge
   return data.text?.trim() ?? '';
 }
 
-// POST /api/admin/aula/:id/gerar-transcricao — yt-dlp download + ffmpeg chunking + OpenAI Whisper
+// POST /api/admin/aula/:id/gerar-transcricao — local Whisper (free) with API fallback
 router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   const aulaId = readString(req.params.id);
   if (!aulaId) {
@@ -1533,14 +1540,6 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
   const rawAudio = path.join(tempDir, 'raw.mp3');
 
-  let provider: ReturnType<typeof getTranscriptionProvider>;
-  try {
-    provider = getTranscriptionProvider();
-  } catch (e) {
-    res.status(503).json({ error: e instanceof Error ? e.message : 'API nao configurada.' });
-    return;
-  }
-
   try {
     // 1. Download audio-only via yt-dlp
     await execAsync(
@@ -1548,57 +1547,73 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
       { timeout: 600000 }
     );
 
-    // 2. Split into 20-min chunks at 32kbps mono 16kHz (~4.6MB each)
-    const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
+    // 2. Re-encode to 16kHz mono WAV for local Whisper
+    const processedAudio = path.join(tempDir, 'audio.wav');
+    await execAsync(
+      `ffmpeg -y -i "${rawAudio}" -ar 16000 -ac 1 "${processedAudio}"`,
+      { timeout: 300000 }
+    );
 
-    // 3. Transcribe each chunk — save partial progress if rate-limited
-    const parts: string[] = [];
-    let rateLimited = false;
-    let completedChunks = 0;
+    let transcricao = '';
+    let provider = 'Whisper local';
 
-    for (const chunk of chunks) {
-      try {
-        const part = await transcribeChunk(chunk, provider);
-        if (part) parts.push(part);
-        completedChunks++;
-      } catch (chunkError) {
-        const msg = chunkError instanceof Error ? chunkError.message : '';
-        if (msg.startsWith('RATE_LIMIT')) {
-          rateLimited = true;
-          break;
-        }
-        throw chunkError;
+    // 3a. Try local faster-whisper first ($0, no limits)
+    try {
+      transcricao = await transcribeLocal(processedAudio);
+    } catch (localError) {
+      console.warn('Local whisper unavailable, falling back to API:', localError instanceof Error ? localError.message : localError);
+
+      // 3b. Fallback: Groq or OpenAI API with chunking
+      const apiProvider = getApiTranscriptionProvider();
+      if (!apiProvider) {
+        throw new Error('Whisper local nao disponivel e nenhuma API configurada (GROQ_API_KEY ou OPENAI_API_KEY).');
       }
+
+      const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
+      const parts: string[] = [];
+      let rateLimited = false;
+      let completedChunks = 0;
+
+      for (const chunk of chunks) {
+        try {
+          const part = await transcribeChunk(chunk, apiProvider);
+          if (part) parts.push(part);
+          completedChunks++;
+        } catch (chunkError) {
+          const msg = chunkError instanceof Error ? chunkError.message : '';
+          if (msg.startsWith('RATE_LIMIT')) { rateLimited = true; break; }
+          throw chunkError;
+        }
+      }
+
+      transcricao = parts.join(' ').replace(/\s+/g, ' ').trim();
+      provider = apiProvider.provider;
+
+      if (transcricao) {
+        await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
+      }
+
+      if (rateLimited) {
+        const minutesDone = completedChunks * 20;
+        const minutesTotal = chunks.length * 20;
+        res.status(206).json({
+          ok: false, partial: true, chars: transcricao.length,
+          completedChunks, totalChunks: chunks.length, provider: apiProvider.provider,
+          error: `Limite diario do Groq atingido apos ${minutesDone} min (de ${minutesTotal} min). Transcricao parcial salva. Tente novamente amanha.`
+        });
+        return;
+      }
+
+      res.json({ ok: true, chars: transcricao.length, chunks: chunks.length, provider });
+      return;
     }
 
-    const transcricao = parts.join(' ').replace(/\s+/g, ' ').trim();
-
-    // Save whatever was transcribed so far
+    transcricao = transcricao.replace(/\s+/g, ' ').trim();
     if (transcricao) {
       await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
     }
 
-    if (rateLimited) {
-      const minutesDone = completedChunks * 20;
-      const minutesTotal = chunks.length * 20;
-      res.status(206).json({
-        ok: false,
-        partial: true,
-        chars: transcricao.length,
-        completedChunks,
-        totalChunks: chunks.length,
-        provider: provider.provider,
-        error: `Limite diario do Groq atingido apos ${minutesDone} min (de ${minutesTotal} min). A transcricao parcial foi salva. Clique novamente amanha para continuar, ou configure OPENAI_API_KEY como alternativa.`
-      });
-      return;
-    }
-
-    res.json({
-      ok: true,
-      chars: transcricao.length,
-      chunks: chunks.length,
-      provider: provider.provider
-    });
+    res.json({ ok: true, chars: transcricao.length, chunks: 1, provider });
   } catch (error) {
     console.error('Transcricao error:', error);
     const msg = error instanceof Error ? error.message : '';
@@ -1607,7 +1622,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     } else if (msg.includes('Whisper HTTP')) {
       res.status(502).json({ error: `Erro na API de transcricao. Detalhe: ${msg}` });
     } else {
-      res.status(500).json({ error: 'Erro ao gerar transcricao.' });
+      res.status(500).json({ error: msg || 'Erro ao gerar transcricao.' });
     }
   } finally {
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
