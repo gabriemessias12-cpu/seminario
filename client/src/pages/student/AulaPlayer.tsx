@@ -37,13 +37,13 @@ function formatTime(seconds: number) {
   return `${minutes.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
 }
 
-function getYoutubeIdFromEmbedUrl(value: string | null | undefined) {
-  if (!value) {
+function decodeYtk(k: string, aulaId: string): string | null {
+  try {
+    const binary = atob(k);
+    return Array.from(binary).map((ch, i) => String.fromCharCode(ch.charCodeAt(0) ^ aulaId.charCodeAt(i % aulaId.length))).join('');
+  } catch {
     return null;
   }
-
-  const match = value.match(/embed\/([A-Za-z0-9_-]{11})/);
-  return match?.[1] ?? null;
 }
 
 export default function StudentAulaPlayer() {
@@ -80,10 +80,10 @@ export default function StudentAulaPlayer() {
   const [completionLoading, setCompletionLoading] = useState(false);
   const [lessonFeedback, setLessonFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
 
   const lessonControlsUnlocked = Boolean(aula?.controleVideo?.liberaSeek);
   const isYoutubeLesson = aula?.videoTipo === 'youtube';
-  const youtubeVideoId = getYoutubeIdFromEmbedUrl(aula?.videoEmbedUrl);
   const demoMode = Boolean(aula && aula.videoTipo === 'none');
 
   useEffect(() => {
@@ -127,6 +127,18 @@ export default function StudentAulaPlayer() {
       })
       .finally(() => setLoading(false));
   }, [id, token]);
+
+  useEffect(() => {
+    if (!isYoutubeLesson || !id) return;
+    fetch(`/api/aluno/aula/${id}/ytk`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.k) {
+          setYoutubeVideoId(decodeYtk(data.k, id));
+        }
+      })
+      .catch(console.error);
+  }, [id, isYoutubeLesson, token]);
 
   const saveProgress = useCallback((percentual: number, posicao: number, pausou = false) => {
     if (!id) return;

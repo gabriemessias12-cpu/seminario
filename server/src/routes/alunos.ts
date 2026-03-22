@@ -16,7 +16,7 @@ import {
   sanitizeObjectiveQuestions
 } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
-import { getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
+import { extractYouTubeVideoId, getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -319,14 +319,11 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
     const videoStreamUrl = videoTipo === 'upload'
       ? `/api/aluno/aula/${aula.id}/video?token=${generateVideoToken({ userId, aulaId: aula.id })}`
       : null;
-    const videoEmbedUrl = videoTipo === 'youtube' ? getYouTubeEmbedUrl(aula.urlVideo) : null;
-
     res.json({
       ...aula,
       urlVideo: null,
       videoTipo,
       videoStreamUrl,
-      videoEmbedUrl,
       presenca,
       controleVideo: {
         liberaSeek: podeControlarLivremente,
@@ -340,6 +337,44 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao carregar aula' });
+  }
+});
+
+// GET /api/aluno/aula/:id/ytk — returns obfuscated YouTube videoId for authenticated students
+router.get('/aula/:id/ytk', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const aulaId = readString(req.params.id);
+    const userId = req.userId;
+    if (!aulaId || !userId) {
+      res.status(400).json({ error: 'Parametros invalidos' });
+      return;
+    }
+
+    const aula = await prisma.aula.findFirst({
+      where: { id: aulaId, publicado: true },
+      select: { id: true, urlVideo: true }
+    });
+
+    if (!aula || getLessonVideoKind(aula.urlVideo) !== 'youtube') {
+      res.status(404).json({ error: 'Aula nao encontrada ou nao e YouTube' });
+      return;
+    }
+
+    const videoId = extractYouTubeVideoId(aula.urlVideo);
+    if (!videoId) {
+      res.status(404).json({ error: 'ID do video nao encontrado' });
+      return;
+    }
+
+    // XOR each char of videoId with corresponding char of aulaId, then base64-encode
+    const key = aulaId;
+    const xored = videoId.split('').map((ch, i) => ch.charCodeAt(0) ^ key.charCodeAt(i % key.length));
+    const encoded = Buffer.from(xored).toString('base64');
+
+    res.json({ k: encoded });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao obter token de video' });
   }
 });
 

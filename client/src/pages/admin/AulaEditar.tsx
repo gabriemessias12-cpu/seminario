@@ -38,6 +38,8 @@ export default function AdminAulaEditar() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
+  const [generatingTranscript, setGeneratingTranscript] = useState(false);
+  const [transcriptFeedback, setTranscriptFeedback] = useState('');
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const token = localStorage.getItem('accessToken');
@@ -147,6 +149,25 @@ export default function AdminAulaEditar() {
     setClearVideo(false);
     setDraftSavedAt(null);
     setFeedback('');
+  };
+
+  const handleGenerateTranscript = async () => {
+    if (!id) return;
+    setGeneratingTranscript(true);
+    setTranscriptFeedback('');
+    try {
+      const response = await fetch(`/api/admin/aula/${id}/gerar-transcricao`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Erro ao gerar transcricao');
+      setTranscriptFeedback(`Transcricao gerada com sucesso (${data.chars} caracteres). Ja esta disponivel na aula.`);
+    } catch (error) {
+      setTranscriptFeedback(error instanceof Error ? error.message : 'Nao foi possivel gerar a transcricao.');
+    } finally {
+      setGeneratingTranscript(false);
+    }
   };
 
   const handleSave = async () => {
@@ -373,6 +394,19 @@ export default function AdminAulaEditar() {
           </div>
 
           {feedback && <div className="inline-feedback warning">{feedback}</div>}
+
+          {aula?.videoTipo === 'youtube' && (
+            <div className="surface-stack">
+              {transcriptFeedback && (
+                <div className={`inline-feedback ${transcriptFeedback.startsWith('Transcricao gerada') ? 'success' : 'warning'}`}>
+                  {transcriptFeedback}
+                </div>
+              )}
+              <button className="btn btn-outline" disabled={generatingTranscript} onClick={handleGenerateTranscript} type="button">
+                {generatingTranscript ? 'Gerando transcricao...' : 'Gerar transcricao automaticamente'}
+              </button>
+            </div>
+          )}
 
           <div className="content-form-actions">
             <button className="btn btn-primary" disabled={saving} onClick={handleSave} type="button">

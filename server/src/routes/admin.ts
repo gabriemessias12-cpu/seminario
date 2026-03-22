@@ -11,7 +11,8 @@ import { processAIPipeline } from '../services/ai-mock.js';
 import { logContentChange } from '../services/content-change-log.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
-import { getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
+import { extractYouTubeVideoId, getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
+import { YoutubeTranscript } from 'youtube-transcript';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -1424,6 +1425,58 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
     res.json(aula);
   } catch {
     res.status(500).json({ error: 'Erro' });
+  }
+});
+
+// POST /api/admin/aula/:id/gerar-transcricao
+router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const aulaId = readString(req.params.id);
+    if (!aulaId) {
+      res.status(400).json({ error: 'ID invalido' });
+      return;
+    }
+
+    const aula = await prisma.aula.findUnique({
+      where: { id: aulaId },
+      select: { id: true, urlVideo: true }
+    });
+
+    if (!aula) {
+      res.status(404).json({ error: 'Aula nao encontrada' });
+      return;
+    }
+
+    const videoId = extractYouTubeVideoId(aula.urlVideo);
+    if (!videoId) {
+      res.status(400).json({ error: 'Esta aula nao tem video do YouTube' });
+      return;
+    }
+
+    let segments;
+    try {
+      segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'pt' });
+    } catch {
+      // Try without language preference as fallback
+      try {
+        segments = await YoutubeTranscript.fetchTranscript(videoId);
+      } catch {
+        res.status(422).json({ error: 'Transcricao indisponivel para este video. Verifique se as legendas estao ativadas no YouTube.' });
+        return;
+      }
+    }
+
+    const transcricao = segments.map((s: { text: string }) => s.text).join(' ').replace(/\s+/g, ' ').trim();
+
+    await prisma.aula.update({
+      where: { id: aulaId },
+      data: { transcricao }
+    });
+
+    res.json({ ok: true, chars: transcricao.length });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao gerar transcricao' });
   }
 });
 
