@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 # Pre-download Whisper small model (~460MB) so first transcription is instant
 RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8', download_root='/app/whisper-models')"
 
-RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos /app/uploads/submissions /app/uploads/avatars
+RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos /app/uploads/submissions /app/uploads/avatars /app/uploads/brand
 
 EXPOSE 3001
 
