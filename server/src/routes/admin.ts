@@ -73,6 +73,22 @@ const materialStorage = multer.diskStorage({
 });
 const uploadMaterial = multer({ storage: materialStorage, limits: { fileSize: 100 * 1024 * 1024 } });
 
+const thumbnailStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, path.resolve('uploads/thumbnails')),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${uuidv4()}${ext}`);
+  }
+});
+const uploadThumbnail = multer({
+  storage: thumbnailStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens sao permitidas.'));
+    cb(null, true);
+  }
+});
+
 const avatarStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, path.resolve('uploads/avatars')),
   filename: (_req, file, cb) => {
@@ -770,6 +786,29 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao atualizar modulo' });
+  }
+});
+
+// PUT /api/admin/modulo/:id/capa — upload cover image
+router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const moduloId = readString(req.params.id);
+    if (!moduloId) { res.status(400).json({ error: 'ID invalido' }); return; }
+    if (!req.file) { res.status(400).json({ error: 'Nenhum arquivo enviado.' }); return; }
+
+    const modulo = await prisma.modulo.findUnique({ where: { id: moduloId }, select: { capaUrl: true } });
+    if (!modulo) { res.status(404).json({ error: 'Modulo nao encontrado.' }); return; }
+
+    if (modulo.capaUrl?.startsWith('/uploads/thumbnails/')) {
+      fs.unlink(path.resolve(modulo.capaUrl.replace(/^\//, '')), () => {});
+    }
+
+    const capaUrl = `/uploads/thumbnails/${req.file.filename}`;
+    await prisma.modulo.update({ where: { id: moduloId }, data: { capaUrl } });
+    res.json({ capaUrl });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao salvar capa.' });
   }
 });
 

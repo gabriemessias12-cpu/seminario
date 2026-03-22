@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
 import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
@@ -45,9 +45,13 @@ export default function AdminAulas() {
   const [showNewModule, setShowNewModule] = useState(false);
   const [newModTitle, setNewModTitle] = useState('');
   const [newModDesc, setNewModDesc] = useState('');
-  const [newModCapa, setNewModCapa] = useState('');
+  const [newModCapaFile, setNewModCapaFile] = useState<File | null>(null);
+  const [uploadingCapaId, setUploadingCapaId] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const newModCapaRef = useRef<HTMLInputElement>(null);
+  const editCapaRef = useRef<HTMLInputElement>(null);
+  const editingCapaIdRef = useRef<string | null>(null);
 
   const dateTimeFormatter = useMemo(
     () =>
@@ -83,10 +87,9 @@ export default function AdminAulas() {
   useEffect(() => {
     const draft = readDraft<ModuleDraft>(MODULE_DRAFT_KEY);
     if (draft) {
-      setShowNewModule(draft.open || Boolean(draft.title || draft.description || draft.coverUrl));
+      setShowNewModule(draft.open || Boolean(draft.title || draft.description));
       setNewModTitle(draft.title || '');
       setNewModDesc(draft.description || '');
-      setNewModCapa(draft.coverUrl || '');
       setDraftSavedAt(draft.savedAt || null);
     }
     setDraftReady(true);
@@ -97,66 +100,92 @@ export default function AdminAulas() {
   }, []);
 
   useEffect(() => {
-    if (!draftReady) {
-      return;
-    }
-
-    const hasDraft = Boolean(showNewModule || newModTitle.trim() || newModDesc.trim() || newModCapa.trim());
+    if (!draftReady) return;
+    const hasDraft = Boolean(showNewModule || newModTitle.trim() || newModDesc.trim());
     if (!hasDraft) {
       clearDraft(MODULE_DRAFT_KEY);
       setDraftSavedAt(null);
       return;
     }
-
     const nextSavedAt = Date.now();
     writeDraft<ModuleDraft>(MODULE_DRAFT_KEY, {
       title: newModTitle,
       description: newModDesc,
-      coverUrl: newModCapa,
+      coverUrl: '',
       open: showNewModule,
       savedAt: nextSavedAt,
     });
     setDraftSavedAt(nextSavedAt);
-  }, [draftReady, newModCapa, newModDesc, newModTitle, showNewModule]);
+  }, [draftReady, newModDesc, newModTitle, showNewModule]);
 
   const clearModuleDraft = () => {
     clearDraft(MODULE_DRAFT_KEY);
     setNewModTitle('');
     setNewModDesc('');
-    setNewModCapa('');
+    setNewModCapaFile(null);
+    if (newModCapaRef.current) newModCapaRef.current.value = '';
     setShowNewModule(false);
     setDraftSavedAt(null);
   };
 
   const handleCreateModulo = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!newModTitle.trim()) {
-      return;
-    }
-
+    if (!newModTitle.trim()) return;
     try {
       const response = await fetch('/api/admin/modulo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          titulo: newModTitle.trim(),
-          descricao: newModDesc.trim(),
-          capaUrl: newModCapa.trim(),
-        }),
+        body: JSON.stringify({ titulo: newModTitle.trim(), descricao: newModDesc.trim() }),
       });
-
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(data?.error || 'Nao foi possivel criar o modulo.');
       }
-
+      const created = await response.json();
+      if (newModCapaFile && created.id) {
+        const fd = new FormData();
+        fd.append('capa', newModCapaFile);
+        await fetch(`/api/admin/modulo/${created.id}/capa`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+      }
       clearModuleDraft();
       setFeedbackTone('success');
-      setFeedback('Modulo criado, registrado no historico e sincronizado com a lista.');
+      setFeedback('Modulo criado com sucesso.');
       loadData();
     } catch (error) {
       setFeedbackTone('warning');
       setFeedback(error instanceof Error ? error.message : 'Nao foi possivel criar o modulo.');
+    }
+  };
+
+  const handleEditCapa = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const moduloId = editingCapaIdRef.current;
+    if (!file || !moduloId) return;
+    setUploadingCapaId(moduloId);
+    try {
+      const fd = new FormData();
+      fd.append('capa', file);
+      const response = await fetch(`/api/admin/modulo/${moduloId}/capa`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Erro ao salvar capa.');
+      setModulos((prev) => prev.map((m) => m.id === moduloId ? { ...m, capaUrl: data.capaUrl } : m));
+      setFeedbackTone('success');
+      setFeedback('Capa do modulo atualizada.');
+    } catch (error) {
+      setFeedbackTone('warning');
+      setFeedback(error instanceof Error ? error.message : 'Erro ao salvar capa.');
+    } finally {
+      setUploadingCapaId(null);
+      editingCapaIdRef.current = null;
+      if (editCapaRef.current) editCapaRef.current.value = '';
     }
   };
 
@@ -222,13 +251,16 @@ export default function AdminAulas() {
             />
           </div>
 
-          <div className="search-field mb-3">
+          <div className="form-group mb-3">
+            <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>Imagem de capa (opcional)</label>
             <input
-              aria-label="URL da imagem de capa"
-              placeholder="URL da imagem de capa (Opcional)"
-              value={newModCapa}
-              onChange={(event) => setNewModCapa(event.target.value)}
+              accept="image/*"
+              ref={newModCapaRef}
+              style={{ display: 'block' }}
+              type="file"
+              onChange={(e) => setNewModCapaFile(e.target.files?.[0] ?? null)}
             />
+            {newModCapaFile && <p style={{ fontSize: '0.75rem', marginTop: '0.3rem', opacity: 0.7 }}>{newModCapaFile.name}</p>}
           </div>
 
           <textarea
@@ -282,21 +314,46 @@ export default function AdminAulas() {
         )}
       </div>
 
+      {/* Hidden shared file input for editing existing module covers */}
+      <input accept="image/*" ref={editCapaRef} style={{ display: 'none' }} type="file" onChange={handleEditCapa} />
+
       {loading ? (
         <div className="skeleton" style={{ height: 300 }} />
       ) : modulos.length ? (
         modulos.map((modulo) => (
           <div className="module-section" key={modulo.id}>
             <div className="page-header-split" style={{ marginBottom: '0.5rem' }}>
-              <h2>{modulo.titulo}</h2>
-              <button
-                className="btn btn-outline btn-sm"
-                style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
-                type="button"
-                onClick={() => handleDeleteModulo(modulo.id)}
-              >
-                Excluir Modulo
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {modulo.capaUrl && (
+                  <img
+                    alt=""
+                    src={modulo.capaUrl}
+                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', flexShrink: 0 }}
+                  />
+                )}
+                <h2>{modulo.titulo}</h2>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={uploadingCapaId === modulo.id}
+                  type="button"
+                  onClick={() => {
+                    editingCapaIdRef.current = modulo.id;
+                    editCapaRef.current?.click();
+                  }}
+                >
+                  {uploadingCapaId === modulo.id ? 'Enviando...' : modulo.capaUrl ? 'Trocar Capa' : 'Adicionar Capa'}
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
+                  type="button"
+                  onClick={() => handleDeleteModulo(modulo.id)}
+                >
+                  Excluir Modulo
+                </button>
+              </div>
             </div>
             <p className="module-desc">{modulo.descricao}</p>
 
