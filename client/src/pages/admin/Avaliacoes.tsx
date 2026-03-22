@@ -761,7 +761,7 @@ export default function AdminAvaliacoes() {
                   <article className="assessment-review-item" key={questao.id}>
                     <h4>{index + 1}. {questao.enunciado}</h4>
                     <ul className="assessment-option-list">
-                      {questao.opcoes.map((opcao, optionIndex) => (
+                      {(questao.opcoes ?? []).map((opcao, optionIndex) => (
                         <li className={optionIndex === questao.correta ? 'correct' : ''} key={`${questao.id}-${optionIndex}`}>
                           <span>{String.fromCharCode(65 + optionIndex)}</span>
                           <p>{opcao}</p>
