@@ -175,12 +175,6 @@ export default function StudentPerfil() {
               Atualize seus dados e senha com facilidade.
             </p>
           </div>
-          <div className="student-topbar-actions print-hide">
-            <button className="btn btn-outline" onClick={handlePrint} type="button">
-              <AppIcon name="reports" size={14} />
-              <span>Imprimir boletim</span>
-            </button>
-          </div>
         </section>
 
         <section className="print-report-header print-only">
