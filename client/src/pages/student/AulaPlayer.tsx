@@ -643,6 +643,12 @@ export default function StudentAulaPlayer() {
               {isYoutubeLesson ? (
                 <div className="youtube-player-shell">
                   <div className="youtube-player-host" ref={youtubeHostRef} />
+                  {/* Overlay blocks all clicks on YouTube UI (title, logo, link) */}
+                  <div
+                    className="youtube-click-blocker"
+                    onClick={togglePlay}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
                 </div>
               ) : !demoMode ? (
                 <video

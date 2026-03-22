@@ -4734,6 +4734,20 @@ body {
   border: 0;
 }
 
+/* Transparent overlay that blocks all YouTube UI clicks (title, logo, links) */
+.youtube-click-blocker {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: pointer;
+  background: transparent;
+  /* Allow pointer events so clicks are captured here instead of the iframe */
+  pointer-events: all;
+  /* Prevent text selection / right-click reveal */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .landing-hero-grid-phase-one {
   align-items: stretch;
   grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
