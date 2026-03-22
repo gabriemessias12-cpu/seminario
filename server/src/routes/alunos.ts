@@ -1116,7 +1116,7 @@ router.put('/perfil/foto', authMiddleware, uploadAvatar.single('foto'), async (r
       res.status(400).json({ error: 'Nenhum arquivo enviado.' });
       return;
     }
-    const fotoUrl = `/uploads/avatars/${req.file.filename}`;
+    const fotoUrl = `/api/uploads/avatars/${req.file.filename}`;
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { foto: true } });
     // Delete old avatar file if exists
     if (user?.foto) {

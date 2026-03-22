@@ -464,7 +464,7 @@ router.put('/aluno/:id/foto', uploadAvatar.single('foto'), async (req: AuthReque
       fs.unlink(oldPath, () => {});
     }
 
-    const fotoUrl = `/uploads/avatars/${req.file.filename}`;
+    const fotoUrl = `/api/uploads/avatars/${req.file.filename}`;
     await prisma.user.update({ where: { id: alunoId }, data: { foto: fotoUrl } });
     res.json({ foto: fotoUrl });
   } catch (error) {

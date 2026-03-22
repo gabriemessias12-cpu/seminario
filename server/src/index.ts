@@ -41,6 +41,7 @@ app.use('/uploads/thumbnails', express.static(path.join(uploadRoot, 'thumbnails'
 app.use('/uploads/avatars', express.static(path.join(uploadRoot, 'avatars')));
 app.use('/api/uploads/materials', express.static(path.join(uploadRoot, 'materials')));
 app.use('/api/uploads/thumbnails', express.static(path.join(uploadRoot, 'thumbnails')));
+app.use('/api/uploads/avatars', express.static(path.join(uploadRoot, 'avatars')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/aluno', alunoRoutes);

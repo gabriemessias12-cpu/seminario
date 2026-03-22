@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
+import AvatarCropModal from '../../components/AvatarCropModal';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
 
 export default function StudentPerfil() {
@@ -15,6 +16,7 @@ export default function StudentPerfil() {
   const [saving, setSaving] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [feedback, setFeedback] = useState('');
   const [passwordFeedback, setPasswordFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -76,14 +78,20 @@ export default function StudentPerfil() {
     }
   };
 
-  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setCropFile(file);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
+    setCropFile(null);
     setUploadingPhoto(true);
     setFeedback('');
     try {
       const formData = new FormData();
-      formData.append('foto', file);
+      formData.append('foto', blob, 'avatar.jpg');
       const response = await fetch('/api/aluno/perfil/foto', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
@@ -97,7 +105,6 @@ export default function StudentPerfil() {
       setFeedback('Erro ao enviar foto.');
     } finally {
       setUploadingPhoto(false);
-      if (photoInputRef.current) photoInputRef.current.value = '';
     }
   };
 
@@ -184,10 +191,18 @@ export default function StudentPerfil() {
 
         {feedback && <div className="inline-feedback success">{feedback}</div>}
 
+        {cropFile && (
+          <AvatarCropModal
+            file={cropFile}
+            onConfirm={handleCropConfirm}
+            onCancel={() => { setCropFile(null); }}
+          />
+        )}
+
         <section className="profile-hero">
           <div className="profile-card profile-card-main">
-            <div className="profile-card-header">
-              <div className="profile-avatar-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+            <div className="profile-card-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
                 {user?.foto
                   ? <img alt="Foto de perfil" className="profile-avatar-large" src={user.foto} style={{ objectFit: 'cover', borderRadius: '50%' }} />
                   : <div className="profile-avatar-large">{initials}</div>
@@ -204,9 +219,9 @@ export default function StudentPerfil() {
                 </button>
                 <input accept="image/*" onChange={handlePhotoChange} ref={photoInputRef} style={{ display: 'none' }} type="file" />
               </div>
-              <div>
-                <h2>{user?.nome}</h2>
-                <p>{user?.email}</p>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={{ wordBreak: 'break-word', marginBottom: '0.15rem' }}>{user?.nome}</h2>
+                <p style={{ wordBreak: 'break-all' }}>{user?.email}</p>
                 {uploadingPhoto && <p style={{ fontSize: '0.75rem', opacity: 0.6 }}>Enviando foto...</p>}
               </div>
             </div>

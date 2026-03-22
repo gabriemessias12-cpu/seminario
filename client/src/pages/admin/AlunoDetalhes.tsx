@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import AvatarCropModal from '../../components/AvatarCropModal';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
 
 export default function AdminAlunoDetalhes() {
@@ -11,17 +12,25 @@ export default function AdminAlunoDetalhes() {
   const [feedback, setFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem('accessToken');
 
-  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !id) return;
+    setCropFile(file);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
+    setCropFile(null);
+    if (!id) return;
     setUploadingPhoto(true);
     setFeedback('');
     try {
       const formData = new FormData();
-      formData.append('foto', file);
+      formData.append('foto', blob, 'avatar.jpg');
       const response = await fetch(`/api/admin/aluno/${id}/foto`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
@@ -34,7 +43,6 @@ export default function AdminAlunoDetalhes() {
       setFeedback('Erro ao enviar foto.');
     } finally {
       setUploadingPhoto(false);
-      if (photoInputRef.current) photoInputRef.current.value = '';
     }
   };
 
@@ -104,8 +112,16 @@ export default function AdminAlunoDetalhes() {
           <span>{aluno.nome} | {aluno.email}</span>
         </section>
 
+        {cropFile && (
+          <AvatarCropModal
+            file={cropFile}
+            onConfirm={handleCropConfirm}
+            onCancel={() => setCropFile(null)}
+          />
+        )}
+
         <div className="card mb-3">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
               {aluno.foto
                 ? <img alt="Foto do aluno" src={aluno.foto} style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', objectFit: 'cover', display: 'block' }} />
@@ -123,10 +139,10 @@ export default function AdminAlunoDetalhes() {
               </button>
               <input accept="image/*" onChange={handlePhotoChange} ref={photoInputRef} style={{ display: 'none' }} type="file" />
             </div>
-            <div>
-              <h2 style={{ fontSize: '1.5rem', marginBottom: '0.15rem' }}>{aluno.nome}</h2>
-              <p className="text-muted">{aluno.email} • {aluno.telefone}</p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h2 style={{ fontSize: '1.25rem', marginBottom: '0.15rem', wordBreak: 'break-word' }}>{aluno.nome}</h2>
+              <p className="text-muted" style={{ wordBreak: 'break-all' }}>{aluno.email} • {aluno.telefone}</p>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                 <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>{aluno.ativo ? 'Ativo' : 'Inativo'}</span>
                 <span className="badge badge-purple">{aluno.papel}</span>
               </div>
