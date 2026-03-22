@@ -12,7 +12,7 @@ import { logContentChange } from '../services/content-change-log.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
 import { extractYouTubeVideoId, getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
-import { YoutubeTranscript } from 'youtube-transcript';
+import { YoutubeTranscript } from 'youtube-transcript/dist/youtube-transcript.esm.js';
 
 const router = Router();
 const prisma = new PrismaClient();
