@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import AppIcon from '../../components/AppIcon';
 
+interface EditState {
+  id: string;
+  titulo: string;
+  descricao: string;
+  categoria: string;
+  permiteDownload: boolean;
+  aulaId: string;
+}
+
 export default function AdminMateriais() {
   const [materiais, setMateriais] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +23,9 @@ export default function AdminMateriais() {
   const [aulaSelecionada, setAulaSelecionada] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editState, setEditState] = useState<EditState | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const token = localStorage.getItem('accessToken');
 
   const loadMateriais = () => {
@@ -34,7 +46,7 @@ export default function AdminMateriais() {
       .catch(() => setFeedback('Nao foi possivel carregar a relacao de aulas.'));
   }, []);
 
-  const handleUpload = async (event: React.FormEvent) => {
+  const handleUpload = async (event: { preventDefault(): void }) => {
     event.preventDefault();
     if (!arquivo) return;
     setSubmitting(true);
@@ -75,6 +87,70 @@ export default function AdminMateriais() {
       setSubmitting(false);
     }
   };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Excluir este material? Esta acao nao pode ser desfeita.')) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/material/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMateriais(prev => prev.filter(m => m.id !== id));
+        setFeedback('Material excluido com sucesso.');
+      } else {
+        setFeedback('Erro ao excluir material.');
+      }
+    } catch {
+      setFeedback('Erro ao excluir material.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openEdit = (material: any) => {
+    setEditState({
+      id: material.id,
+      titulo: material.titulo,
+      descricao: material.descricao || '',
+      categoria: material.categoria || 'geral',
+      permiteDownload: material.permiteDownload,
+      aulaId: material.materiaisAula?.[0]?.aula?.id || ''
+    });
+  };
+
+  const handleSaveEdit = async (event: { preventDefault(): void }) => {
+    event.preventDefault();
+    if (!editState) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/admin/material/${editState.id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: editState.titulo,
+          descricao: editState.descricao,
+          categoria: editState.categoria,
+          permiteDownload: editState.permiteDownload,
+          aulaId: editState.aulaId || null
+        })
+      });
+      if (res.ok) {
+        setFeedback('Material atualizado com sucesso.');
+        setEditState(null);
+        loadMateriais();
+      } else {
+        setFeedback('Erro ao atualizar material.');
+      }
+    } catch {
+      setFeedback('Erro ao atualizar material.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const allAulas = modulos.flatMap((m: any) => m.aulas?.map((a: any) => ({ id: a.id, titulo: a.titulo, modulo: m.titulo })) || []);
 
   return (
     <>
@@ -142,6 +218,53 @@ export default function AdminMateriais() {
           </div>
         )}
 
+        {editState && (
+          <div className="card mb-3 page-surface-narrow" style={{ borderLeft: '3px solid var(--color-accent)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <h3 className="section-title" style={{ margin: 0 }}>Editar material</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditState(null)} type="button">Cancelar</button>
+            </div>
+            <form onSubmit={handleSaveEdit}>
+              <div className="form-group">
+                <label className="form-label">Titulo</label>
+                <input className="form-input" value={editState.titulo} onChange={e => setEditState(s => s && ({ ...s, titulo: e.target.value }))} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Descricao</label>
+                <textarea className="form-textarea" value={editState.descricao} onChange={e => setEditState(s => s && ({ ...s, descricao: e.target.value }))} rows={3} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Categoria</label>
+                <select className="form-select" value={editState.categoria} onChange={e => setEditState(s => s && ({ ...s, categoria: e.target.value }))}>
+                  <option value="geral">Geral</option>
+                  <option value="biblico">Biblico</option>
+                  <option value="teologico">Teologico</option>
+                  <option value="devocional">Devocional</option>
+                  <option value="historico">Historico</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Aula Relacionada</label>
+                <select className="form-select" value={editState.aulaId} onChange={e => setEditState(s => s && ({ ...s, aulaId: e.target.value }))}>
+                  <option value="">Nenhuma aula vinculada</option>
+                  {allAulas.map(a => (
+                    <option key={a.id} value={a.id}>{a.modulo} — {a.titulo}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="checkbox-row">
+                  <input type="checkbox" checked={editState.permiteDownload} onChange={e => setEditState(s => s && ({ ...s, permiteDownload: e.target.checked }))} />
+                  <span>Permitir download pelos alunos</span>
+                </label>
+              </div>
+              <button className="btn btn-primary" type="submit" disabled={savingEdit}>
+                {savingEdit ? 'Salvando...' : 'Salvar alteracoes'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {loading ? (
           <div className="card-grid">{[1, 2, 3].map((item) => <div key={item} className="skeleton skeleton-card" />)}</div>
         ) : (
@@ -157,6 +280,7 @@ export default function AdminMateriais() {
                     <th>Download</th>
                     <th>Aulas</th>
                     <th>Data</th>
+                    <th>Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,9 +300,17 @@ export default function AdminMateriais() {
                       <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">Nao</span>}</td>
                       <td className="text-muted">{material.materiaisAula?.map((item: any) => item.aula?.titulo).join(', ') || '-'}</td>
                       <td className="text-muted">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button className="btn btn-outline btn-sm" onClick={() => openEdit(material)} type="button">Editar</button>
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-error, #ef4444)' }} onClick={() => handleDelete(material.id)} disabled={deletingId === material.id} type="button">
+                            {deletingId === material.id ? '...' : 'Excluir'}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )) : (
-                    <tr><td className="text-muted" colSpan={6}>Nenhum material cadastrado ainda.</td></tr>
+                    <tr><td className="text-muted" colSpan={7}>Nenhum material cadastrado ainda.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -208,6 +340,12 @@ export default function AdminMateriais() {
                       Aula: {material.materiaisAula.map((item: any) => item.aula?.titulo).join(', ')}
                     </span>
                   )}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => openEdit(material)} type="button">Editar</button>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-error, #ef4444)' }} onClick={() => handleDelete(material.id)} disabled={deletingId === material.id} type="button">
+                      {deletingId === material.id ? 'Excluindo...' : 'Excluir'}
+                    </button>
+                  </div>
                 </div>
               )) : (
                 <p className="text-muted">Nenhum material cadastrado ainda.</p>

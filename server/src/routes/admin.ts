@@ -1057,6 +1057,49 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
   }
 });
 
+// DELETE /api/admin/material/:id
+router.delete('/material/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const material = await prisma.material.findUnique({ where: { id: String(req.params.id) } });
+    if (!material) { res.status(404).json({ error: 'Material nao encontrado' }); return; }
+    if (material.urlArquivo) {
+      const filePath = path.resolve(material.urlArquivo.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+    await prisma.materialAula.deleteMany({ where: { materialId: String(req.params.id) } });
+    await prisma.material.delete({ where: { id: String(req.params.id) } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao excluir material' });
+  }
+});
+
+// PUT /api/admin/material/:id
+router.put('/material/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { titulo, descricao, categoria, permiteDownload, aulaId } = req.body;
+    await prisma.material.update({
+      where: { id: String(req.params.id) },
+      data: {
+        titulo,
+        descricao,
+        categoria,
+        permiteDownload: permiteDownload === true || permiteDownload === 'true'
+      }
+    });
+    // Update aula link: remove all then re-add if provided
+    await prisma.materialAula.deleteMany({ where: { materialId: String(req.params.id) } });
+    if (aulaId) {
+      await prisma.materialAula.create({ data: { materialId: String(req.params.id), aulaId } });
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao editar material' });
+  }
+});
+
 // GET /api/admin/materiais
 router.get('/materiais', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
