@@ -3,6 +3,11 @@ FROM node:20-alpine
 WORKDIR /app
 ENV PORT=3001
 
+# Install ffmpeg (audio extraction) and yt-dlp (YouTube download)
+RUN apk add --no-cache ffmpeg curl python3 && \
+    curl -SsL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+    -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
+
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci

@@ -11,8 +11,13 @@ import { processAIPipeline } from '../services/ai-mock.js';
 import { logContentChange } from '../services/content-change-log.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { mkdtemp, rm, stat, readFile } from 'fs/promises';
+import { tmpdir } from 'os';
 import { extractYouTubeVideoId, getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
-import { YoutubeTranscript } from 'youtube-transcript/dist/youtube-transcript.esm.js';
+
+const execAsync = promisify(exec);
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -1428,55 +1433,89 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
   }
 });
 
-// POST /api/admin/aula/:id/gerar-transcricao
+// POST /api/admin/aula/:id/gerar-transcricao — uses yt-dlp + OpenAI Whisper
 router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const aulaId = readString(req.params.id);
+  if (!aulaId) {
+    res.status(400).json({ error: 'ID invalido' });
+    return;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    res.status(503).json({ error: 'OpenAI nao configurado no servidor.' });
+    return;
+  }
+
+  const aula = await prisma.aula.findUnique({
+    where: { id: aulaId },
+    select: { id: true, urlVideo: true }
+  });
+
+  if (!aula) {
+    res.status(404).json({ error: 'Aula nao encontrada' });
+    return;
+  }
+
+  const videoId = extractYouTubeVideoId(aula.urlVideo);
+  if (!videoId) {
+    res.status(400).json({ error: 'Esta aula nao tem video do YouTube' });
+    return;
+  }
+
+  const tempDir = await mkdtemp(path.join(tmpdir(), 'yt-audio-'));
+  const tempAudio = path.join(tempDir, 'audio.mp3');
+
   try {
-    const aulaId = readString(req.params.id);
-    if (!aulaId) {
-      res.status(400).json({ error: 'ID invalido' });
+    // Download audio-only at low quality (48kbps) via yt-dlp
+    await execAsync(
+      `yt-dlp -x --audio-format mp3 --audio-quality 48K --no-playlist --no-warnings -o "${tempAudio}" "https://www.youtube.com/watch?v=${videoId}"`,
+      { timeout: 180000 }
+    );
+
+    const { size } = await stat(tempAudio);
+    const MAX_BYTES = 24 * 1024 * 1024; // 24MB (Whisper limit is 25MB)
+    if (size > MAX_BYTES) {
+      res.status(422).json({ error: `Audio muito longo (${Math.round(size / 1024 / 1024)}MB). O limite do Whisper e 25MB (~1h de audio). Divida o video ou use uma versao mais curta.` });
       return;
     }
 
-    const aula = await prisma.aula.findUnique({
-      where: { id: aulaId },
-      select: { id: true, urlVideo: true }
+    // Send to OpenAI Whisper
+    const audioBuffer = await readFile(tempAudio);
+    const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+    const formData = new FormData();
+    formData.append('file', blob, 'audio.mp3');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'pt');
+
+    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData
     });
 
-    if (!aula) {
-      res.status(404).json({ error: 'Aula nao encontrada' });
+    if (!whisperRes.ok) {
+      const errText = await whisperRes.text();
+      console.error('Whisper error:', errText);
+      res.status(502).json({ error: `Erro no Whisper (${whisperRes.status}). Verifique o credito da conta OpenAI.` });
       return;
     }
 
-    const videoId = extractYouTubeVideoId(aula.urlVideo);
-    if (!videoId) {
-      res.status(400).json({ error: 'Esta aula nao tem video do YouTube' });
-      return;
-    }
+    const { text } = await whisperRes.json() as { text: string };
+    const transcricao = text.trim();
 
-    let segments;
-    try {
-      segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'pt' });
-    } catch {
-      // Try without language preference as fallback
-      try {
-        segments = await YoutubeTranscript.fetchTranscript(videoId);
-      } catch {
-        res.status(422).json({ error: 'Transcricao indisponivel para este video. Verifique se as legendas estao ativadas no YouTube.' });
-        return;
-      }
-    }
-
-    const transcricao = segments.map((s: { text: string }) => s.text).join(' ').replace(/\s+/g, ' ').trim();
-
-    await prisma.aula.update({
-      where: { id: aulaId },
-      data: { transcricao }
-    });
-
+    await prisma.aula.update({ where: { id: aulaId }, data: { transcricao } });
     res.json({ ok: true, chars: transcricao.length });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao gerar transcricao' });
+    console.error('Transcricao error:', error);
+    const msg = error instanceof Error ? error.message : '';
+    if (msg.includes('yt-dlp') || msg.includes('ERROR')) {
+      res.status(422).json({ error: 'Nao foi possivel baixar o audio do YouTube. O video pode ser privado ou restrito.' });
+    } else {
+      res.status(500).json({ error: 'Erro ao gerar transcricao via Whisper.' });
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 });
 

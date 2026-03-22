@@ -403,7 +403,7 @@ export default function AdminAulaEditar() {
                 </div>
               )}
               <button className="btn btn-outline" disabled={generatingTranscript} onClick={handleGenerateTranscript} type="button">
-                {generatingTranscript ? 'Gerando transcricao...' : 'Gerar transcricao automaticamente'}
+                {generatingTranscript ? 'Baixando audio e transcrevendo via Whisper (pode levar 1-3 min)...' : 'Gerar transcricao via OpenAI Whisper'}
               </button>
             </div>
           )}
