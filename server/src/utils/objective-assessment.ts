@@ -1,20 +1,31 @@
+export type QuestionTipo = 'objetiva' | 'dissertativa';
+
 export type ObjectiveQuestion = {
   id: string;
+  tipo: QuestionTipo;
   enunciado: string;
-  opcoes: string[];
-  correta: number;
+  // objetiva only
+  opcoes?: string[];
+  correta?: number;
+  // dissertativa only
+  gabarito?: string | null;
+  // both
   explicacao?: string | null;
 };
 
-export type SanitizedObjectiveQuestion = Omit<ObjectiveQuestion, 'correta'>;
+export type SanitizedObjectiveQuestion = Omit<ObjectiveQuestion, 'correta' | 'gabarito'>;
 
 export type ObjectiveReviewItem = {
   id: string;
+  tipo: QuestionTipo;
   enunciado: string;
-  opcoes: string[];
-  respostaAluno: number | null;
-  respostaCorreta: number;
-  correta: boolean;
+  // objetiva
+  opcoes?: string[];
+  respostaAluno: number | string | null;
+  respostaCorreta?: number;
+  correta?: boolean;
+  // dissertativa
+  respostaTextoAluno?: string | null;
   explicacao?: string | null;
 };
 
@@ -44,26 +55,33 @@ export function parseObjectiveQuestions(value: unknown): ObjectiveQuestion[] {
     }
 
     const question = item as Record<string, unknown>;
+    const tipo: QuestionTipo = question.tipo === 'dissertativa' ? 'dissertativa' : 'objetiva';
     const enunciado = String(question.enunciado || '').trim();
+    const explicacao = typeof question.explicacao === 'string' && question.explicacao.trim()
+      ? question.explicacao.trim()
+      : null;
+    const id = String(question.id || `questao-${index + 1}`);
+
+    if (!enunciado) return [];
+
+    if (tipo === 'dissertativa') {
+      const gabarito = typeof question.gabarito === 'string' && question.gabarito.trim()
+        ? question.gabarito.trim()
+        : null;
+      return [{ id, tipo, enunciado, gabarito, explicacao }];
+    }
+
+    // objetiva
     const opcoes = Array.isArray(question.opcoes)
       ? question.opcoes.map((option) => String(option || '').trim()).filter(Boolean)
       : [];
     const correta = Number(question.correta);
-    const explicacao = typeof question.explicacao === 'string' && question.explicacao.trim()
-      ? question.explicacao.trim()
-      : null;
 
-    if (!enunciado || opcoes.length < 2 || !Number.isInteger(correta) || correta < 0 || correta >= opcoes.length) {
+    if (opcoes.length < 2 || !Number.isInteger(correta) || correta < 0 || correta >= opcoes.length) {
       return [];
     }
 
-    return [{
-      id: String(question.id || `questao-${index + 1}`),
-      enunciado,
-      opcoes,
-      correta,
-      explicacao
-    }];
+    return [{ id, tipo, enunciado, opcoes, correta, explicacao }];
   });
 }
 
@@ -72,10 +90,13 @@ export function serializeObjectiveQuestions(questions: ObjectiveQuestion[]) {
 }
 
 export function sanitizeObjectiveQuestions(questions: ObjectiveQuestion[]): SanitizedObjectiveQuestion[] {
-  return questions.map(({ correta, ...question }) => question);
+  return questions.map(({ correta, gabarito, ...question }) => question);
 }
 
-export function parseObjectiveAnswers(value: unknown, totalQuestions: number) {
+export function parseObjectiveAnswers(
+  value: unknown,
+  totalQuestions: number
+): Array<number | string | null> {
   if (!value) {
     return [];
   }
@@ -92,41 +113,63 @@ export function parseObjectiveAnswers(value: unknown, totalQuestions: number) {
   }
 
   return raw.slice(0, totalQuestions).map((answer) => {
+    if (typeof answer === 'string') return answer;
     const numeric = Number(answer);
     return Number.isInteger(numeric) ? numeric : null;
   });
 }
 
-export function gradeObjectiveAnswers(questions: ObjectiveQuestion[], answers: Array<number | null>, notaMaxima: number) {
+export function gradeObjectiveAnswers(
+  questions: ObjectiveQuestion[],
+  answers: Array<number | string | null>,
+  notaMaxima: number
+) {
   const totalQuestoes = questions.length;
-  const respostas = questions.map((question, index) => {
-    const respostaAluno = answers[index] ?? null;
-    const correta = respostaAluno === question.correta;
+  const objetivas = questions.filter((q) => q.tipo === 'objetiva');
+  const totalObjetivas = objetivas.length;
+  const hasDissertativa = questions.some((q) => q.tipo === 'dissertativa');
 
+  const respostas: ObjectiveReviewItem[] = questions.map((question, index) => {
+    const respostaAluno = answers[index] ?? null;
+    if (question.tipo === 'dissertativa') {
+      return {
+        id: question.id,
+        tipo: 'dissertativa',
+        enunciado: question.enunciado,
+        respostaAluno,
+        respostaTextoAluno: typeof respostaAluno === 'string' ? respostaAluno : null,
+        explicacao: question.explicacao || null
+      };
+    }
+
+    const respostaIndex = typeof respostaAluno === 'number' ? respostaAluno : null;
     return {
       id: question.id,
+      tipo: 'objetiva',
       enunciado: question.enunciado,
-      opcoes: question.opcoes,
+      opcoes: question.opcoes ?? [],
       respostaAluno,
-      respostaCorreta: question.correta,
-      correta,
+      respostaCorreta: question.correta ?? 0,
+      correta: respostaIndex === question.correta,
       explicacao: question.explicacao || null
-    } satisfies ObjectiveReviewItem;
+    };
   });
 
-  const acertosObjetivos = respostas.filter((item) => item.correta).length;
-  const percentualObjetivo = totalQuestoes > 0
-    ? roundToTenth((acertosObjetivos / totalQuestoes) * 100)
+  const acertosObjetivos = respostas.filter((item) => item.tipo === 'objetiva' && item.correta).length;
+  const percentualObjetivo = totalObjetivas > 0
+    ? roundToTenth((acertosObjetivos / totalObjetivas) * 100)
     : 0;
-  const nota = totalQuestoes > 0
-    ? roundToTenth((acertosObjetivos / totalQuestoes) * notaMaxima)
+  const nota = totalObjetivas > 0
+    ? roundToTenth((acertosObjetivos / totalObjetivas) * notaMaxima)
     : 0;
 
   return {
     totalQuestoes,
+    totalObjetivas,
     acertosObjetivos,
     percentualObjetivo,
     nota,
+    hasDissertativa,
     respostas
   };
 }

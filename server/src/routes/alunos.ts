@@ -826,12 +826,26 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       }
 
       const respostasObjetivas = parseObjectiveAnswers(respostasObjetivasPayload, questoesObjetivas.length);
-      if (respostasObjetivas.length !== questoesObjetivas.length || respostasObjetivas.some((item) => item === null)) {
+
+      // Validate: every question must be answered (number for objetiva, non-empty string for dissertativa)
+      const unanswered = questoesObjetivas.some((q, i) => {
+        const ans = respostasObjetivas[i];
+        if (q.tipo === 'dissertativa') return !ans || (typeof ans === 'string' && !ans.trim());
+        return ans === null || ans === undefined;
+      });
+      if (respostasObjetivas.length !== questoesObjetivas.length || unanswered) {
         res.status(400).json({ error: 'Responda todas as questoes antes de enviar a prova.' });
         return;
       }
 
       const resultado = gradeObjectiveAnswers(questoesObjetivas, respostasObjetivas, avaliacao.notaMaxima);
+      // If there are dissertativa questions, leave for manual review; otherwise auto-correct
+      const statusEntrega = resultado.hasDissertativa ? 'enviado' : 'corrigido';
+      const corrigidoEm = resultado.hasDissertativa ? null : new Date();
+      const comentario = resultado.hasDissertativa
+        ? `Correcao automatica das objetivas: ${resultado.acertosObjetivos}/${resultado.totalObjetivas} corretas. Questoes dissertativas aguardam correcao manual.`
+        : `Correcao automatica: ${resultado.acertosObjetivos}/${resultado.totalQuestoes} questoes corretas.`;
+
       const entregaObjetiva = await prisma.entregaAvaliacao.upsert({
         where: {
           avaliacaoId_alunoId: {
@@ -843,27 +857,27 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
           respostaTexto: null,
           arquivoUrl: null,
           respostasObjetivas: JSON.stringify(respostasObjetivas),
-          status: 'corrigido',
+          status: statusEntrega,
           nota: resultado.nota,
           totalQuestoes: resultado.totalQuestoes,
           acertosObjetivos: resultado.acertosObjetivos,
           percentualObjetivo: resultado.percentualObjetivo,
-          comentarioCorrecao: `Correcao automatica: ${resultado.acertosObjetivos}/${resultado.totalQuestoes} questoes corretas.`,
+          comentarioCorrecao: comentario,
           enviadoEm: new Date(),
-          corrigidoEm: new Date()
+          corrigidoEm
         },
         create: {
           avaliacaoId,
           alunoId: userId,
           respostasObjetivas: JSON.stringify(respostasObjetivas),
-          status: 'corrigido',
+          status: statusEntrega,
           nota: resultado.nota,
           totalQuestoes: resultado.totalQuestoes,
           acertosObjetivos: resultado.acertosObjetivos,
           percentualObjetivo: resultado.percentualObjetivo,
-          comentarioCorrecao: `Correcao automatica: ${resultado.acertosObjetivos}/${resultado.totalQuestoes} questoes corretas.`,
+          comentarioCorrecao: comentario,
           enviadoEm: new Date(),
-          corrigidoEm: new Date()
+          corrigidoEm
         }
       });
 

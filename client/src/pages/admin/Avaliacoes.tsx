@@ -3,6 +3,7 @@ import AppIcon from '../../components/AppIcon';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
 import {
   buildObjectiveReview,
+  createEmptyDissertativeQuestion,
   createEmptyObjectiveQuestion,
   ObjectiveQuestion,
   parseStoredObjectiveAnswers
@@ -352,13 +353,26 @@ export default function AdminAvaliacoes() {
 
       return {
         ...question,
-        opcoes: question.opcoes.map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? value : option)
+        opcoes: (question.opcoes ?? []).map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? value : option)
       };
     }));
   };
 
-  const handleAddQuestion = () => {
-    setQuestoesObjetivas((current) => [...current, createEmptyObjectiveQuestion(current.length)]);
+  const handleQuestionTipoChange = (index: number, nextTipo: 'objetiva' | 'dissertativa') => {
+    setQuestoesObjetivas((current) => current.map((question, questionIndex) => {
+      if (questionIndex !== index) return question;
+      if (nextTipo === 'dissertativa') {
+        return { id: question.id, tipo: 'dissertativa', enunciado: question.enunciado, gabarito: '', explicacao: question.explicacao };
+      }
+      return { id: question.id, tipo: 'objetiva', enunciado: question.enunciado, opcoes: ['', '', '', ''], correta: 0, explicacao: question.explicacao };
+    }));
+  };
+
+  const handleAddQuestion = (tipo: 'objetiva' | 'dissertativa' = 'objetiva') => {
+    setQuestoesObjetivas((current) => [
+      ...current,
+      tipo === 'dissertativa' ? createEmptyDissertativeQuestion(current.length) : createEmptyObjectiveQuestion(current.length)
+    ]);
   };
 
   const handleRemoveQuestion = (index: number) => {
@@ -506,18 +520,34 @@ export default function AdminAvaliacoes() {
                 <div className="student-section-header compact">
                   <div>
                     <span className="section-kicker">Construtor</span>
-                    <h2>Questoes objetivas</h2>
+                    <h2>Questoes</h2>
                   </div>
-                  <button className="btn btn-outline btn-sm" onClick={handleAddQuestion} type="button">
-                    Adicionar questao
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => handleAddQuestion('objetiva')} type="button">
+                      + Objetiva
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={() => handleAddQuestion('dissertativa')} type="button">
+                      + Dissertativa
+                    </button>
+                  </div>
                 </div>
 
                 <div className="assessment-question-builder-list">
                   {questoesObjetivas.map((questao, questionIndex) => (
                     <article className="assessment-question-builder-card" key={questao.id}>
                       <div className="assessment-question-builder-head">
-                        <strong>Questao {questionIndex + 1}</strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <strong>Questao {questionIndex + 1}</strong>
+                          <select
+                            className="form-select"
+                            style={{ width: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
+                            value={questao.tipo ?? 'objetiva'}
+                            onChange={(event) => handleQuestionTipoChange(questionIndex, event.target.value as 'objetiva' | 'dissertativa')}
+                          >
+                            <option value="objetiva">Objetiva (A/B/C/D)</option>
+                            <option value="dissertativa">Dissertativa (texto livre)</option>
+                          </select>
+                        </div>
                         {questoesObjetivas.length > 1 && (
                           <button className="btn btn-outline btn-sm" onClick={() => handleRemoveQuestion(questionIndex)} type="button">
                             Remover
@@ -535,45 +565,72 @@ export default function AdminAvaliacoes() {
                         />
                       </div>
 
-                      <div className="assessment-option-grid">
-                        {questao.opcoes.map((opcao, optionIndex) => (
-                          <div className="form-group" key={`${questao.id}-${optionIndex}`}>
-                            <label className="form-label">Opcao {String.fromCharCode(65 + optionIndex)}</label>
-                            <input
-                              className="form-input"
-                              value={opcao}
-                              onChange={(event) => handleOptionChange(questionIndex, optionIndex, event.target.value)}
+                      {(questao.tipo ?? 'objetiva') === 'objetiva' ? (
+                        <>
+                          <div className="assessment-option-grid">
+                            {(questao.opcoes ?? ['', '', '', '']).map((opcao, optionIndex) => (
+                              <div className="form-group" key={`${questao.id}-${optionIndex}`}>
+                                <label className="form-label">Opcao {String.fromCharCode(65 + optionIndex)}</label>
+                                <input
+                                  className="form-input"
+                                  value={opcao}
+                                  onChange={(event) => handleOptionChange(questionIndex, optionIndex, event.target.value)}
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="form-row form-row-compact">
+                            <div className="form-group">
+                              <label className="form-label">Alternativa correta</label>
+                              <select
+                                className="form-select"
+                                value={questao.correta ?? 0}
+                                onChange={(event) => handleQuestionChange(questionIndex, 'correta', Number(event.target.value))}
+                              >
+                                {(questao.opcoes ?? []).map((_, optionIndex) => (
+                                  <option key={`${questao.id}-correta-${optionIndex}`} value={optionIndex}>
+                                    {String.fromCharCode(65 + optionIndex)}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="form-group">
+                              <label className="form-label">Explicacao da resposta</label>
+                              <textarea
+                                className="form-textarea"
+                                rows={3}
+                                value={questao.explicacao || ''}
+                                onChange={(event) => handleQuestionChange(questionIndex, 'explicacao', event.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="form-row form-row-compact">
+                          <div className="form-group">
+                            <label className="form-label">Gabarito / Resposta esperada (visivel apenas para o admin)</label>
+                            <textarea
+                              className="form-textarea"
+                              rows={3}
+                              placeholder="Descreva o que seria uma resposta completa e correta..."
+                              value={questao.gabarito || ''}
+                              onChange={(event) => handleQuestionChange(questionIndex, 'gabarito', event.target.value)}
                             />
                           </div>
-                        ))}
-                      </div>
 
-                      <div className="form-row form-row-compact">
-                        <div className="form-group">
-                          <label className="form-label">Alternativa correta</label>
-                          <select
-                            className="form-select"
-                            value={questao.correta}
-                            onChange={(event) => handleQuestionChange(questionIndex, 'correta', Number(event.target.value))}
-                          >
-                            {questao.opcoes.map((_, optionIndex) => (
-                              <option key={`${questao.id}-correta-${optionIndex}`} value={optionIndex}>
-                                {String.fromCharCode(65 + optionIndex)}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="form-group">
+                            <label className="form-label">Comentario / Contexto (opcional)</label>
+                            <textarea
+                              className="form-textarea"
+                              rows={3}
+                              value={questao.explicacao || ''}
+                              onChange={(event) => handleQuestionChange(questionIndex, 'explicacao', event.target.value)}
+                            />
+                          </div>
                         </div>
-
-                        <div className="form-group">
-                          <label className="form-label">Explicacao da resposta</label>
-                          <textarea
-                            className="form-textarea"
-                            rows={3}
-                            value={questao.explicacao || ''}
-                            onChange={(event) => handleQuestionChange(questionIndex, 'explicacao', event.target.value)}
-                          />
-                        </div>
-                      </div>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -768,22 +825,34 @@ export default function AdminAvaliacoes() {
                             {objectiveReview.map((item, reviewIndex) => (
                               <article className="assessment-review-item" key={item.id}>
                                 <h4>{reviewIndex + 1}. {item.enunciado}</h4>
-                                <ul className="assessment-option-list">
-                                  {item.opcoes.map((opcao, optionIndex) => {
-                                    const isCorrect = optionIndex === item.respostaCorreta;
-                                    const isSelected = optionIndex === item.respostaAluno;
-                                    return (
-                                      <li
-                                        className={`${isCorrect ? 'correct' : ''} ${isSelected && !item.correta && !isCorrect ? 'selected-wrong' : ''}`}
-                                        key={`${item.id}-${optionIndex}`}
-                                      >
-                                        <span>{String.fromCharCode(65 + optionIndex)}</span>
-                                        <p>{opcao}</p>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                                {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
+                                {item.tipo === 'dissertativa' ? (
+                                  <div className="dissertativa-answer-block">
+                                    <p className="form-label" style={{ marginBottom: '0.25rem' }}>Resposta do aluno:</p>
+                                    <p style={{ background: 'var(--bg-card)', padding: '0.75rem', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>
+                                      {item.respostaTextoAluno || <em style={{ opacity: 0.5 }}>Sem resposta</em>}
+                                    </p>
+                                    {item.explicacao && <p className="assessment-answer-explanation" style={{ marginTop: '0.5rem' }}><strong>Contexto:</strong> {item.explicacao}</p>}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <ul className="assessment-option-list">
+                                      {(item.opcoes ?? []).map((opcao, optionIndex) => {
+                                        const isCorrect = optionIndex === item.respostaCorreta;
+                                        const isSelected = optionIndex === item.respostaAluno;
+                                        return (
+                                          <li
+                                            className={`${isCorrect ? 'correct' : ''} ${isSelected && !item.correta && !isCorrect ? 'selected-wrong' : ''}`}
+                                            key={`${item.id}-${optionIndex}`}
+                                          >
+                                            <span>{String.fromCharCode(65 + optionIndex)}</span>
+                                            <p>{opcao}</p>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                    {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
+                                  </>
+                                )}
                               </article>
                             ))}
                           </div>

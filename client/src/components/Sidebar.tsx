@@ -51,8 +51,10 @@ export default function Sidebar({ type }: SidebarProps) {
 
   const handleLogout = () => {
     setShowLogoutPopup(false);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     logout();
-    window.location.href = '/';
+    window.location.replace('/');
   };
 
   // Close popup on outside click
@@ -124,7 +126,7 @@ export default function Sidebar({ type }: SidebarProps) {
               type="button"
             >
               <LogOut size={16} />
-              <span>Encerrar sessao</span>
+              <span>Encerrar sessão</span>
             </button>
           </div>
         </div>
@@ -152,7 +154,7 @@ export default function Sidebar({ type }: SidebarProps) {
         type="button"
       >
         <LogOut size={16} />
-        <span>Encerrar sessao</span>
+        <span>Encerrar sessão</span>
       </button>
     </div>
   );

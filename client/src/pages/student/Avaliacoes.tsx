@@ -54,7 +54,7 @@ export default function StudentAvaliacoes() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [respostasTexto, setRespostasTexto] = useState<Record<string, string>>({});
-  const [respostasObjetivas, setRespostasObjetivas] = useState<Record<string, Array<number | null>>>({});
+  const [respostasObjetivas, setRespostasObjetivas] = useState<Record<string, Array<number | string | null>>>({});
   const [arquivos, setArquivos] = useState<Record<string, File | null>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -407,22 +407,37 @@ export default function StudentAvaliacoes() {
                             {avaliacao.resultadoObjetivo.respostas.map((item, reviewIndex) => (
                               <article className="assessment-review-item" key={item.id}>
                                 <h4>{reviewIndex + 1}. {item.enunciado}</h4>
-                                <ul className="assessment-option-list">
-                                  {item.opcoes.map((opcao, optionIndex) => {
-                                    const isCorrect = optionIndex === item.respostaCorreta;
-                                    const isSelected = optionIndex === item.respostaAluno;
-                                    return (
-                                      <li
-                                        className={`${isCorrect ? 'correct' : ''} ${isSelected && !item.correta && !isCorrect ? 'selected-wrong' : ''}`}
-                                        key={`${item.id}-${optionIndex}`}
-                                      >
-                                        <span>{String.fromCharCode(65 + optionIndex)}</span>
-                                        <p>{opcao}</p>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                                {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
+                                {item.tipo === 'dissertativa' ? (
+                                  <div className="dissertativa-answer-block">
+                                    <p className="form-label" style={{ marginBottom: '0.25rem' }}>Sua resposta:</p>
+                                    <p style={{ background: 'var(--bg-card)', padding: '0.75rem', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>
+                                      {item.respostaTextoAluno || <em style={{ opacity: 0.5 }}>Sem resposta</em>}
+                                    </p>
+                                    {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
+                                    <p className="inline-feedback neutral" style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>
+                                      Esta questao sera corrigida manualmente pelo professor.
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <ul className="assessment-option-list">
+                                      {(item.opcoes ?? []).map((opcao, optionIndex) => {
+                                        const isCorrect = optionIndex === item.respostaCorreta;
+                                        const isSelected = optionIndex === item.respostaAluno;
+                                        return (
+                                          <li
+                                            className={`${isCorrect ? 'correct' : ''} ${isSelected && !item.correta && !isCorrect ? 'selected-wrong' : ''}`}
+                                            key={`${item.id}-${optionIndex}`}
+                                          >
+                                            <span>{String.fromCharCode(65 + optionIndex)}</span>
+                                            <p>{opcao}</p>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                    {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
+                                  </>
+                                )}
                               </article>
                             ))}
                           </div>
@@ -449,36 +464,57 @@ export default function StudentAvaliacoes() {
 
                         {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && (
                           <div className="assessment-review-list">
-                            {avaliacao.questoesObjetivas?.map((questao, questionIndex) => (
-                              <article className="assessment-review-item" key={questao.id}>
-                                <h4>{questionIndex + 1}. {questao.enunciado}</h4>
-                                <ul className="assessment-option-list selectable">
-                                  {questao.opcoes.map((opcao, optionIndex) => {
-                                    const checked = respostasObjetivas[avaliacao.id]?.[questionIndex] === optionIndex;
-                                    return (
-                                      <li className={checked ? 'selected' : ''} key={`${questao.id}-${optionIndex}`}>
-                                        <label className="assessment-option-choice">
-                                          <input
-                                            checked={checked}
-                                            name={`${avaliacao.id}-${questao.id}`}
-                                            onChange={() => setRespostasObjetivas((current) => {
-                                              const currentAnswers = current[avaliacao.id]?.length
-                                                ? [...current[avaliacao.id]]
-                                                : Array.from({ length: avaliacao.quantidadeQuestoes }, () => null);
-                                              currentAnswers[questionIndex] = optionIndex;
-                                              return { ...current, [avaliacao.id]: currentAnswers };
-                                            })}
-                                            type="radio"
-                                          />
-                                          <span>{String.fromCharCode(65 + optionIndex)}</span>
-                                          <p>{opcao}</p>
-                                        </label>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              </article>
-                            ))}
+                            {avaliacao.questoesObjetivas?.map((questao, questionIndex) => {
+                              const tipo = questao.tipo ?? 'objetiva';
+                              return (
+                                <article className="assessment-review-item" key={questao.id}>
+                                  <h4>{questionIndex + 1}. {questao.enunciado}</h4>
+                                  {tipo === 'dissertativa' ? (
+                                    <textarea
+                                      className="form-textarea"
+                                      rows={4}
+                                      placeholder="Digite sua resposta aqui..."
+                                      value={typeof respostasObjetivas[avaliacao.id]?.[questionIndex] === 'string'
+                                        ? respostasObjetivas[avaliacao.id][questionIndex] as string
+                                        : ''}
+                                      onChange={(event) => setRespostasObjetivas((current) => {
+                                        const currentAnswers = current[avaliacao.id]?.length
+                                          ? [...current[avaliacao.id]]
+                                          : Array.from({ length: avaliacao.quantidadeQuestoes }, () => null);
+                                        currentAnswers[questionIndex] = event.target.value;
+                                        return { ...current, [avaliacao.id]: currentAnswers };
+                                      })}
+                                    />
+                                  ) : (
+                                    <ul className="assessment-option-list selectable">
+                                      {(questao.opcoes ?? []).map((opcao, optionIndex) => {
+                                        const checked = respostasObjetivas[avaliacao.id]?.[questionIndex] === optionIndex;
+                                        return (
+                                          <li className={checked ? 'selected' : ''} key={`${questao.id}-${optionIndex}`}>
+                                            <label className="assessment-option-choice">
+                                              <input
+                                                checked={checked}
+                                                name={`${avaliacao.id}-${questao.id}`}
+                                                onChange={() => setRespostasObjetivas((current) => {
+                                                  const currentAnswers = current[avaliacao.id]?.length
+                                                    ? [...current[avaliacao.id]]
+                                                    : Array.from({ length: avaliacao.quantidadeQuestoes }, () => null);
+                                                  currentAnswers[questionIndex] = optionIndex;
+                                                  return { ...current, [avaliacao.id]: currentAnswers };
+                                                })}
+                                                type="radio"
+                                              />
+                                              <span>{String.fromCharCode(65 + optionIndex)}</span>
+                                              <p>{opcao}</p>
+                                            </label>
+                                          </li>
+                                        );
+                                      })}
+                                    </ul>
+                                  )}
+                                </article>
+                              );
+                            })}
                           </div>
                         )}
 
