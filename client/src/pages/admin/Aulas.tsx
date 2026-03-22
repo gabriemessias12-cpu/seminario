@@ -265,14 +265,12 @@ export default function AdminAulas() {
           <div className="surface-stack">
             {history.map((item) => (
               <div className="surface-muted" key={item.id}>
-                <div className="inline-meta-row">
-                  <strong>{formatHistoryAction(item)}</strong>
-                  <span>{dateTimeFormatter.format(new Date(item.criadoEm))}</span>
-                </div>
-                <p className="text-muted">
+                <strong style={{ display: 'block', marginBottom: '0.2rem' }}>{formatHistoryAction(item)}</strong>
+                <p className="text-muted" style={{ marginBottom: '0.2rem' }}>
                   {item.entidadeTitulo}
                   {item.entidade === 'aula' && item.detalhes?.videoTipo ? ` · ${String(item.detalhes.videoTipo)}` : ''}
                 </p>
+                <span className="text-muted text-sm">{dateTimeFormatter.format(new Date(item.criadoEm))}</span>
               </div>
             ))}
           </div>
@@ -302,7 +300,8 @@ export default function AdminAulas() {
             </div>
             <p className="module-desc">{modulo.descricao}</p>
 
-            <div className="table-container" style={{ marginBottom: '1.5rem' }}>
+            {/* Desktop table */}
+            <div className="table-container admin-desktop-table" style={{ marginBottom: '1.5rem' }}>
               <table>
                 <thead>
                   <tr>
@@ -318,68 +317,26 @@ export default function AdminAulas() {
                   {modulo.aulas.map((aula: any) => {
                     const totalAlunos = aula.progressos?.length || 0;
                     const mediaConclusao = totalAlunos > 0
-                      ? Math.round(
-                        aula.progressos.reduce(
-                          (sum: number, progresso: any) => sum + progresso.percentualAssistido,
-                          0,
-                        ) / totalAlunos,
-                      )
+                      ? Math.round(aula.progressos.reduce((sum: number, p: any) => sum + p.percentualAssistido, 0) / totalAlunos)
                       : 0;
-
+                    const videoLabel = String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem video';
+                    const videoBadge = String(aula.urlVideo || '').includes('youtube.com') ? 'badge-info' : aula.urlVideo ? 'badge-success' : 'badge-warning';
                     return (
                       <tr key={aula.id}>
                         <td style={{ fontWeight: 500 }}>{aula.titulo}</td>
-                        <td>
-                          <span className={`badge ${aula.publicado ? 'badge-success' : 'badge-warning'}`}>
-                            {aula.publicado ? 'Publicado' : 'Rascunho'}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            className={`badge ${
-                              String(aula.urlVideo || '').includes('youtube.com')
-                                ? 'badge-info'
-                                : aula.urlVideo
-                                  ? 'badge-success'
-                                  : 'badge-warning'
-                            }`}
-                          >
-                            {String(aula.urlVideo || '').includes('youtube.com')
-                              ? 'YouTube'
-                              : aula.urlVideo
-                                ? 'Arquivo'
-                                : 'Sem video'}
-                          </span>
-                        </td>
+                        <td><span className={`badge ${aula.publicado ? 'badge-success' : 'badge-warning'}`}>{aula.publicado ? 'Publicado' : 'Rascunho'}</span></td>
+                        <td><span className={`badge ${videoBadge}`}>{videoLabel}</span></td>
                         <td>{totalAlunos}</td>
                         <td>
                           <div className="chart-inline-progress">
-                            <div className="progress-bar">
-                              <div className="progress-bar-fill" style={{ width: `${mediaConclusao}%` }} />
-                            </div>
+                            <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${mediaConclusao}%` }} /></div>
                             <span className="text-sm">{mediaConclusao}%</span>
                           </div>
                         </td>
                         <td>
                           <div className="table-actions">
-                            <button
-                              aria-label={`Editar aula ${aula.titulo}`}
-                              className="btn btn-outline btn-sm"
-                              title="Editar Aula"
-                              onClick={() => navigate(`/admin/aula/${aula.id}/editar`)}
-                              type="button"
-                            >
-                              <AppIcon name="settings" size={14} />
-                            </button>
-                            <button
-                              aria-label={`Fazer chamada da aula ${aula.titulo}`}
-                              className="btn btn-outline btn-sm"
-                              title="Fazer Chamada"
-                              onClick={() => navigate(`/admin/chamada?aulaId=${aula.id}`)}
-                              type="button"
-                            >
-                              <AppIcon name="shield" size={14} />
-                            </button>
+                            <button aria-label={`Editar aula ${aula.titulo}`} className="btn btn-outline btn-sm" title="Editar Aula" onClick={() => navigate(`/admin/aula/${aula.id}/editar`)} type="button"><AppIcon name="settings" size={14} /></button>
+                            <button aria-label={`Fazer chamada da aula ${aula.titulo}`} className="btn btn-outline btn-sm" title="Fazer Chamada" onClick={() => navigate(`/admin/chamada?aulaId=${aula.id}`)} type="button"><AppIcon name="shield" size={14} /></button>
                           </div>
                         </td>
                       </tr>
@@ -387,6 +344,36 @@ export default function AdminAulas() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="admin-card-list" style={{ marginBottom: '1.5rem' }}>
+              {modulo.aulas.map((aula: any) => {
+                const totalAlunos = aula.progressos?.length || 0;
+                const mediaConclusao = totalAlunos > 0
+                  ? Math.round(aula.progressos.reduce((sum: number, p: any) => sum + p.percentualAssistido, 0) / totalAlunos)
+                  : 0;
+                const videoLabel = String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem video';
+                const videoBadge = String(aula.urlVideo || '').includes('youtube.com') ? 'badge-info' : aula.urlVideo ? 'badge-success' : 'badge-warning';
+                return (
+                  <div className="admin-list-card" key={aula.id}>
+                    <strong style={{ fontSize: '0.95rem' }}>{aula.titulo}</strong>
+                    <div className="admin-list-card-meta">
+                      <span className={`badge ${aula.publicado ? 'badge-success' : 'badge-warning'}`}>{aula.publicado ? 'Publicado' : 'Rascunho'}</span>
+                      <span className={`badge ${videoBadge}`}>{videoLabel}</span>
+                      <span className="text-muted text-sm">{totalAlunos} aluno{totalAlunos !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="chart-inline-progress">
+                      <div className="progress-bar" style={{ flex: 1 }}><div className="progress-bar-fill" style={{ width: `${mediaConclusao}%` }} /></div>
+                      <span className="text-sm">{mediaConclusao}% medio</span>
+                    </div>
+                    <div className="admin-list-card-actions">
+                      <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aula/${aula.id}/editar`)} type="button"><AppIcon name="settings" size={14} /><span>Editar</span></button>
+                      <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/chamada?aulaId=${aula.id}`)} type="button"><AppIcon name="shield" size={14} /><span>Chamada</span></button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))
