@@ -158,70 +158,99 @@ export default function AdminAlunos() {
         {loading ? (
           <div className="skeleton" style={{ height: 300 }} />
         ) : (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Aluno</th>
-                  <th>Email</th>
-                  <th>Progresso</th>
-                  <th>Ultimo acesso</th>
-                  <th>Status</th>
-                  <th>Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length ? filtered.map((aluno) => (
-                  <tr key={aluno.id}>
-                    <td>
-                      <div className="table-entity">
-                        <div className="table-entity-avatar">
-                          {aluno.nome?.[0]}
-                        </div>
-                        <div className="table-entity-copy">
-                          <strong>{aluno.nome}</strong>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="text-muted">{aluno.email}</td>
-                    <td>
-                      <div className="chart-inline-progress">
-                        <div className="progress-bar">
-                          <div
-                            className={`progress-bar-fill ${aluno.progressoGeral >= 95 ? 'completed' : ''}`}
-                            style={{ width: `${aluno.progressoGeral}%` }}
-                          />
-                        </div>
-                        <span className="text-sm">{aluno.progressoGeral}%</span>
-                      </div>
-                    </td>
-                    <td className="text-muted" style={{ fontSize: '0.85rem' }}>
-                      {aluno.ultimoAcesso ? new Date(aluno.ultimoAcesso).toLocaleDateString('pt-BR') : '-'}
-                    </td>
-                    <td>
-                      <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
-                        {aluno.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="table-actions">
-                        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">
-                          Ver
-                        </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
-                          {aluno.ativo ? 'Desativar' : 'Ativar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
+          <>
+            {/* Desktop table */}
+            <div className="table-container admin-desktop-table">
+              <table>
+                <thead>
                   <tr>
-                    <td className="text-muted" colSpan={6}>Nenhum aluno corresponde ao filtro atual.</td>
+                    <th>Aluno</th>
+                    <th>Email</th>
+                    <th>Progresso</th>
+                    <th>Ultimo acesso</th>
+                    <th>Status</th>
+                    <th>Acoes</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.length ? filtered.map((aluno) => (
+                    <tr key={aluno.id}>
+                      <td>
+                        <div className="table-entity">
+                          <div className="table-entity-avatar">{aluno.nome?.[0]}</div>
+                          <div className="table-entity-copy">
+                            <strong>{aluno.nome}</strong>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="text-muted">{aluno.email}</td>
+                      <td>
+                        <div className="chart-inline-progress">
+                          <div className="progress-bar">
+                            <div className={`progress-bar-fill ${aluno.progressoGeral >= 95 ? 'completed' : ''}`} style={{ width: `${aluno.progressoGeral}%` }} />
+                          </div>
+                          <span className="text-sm">{aluno.progressoGeral}%</span>
+                        </div>
+                      </td>
+                      <td className="text-muted" style={{ fontSize: '0.85rem' }}>
+                        {aluno.ultimoAcesso ? new Date(aluno.ultimoAcesso).toLocaleDateString('pt-BR') : '-'}
+                      </td>
+                      <td>
+                        <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
+                          {aluno.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="table-actions">
+                          <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">Ver</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
+                            {aluno.ativo ? 'Desativar' : 'Ativar'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td className="text-muted" colSpan={6}>Nenhum aluno corresponde ao filtro atual.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="admin-card-list">
+              {filtered.length ? filtered.map((aluno) => (
+                <div className="admin-list-card" key={aluno.id}>
+                  <div className="admin-list-card-header">
+                    <div className="table-entity-avatar">{aluno.nome?.[0]}</div>
+                    <div className="admin-list-card-info">
+                      <strong>{aluno.nome}</strong>
+                      <span className="text-muted text-sm">{aluno.email}</span>
+                      <span className="text-muted text-sm">
+                        {aluno.ultimoAcesso ? new Date(aluno.ultimoAcesso).toLocaleDateString('pt-BR') : 'Sem acesso'}
+                      </span>
+                    </div>
+                    <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
+                      {aluno.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                  <div className="chart-inline-progress">
+                    <div className="progress-bar" style={{ flex: 1 }}>
+                      <div className={`progress-bar-fill ${aluno.progressoGeral >= 95 ? 'completed' : ''}`} style={{ width: `${aluno.progressoGeral}%` }} />
+                    </div>
+                    <span className="text-sm">{aluno.progressoGeral}%</span>
+                  </div>
+                  <div className="admin-list-card-actions">
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">Ver detalhes</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
+                      {aluno.ativo ? 'Desativar' : 'Ativar'}
+                    </button>
+                  </div>
+                </div>
+              )) : (
+                <p className="text-muted">Nenhum aluno corresponde ao filtro atual.</p>
+              )}
+            </div>
+          </>
         )}
     </>
   );

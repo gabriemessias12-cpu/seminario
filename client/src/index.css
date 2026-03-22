@@ -5862,6 +5862,66 @@ input[type="file"] { min-height: 44px; }
   }
 }
 
+/* ── Admin card list (mobile replacement for tables) ── */
+.admin-card-list {
+  display: none;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-list-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-list-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.admin-list-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.admin-list-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-list-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-list-card-actions .btn {
+  flex: 1;
+  justify-content: center;
+  min-width: 100px;
+}
+
+@media (max-width: 640px) {
+  .admin-desktop-table {
+    display: none;
+  }
+
+  .admin-card-list {
+    display: flex;
+  }
+}
+
 /* ── Admin pages: general mobile ── */
 @media (max-width: 640px) {
   /* Card padding tighter */

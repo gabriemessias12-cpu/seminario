@@ -145,44 +145,75 @@ export default function AdminMateriais() {
         {loading ? (
           <div className="card-grid">{[1, 2, 3].map((item) => <div key={item} className="skeleton skeleton-card" />)}</div>
         ) : (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Material</th>
-                  <th>Categoria</th>
-                  <th>Tipo</th>
-                  <th>Download</th>
-                  <th>Aulas</th>
-                  <th>Data</th>
-                </tr>
-              </thead>
-              <tbody>
-                {materiais.length ? materiais.map((material) => (
-                  <tr key={material.id}>
-                    <td>
-                      <div className="table-entity">
-                        <AppIcon name="file" size={16} />
-                        <div className="table-entity-copy">
-                          <div style={{ fontWeight: 500 }}>{material.titulo}</div>
-                          {material.descricao && <div className="text-muted text-sm">{material.descricao.substring(0, 50)}</div>}
-                        </div>
-                      </div>
-                    </td>
-                    <td><span className="badge badge-purple">{material.categoria}</span></td>
-                    <td className="text-muted">{material.tipo?.toUpperCase()}</td>
-                    <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">Nao</span>}</td>
-                    <td className="text-muted">{material.materiaisAula?.map((item: any) => item.aula?.titulo).join(', ') || '-'}</td>
-                    <td className="text-muted">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</td>
-                  </tr>
-                )) : (
+          <>
+            {/* Desktop table */}
+            <div className="table-container admin-desktop-table">
+              <table>
+                <thead>
                   <tr>
-                    <td className="text-muted" colSpan={6}>Nenhum material cadastrado ainda.</td>
+                    <th>Material</th>
+                    <th>Categoria</th>
+                    <th>Tipo</th>
+                    <th>Download</th>
+                    <th>Aulas</th>
+                    <th>Data</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {materiais.length ? materiais.map((material) => (
+                    <tr key={material.id}>
+                      <td>
+                        <div className="table-entity">
+                          <AppIcon name="file" size={16} />
+                          <div className="table-entity-copy">
+                            <div style={{ fontWeight: 500 }}>{material.titulo}</div>
+                            {material.descricao && <div className="text-muted text-sm">{material.descricao.substring(0, 50)}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className="badge badge-purple">{material.categoria}</span></td>
+                      <td className="text-muted">{material.tipo?.toUpperCase()}</td>
+                      <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">Nao</span>}</td>
+                      <td className="text-muted">{material.materiaisAula?.map((item: any) => item.aula?.titulo).join(', ') || '-'}</td>
+                      <td className="text-muted">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</td>
+                    </tr>
+                  )) : (
+                    <tr><td className="text-muted" colSpan={6}>Nenhum material cadastrado ainda.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="admin-card-list">
+              {materiais.length ? materiais.map((material) => (
+                <div className="admin-list-card" key={material.id}>
+                  <div className="admin-list-card-header">
+                    <AppIcon name="file" size={20} />
+                    <div className="admin-list-card-info">
+                      <strong>{material.titulo}</strong>
+                      {material.descricao && <span className="text-muted text-sm">{material.descricao.substring(0, 70)}</span>}
+                      <span className="text-muted text-sm">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                  <div className="admin-list-card-meta">
+                    <span className="badge badge-purple">{material.categoria}</span>
+                    <span className="text-muted text-sm">{material.tipo?.toUpperCase()}</span>
+                    {material.permiteDownload
+                      ? <span className="badge badge-success">Download: Sim</span>
+                      : <span className="badge badge-error">Download: Nao</span>}
+                  </div>
+                  {material.materiaisAula?.length > 0 && (
+                    <span className="text-muted text-sm">
+                      Aula: {material.materiaisAula.map((item: any) => item.aula?.titulo).join(', ')}
+                    </span>
+                  )}
+                </div>
+              )) : (
+                <p className="text-muted">Nenhum material cadastrado ainda.</p>
+              )}
+            </div>
+          </>
         )}
     </>
   );
