@@ -1907,7 +1907,7 @@ router.get('/alertas-seguranca', async (_req: AuthRequest, res: Response): Promi
 // PUT /api/admin/alerta-seguranca/:id/ler — mark alert as read
 router.put('/alerta-seguranca/:id/ler', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await prisma.alertaSeguranca.update({ where: { id: req.params.id }, data: { lido: true } });
+    await prisma.alertaSeguranca.update({ where: { id: String(req.params.id) }, data: { lido: true } });
     res.json({ ok: true });
   } catch {
     res.status(404).json({ error: 'Alerta nao encontrado.' });
