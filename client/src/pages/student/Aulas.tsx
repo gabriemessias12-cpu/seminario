@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
 
 export default function StudentAulas() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export default function StudentAulas() {
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
-    fetch('/api/aluno/aulas', {
+    fetchWithTimeout('/api/aluno/aulas', {
       headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
     })
       .then((response) => response.json())

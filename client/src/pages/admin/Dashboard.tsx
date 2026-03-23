@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
 
 interface SecurityAlert {
   id: string;
@@ -21,16 +22,16 @@ export default function AdminDashboard() {
   const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
-    fetch('/api/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } })
+    fetchWithTimeout('/api/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => response.json())
       .then(setData)
       .catch(() => setError('Nao foi possivel carregar o painel administrativo agora.'))
       .finally(() => setLoading(false));
 
-    fetch('/api/admin/alertas-seguranca', { headers: { Authorization: `Bearer ${token}` } })
+    fetchWithTimeout('/api/admin/alertas-seguranca', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then((data: SecurityAlert[]) => { if (Array.isArray(data)) setAlertas(data); })
-      .catch(() => {});
+      .catch((error) => { console.error('Erro ao carregar alertas de segurança:', error); });
   }, []);
 
   const marcarLido = async (id: string) => {

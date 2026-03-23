@@ -117,11 +117,15 @@ export default function StudentAulaPlayer() {
     currentTimeRef.current = 0;
     durationRef.current = 0;
 
+    const controller = new AbortController();
+    let isMounted = true;
+
     Promise.all([
-      fetch(`/api/aluno/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
-      fetch('/api/aluno/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
+      fetch(`/api/aluno/aula/${id}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal }).then((response) => response.json()),
+      fetch('/api/aluno/aulas', { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal }).then((response) => response.json())
     ])
       .then(([lessonData, modules]) => {
+        if (!isMounted) return;
         setAula(lessonData);
         setAssistantMessages(lessonData.interacoesIA || []);
 
@@ -142,10 +146,18 @@ export default function StudentAulaPlayer() {
         const moduloAtual = modules.find((module: any) => module.id === lessonData.moduloId);
         setPlaylist(moduloAtual?.aulas || []);
       })
-      .catch(() => {
-        setLoadError('Nao foi possivel carregar esta aula agora.');
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        if (isMounted) setLoadError('Nao foi possivel carregar esta aula agora.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, [id, token]);
 
   useEffect(() => {
@@ -157,7 +169,7 @@ export default function StudentAulaPlayer() {
           setYoutubeVideoId(decodeYtk(data.k, id));
         }
       })
-      .catch(console.error);
+      .catch((err) => console.error('AulaPlayer fetch error:', err));
   }, [id, isYoutubeLesson, token]);
 
   const saveProgress = useCallback((percentual: number, posicao: number, pausou = false) => {
@@ -178,7 +190,7 @@ export default function StudentAulaPlayer() {
         if (data.concluido) setCompleted(true);
         setMaxWatched((current: number) => Math.max(current, data.percentualAssistido || percentual));
       })
-      .catch(console.error);
+      .catch((err) => console.error('AulaPlayer fetch error:', err));
   }, [id, token]);
 
   const saveCurrentProgress = useCallback((pausou = false) => {
@@ -341,11 +353,14 @@ export default function StudentAulaPlayer() {
       });
     };
 
+    let savedPreviousReady: (() => void) | undefined;
+
     if (window.YT?.Player) {
       initializePlayer();
     } else {
       const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://www.youtube.com/iframe_api"]');
       const previousReady = window.onYouTubeIframeAPIReady;
+      savedPreviousReady = previousReady;
       window.onYouTubeIframeAPIReady = () => {
         previousReady?.();
         initializePlayer();
@@ -362,6 +377,11 @@ export default function StudentAulaPlayer() {
       cancelled = true;
       youtubePlayerRef.current?.destroy?.();
       youtubePlayerRef.current = null;
+      if (savedPreviousReady !== undefined) {
+        window.onYouTubeIframeAPIReady = savedPreviousReady;
+      } else {
+        delete (window as any).onYouTubeIframeAPIReady;
+      }
     };
   }, [aula?.id, aula?.progressos, isYoutubeLesson, saveCurrentProgress, saveProgress, youtubeVideoId]);
 
@@ -490,6 +510,12 @@ export default function StudentAulaPlayer() {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, []);
+
   const quizData = useMemo(() => {
     if (!aula?.quizzes?.[0]?.questoes) return [];
     try {
@@ -515,7 +541,7 @@ export default function StudentAulaPlayer() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ aulaId: id, respostas: quizAnswers, pontuacao: score, totalQuestoes: quizData.length })
-    }).catch(console.error);
+    }).catch((err) => console.error('AulaPlayer fetch error:', err));
 
     setQuizScore(score);
     setQuizSubmitted(true);
@@ -526,7 +552,7 @@ export default function StudentAulaPlayer() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ aulaId: id, conteudo: notes })
-    }).catch(console.error);
+    }).catch((err) => console.error('AulaPlayer fetch error:', err));
   };
 
   const handleManualComplete = async () => {

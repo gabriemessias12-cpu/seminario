@@ -39,6 +39,7 @@ export default function AvatarCropModal({
       setOffsetX(0);
       setOffsetY(0);
     };
+    img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
     return () => URL.revokeObjectURL(url);
   }, [file]);

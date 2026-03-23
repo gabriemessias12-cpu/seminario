@@ -30,7 +30,8 @@ async function refreshAccessToken(): Promise<string | null> {
     const res = await fetch(apiUrl('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
+      body: JSON.stringify({ refreshToken }),
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!res.ok) {
@@ -43,7 +44,10 @@ async function refreshAccessToken(): Promise<string | null> {
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     return data.accessToken;
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return null;
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     return null;
@@ -55,48 +59,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+
     const loadUser = async () => {
       let token = localStorage.getItem('accessToken');
       if (!token) {
-        setLoading(false);
+        if (isMounted) setLoading(false);
         return;
       }
 
       try {
         let res = await fetch(apiUrl('/api/auth/me'), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
         });
 
         if (res.status === 401) {
           token = await refreshAccessToken();
           if (!token) {
-            setLoading(false);
+            if (isMounted) setLoading(false);
             return;
           }
 
           res = await fetch(apiUrl('/api/auth/me'), {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
           });
         }
 
         if (!res.ok) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
-          setLoading(false);
+          if (isMounted) setLoading(false);
           return;
         }
 
         const data = await res.json();
-        setUser(data);
-      } catch {
+        if (isMounted) setUser(data);
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     void loadUser();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, []);
 
   const login = async (email: string, senha: string) => {

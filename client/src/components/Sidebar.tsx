@@ -75,6 +75,13 @@ export default function Sidebar({ type }: SidebarProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showLogoutPopup]);
 
+  // Ensure popup is closed on unmount
+  useEffect(() => {
+    return () => {
+      setShowLogoutPopup(false);
+    };
+  }, []);
+
   const ProfileButton = (
     <div className="relative" ref={popupRef}>
       <button

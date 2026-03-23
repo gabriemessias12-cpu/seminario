@@ -29,7 +29,7 @@ export default function AdminChamada() {
     const params = new URLSearchParams(window.location.search);
     const aulaId = params.get('aulaId');
     if (aulaId) setSelectedAula(aulaId);
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!selectedModulo) {
@@ -45,7 +45,7 @@ export default function AdminChamada() {
         setAulas(modulo?.aulas || []);
       })
       .catch(() => setFeedback('Nao foi possivel carregar as aulas.'));
-  }, [selectedModulo]);
+  }, [selectedModulo, token]);
 
   useEffect(() => {
     if (!selectedModulo && !selectedAula) {
@@ -62,7 +62,7 @@ export default function AdminChamada() {
       .then(setPresencas)
       .catch(() => setFeedback('Nao foi possivel carregar a chamada.'))
       .finally(() => setLoading(false));
-  }, [selectedModulo, selectedAula]);
+  }, [selectedModulo, selectedAula, token]);
 
   const handleSaveChamada = async () => {
     if (!selectedAula) return;

@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import { PrismaClient } from '@prisma/client';
 import { loadEnvFiles } from './config/env.js';
 import authRoutes from './routes/auth.js';
 import alunoRoutes from './routes/alunos.js';
@@ -74,6 +75,8 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+const prisma = new PrismaClient();
+
 async function startServer() {
   await ensureSystemAccounts();
 
@@ -81,6 +84,18 @@ async function startServer() {
     console.log(`IBVN API running on http://localhost:${PORT}`);
   });
 }
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully');
+  await prisma.$disconnect();
+  process.exit(0);
+});
 
 startServer().catch((error) => {
   console.error('Erro ao iniciar servidor:', error);

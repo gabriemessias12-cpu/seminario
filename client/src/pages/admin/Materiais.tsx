@@ -44,7 +44,7 @@ export default function AdminMateriais() {
         if (Array.isArray(data)) setModulos(data);
       })
       .catch(() => setFeedback('Nao foi possivel carregar a relacao de aulas.'));
-  }, []);
+  }, [token]);
 
   const handleUpload = async (event: { preventDefault(): void }) => {
     event.preventDefault();

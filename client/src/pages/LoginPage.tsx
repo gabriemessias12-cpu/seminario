@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -45,7 +46,22 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">E-mail</label>
-            <input type="email" className="form-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="seu@email.com" required />
+            <input
+              type="email"
+              className="form-input"
+              value={email}
+              onChange={(event) => { setEmail(event.target.value); if (emailError) setEmailError(''); }}
+              onBlur={(event) => {
+                if (event.target.value && !event.target.value.includes('@')) {
+                  setEmailError('Digite um e-mail valido.');
+                } else {
+                  setEmailError('');
+                }
+              }}
+              placeholder="seu@email.com"
+              required
+            />
+            {emailError && <span className="form-helper-text" style={{ color: 'var(--color-error, #ef4444)' }}>{emailError}</span>}
           </div>
           <div className="form-group">
             <label className="form-label">Senha</label>

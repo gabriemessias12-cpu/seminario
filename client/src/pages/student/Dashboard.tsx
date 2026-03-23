@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import AppIcon from '../../components/AppIcon';
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
 
 interface DashboardData {
   totalAulas: number;
@@ -27,10 +28,10 @@ export default function StudentDashboard() {
     setLoading(true);
     setError('');
     Promise.all([
-      fetch('/api/aluno/dashboard', {
+      fetchWithTimeout('/api/aluno/dashboard', {
         headers: { Authorization: `Bearer ${token}` }
       }).then((response) => response.json()),
-      fetch('/api/aluno/aulas', {
+      fetchWithTimeout('/api/aluno/aulas', {
         headers: { Authorization: `Bearer ${token}` }
       }).then((response) => response.json())
     ])

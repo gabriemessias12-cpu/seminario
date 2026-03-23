@@ -66,6 +66,7 @@ export default function StudentAvaliacoes() {
   // Timer state: maps avaliacaoId -> remaining seconds (null = not started)
   const [timerSeconds, setTimerSeconds] = useState<Record<string, number>>({});
   const timerRefs = useRef<Record<string, number>>({});
+  const isMountedRef = useRef(true);
   // We need a ref to `handleSubmit` to call it from the timer
   const submitRef = useRef<((avaliacao: Avaliacao) => void) | null>(null);
 
@@ -185,12 +186,17 @@ export default function StudentAvaliacoes() {
       if (arquivo) formData.append('arquivo', arquivo);
     }
 
+    const submitController = new AbortController();
+    const submitTimeout = setTimeout(() => submitController.abort(), 30000);
+
     try {
       const response = await fetch(`/api/aluno/avaliacao/${avaliacao.id}/entrega`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: formData
+        body: formData,
+        signal: submitController.signal
       });
+      clearTimeout(submitTimeout);
       const data = await response.json();
 
       if (!response.ok) {
@@ -205,18 +211,33 @@ export default function StudentAvaliacoes() {
       fetch('/api/aluno/avaliacoes', { headers: { Authorization: `Bearer ${token}` } })
         .then((r) => r.json())
         .then((d) => {
+          if (!isMountedRef.current) return;
           setAvaliacoes(d);
           setRespostasTexto(Object.fromEntries(d.map((item: Avaliacao) => [item.id, item.entregaAtual?.respostaTexto || ''])));
           setRespostasObjetivas(Object.fromEntries(d.map((item: Avaliacao) => [item.id, item.questoesObjetivas?.map((_: unknown, i: number) => item.resultadoObjetivo?.respostas?.[i]?.respostaAluno ?? null) || []])));
         })
         .catch(() => {})
-        .finally(() => setLoading(false));
-    } catch {
-      setFeedback((current) => ({ ...current, [avaliacao.id]: 'Erro ao comunicar com o servidor.' }));
+        .finally(() => { if (isMountedRef.current) setLoading(false); });
+    } catch (err) {
+      clearTimeout(submitTimeout);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: 'Tempo esgotado ao enviar a atividade. Tente novamente.' }));
+      } else {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: 'Erro ao comunicar com o servidor.' }));
+      }
     } finally {
       setSubmittingId(null);
     }
   }, [arquivos, respostasObjetivas, respostasTexto, token]);
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      Object.values(timerRefs.current).forEach(clearInterval);
+      timerRefs.current = {};
+    };
+  }, []);
 
   // Keep submitRef updated
   useEffect(() => {

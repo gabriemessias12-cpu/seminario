@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
 
 interface Aluno {
   id: string;
@@ -28,7 +29,7 @@ export default function AdminAlunos() {
 
   const loadAlunos = () => {
     setLoadError('');
-    fetch('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
+    fetchWithTimeout('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(setAlunos)
       .catch(() => setLoadError('Nao foi possivel carregar a lista de alunos agora.'))

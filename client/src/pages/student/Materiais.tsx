@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import AppIcon from '../../components/AppIcon';
 import { apiUrl } from '../../lib/api';
+import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
 
 function getFileUrl(urlArquivo: string) {
   return urlArquivo.startsWith('/uploads/') ? `/api${urlArquivo}` : apiUrl(urlArquivo);
@@ -15,7 +16,7 @@ export default function StudentMateriais() {
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
-    fetch('/api/aluno/materiais', {
+    fetchWithTimeout('/api/aluno/materiais', {
       headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
     })
       .then((response) => response.json())

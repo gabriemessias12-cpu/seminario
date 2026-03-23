@@ -114,8 +114,28 @@ export default function AdminAulaNova() {
     setAiStatus('');
   };
 
+  const extractYoutubeVideoId = (url: string): string | null => {
+    try {
+      const parsed = new URL(url.trim());
+      if (parsed.hostname === 'youtu.be') return parsed.pathname.slice(1).split('?')[0] || null;
+      if (parsed.hostname.includes('youtube.com')) return parsed.searchParams.get('v');
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (sourceType === 'youtube') {
+      const videoId = extractYoutubeVideoId(youtubeUrl);
+      if (!videoId) {
+        setAiStatus('URL do YouTube invalida. Use o formato https://www.youtube.com/watch?v=ID ou https://youtu.be/ID');
+        return;
+      }
+    }
+
     setSubmitting(true);
     setAiStatus('Enviando aula...');
 

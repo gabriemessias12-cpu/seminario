@@ -23,23 +23,38 @@ const execAsync = promisify(exec);
 // Returns plain text or null if unavailable
 async function fetchYoutubeTranscript(videoId: string, preferLang = 'pt'): Promise<string | null> {
   try {
-    const playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)'
-      },
-      body: JSON.stringify({
-        context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
-        videoId
-      })
-    });
+    const playerController = new AbortController();
+    const playerTimeout = setTimeout(() => playerController.abort(), 15000);
+    let playerRes: Response;
+    try {
+      playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)'
+        },
+        body: JSON.stringify({
+          context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
+          videoId
+        }),
+        signal: playerController.signal
+      });
+    } finally {
+      clearTimeout(playerTimeout);
+    }
     if (!playerRes.ok) return null;
     const data = await playerRes.json() as any;
     const tracks: any[] = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
     if (!Array.isArray(tracks) || tracks.length === 0) return null;
     const track = tracks.find((t) => t.languageCode === preferLang) ?? tracks[0];
-    const xmlRes = await fetch(track.baseUrl as string);
+    const xmlController = new AbortController();
+    const xmlTimeout = setTimeout(() => xmlController.abort(), 15000);
+    let xmlRes: Response;
+    try {
+      xmlRes = await fetch(track.baseUrl as string, { signal: xmlController.signal });
+    } finally {
+      clearTimeout(xmlTimeout);
+    }
     if (!xmlRes.ok) return null;
     const xml = await xmlRes.text();
     // Parse <p t="..."><s>word</s><s t="..."> word</s></p> format
@@ -179,7 +194,11 @@ const uploadAvatar = multer({
 const brandStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, path.resolve('uploads/brand')),
   filename: (req: any, _file, cb) => {
-    const slot = String(req.params?.slot ?? '1').replace(/[^0-9]/g, '');
+    const slot = String(req.params?.slot ?? '1').replace(/[^0-9]/g, '').substring(0, 2);
+    if (!['1', '2', '3'].includes(slot)) {
+      cb(new Error('Slot invalido'), '');
+      return;
+    }
     cb(null, `lideranca-${slot}.jpg`);
   }
 });
