@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+
 import AppIcon from '../../components/AppIcon';
+import { apiGet, apiPost } from '../../lib/apiClient';
 
 export default function AdminChamada() {
-  const token = localStorage.getItem('accessToken');
   const [modulos, setModulos] = useState<any[]>([]);
   const [aulas, setAulas] = useState<any[]>([]);
   const [presencas, setPresencas] = useState<any[]>([]);
@@ -15,54 +16,42 @@ export default function AdminChamada() {
   const [alunos, setAlunos] = useState<any[]>([]);
   const [feedback, setFeedback] = useState('');
 
+  const reloadChamada = (moduloId: string, aulaId: string) => {
+    const params = new URLSearchParams();
+    if (moduloId) params.append('moduloId', moduloId);
+    if (aulaId) params.append('aulaId', aulaId);
+    apiGet<any[]>(`/api/admin/chamada?${params.toString()}`).then(setPresencas).catch(() => {});
+  };
+
   useEffect(() => {
-    fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then(setModulos)
-      .catch(() => setFeedback('Nao foi possivel carregar os modulos.'));
-
-    fetch('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then(setAlunos)
-      .catch(() => setFeedback('Nao foi possivel carregar os alunos.'));
-
+    apiGet<any[]>('/api/admin/modulos').then(setModulos).catch(() => setFeedback('Nao foi possivel carregar os modulos.'));
+    apiGet<any[]>('/api/admin/alunos').then(setAlunos).catch(() => setFeedback('Nao foi possivel carregar os alunos.'));
     const params = new URLSearchParams(window.location.search);
     const aulaId = params.get('aulaId');
     if (aulaId) setSelectedAula(aulaId);
-  }, [token]);
+  }, []);
 
   useEffect(() => {
-    if (!selectedModulo) {
-      setAulas([]);
-      setPresencas([]);
-      return;
-    }
-
-      fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+    if (!selectedModulo) { setAulas([]); setPresencas([]); return; }
+    apiGet<any[]>('/api/admin/aulas')
       .then((data) => {
         const modulo = data.find((item: any) => item.id === selectedModulo);
         setAulas(modulo?.aulas || []);
       })
       .catch(() => setFeedback('Nao foi possivel carregar as aulas.'));
-  }, [selectedModulo, token]);
+  }, [selectedModulo]);
 
   useEffect(() => {
-    if (!selectedModulo && !selectedAula) {
-      return;
-    }
-
+    if (!selectedModulo && !selectedAula) return;
     setLoading(true);
     const params = new URLSearchParams();
     if (selectedModulo) params.append('moduloId', selectedModulo);
     if (selectedAula) params.append('aulaId', selectedAula);
-
-    fetch(`/api/admin/chamada?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+    apiGet<any[]>(`/api/admin/chamada?${params.toString()}`)
       .then(setPresencas)
       .catch(() => setFeedback('Nao foi possivel carregar a chamada.'))
       .finally(() => setLoading(false));
-  }, [selectedModulo, selectedAula, token]);
+  }, [selectedModulo, selectedAula]);
 
   const handleSaveChamada = async () => {
     if (!selectedAula) return;
@@ -73,27 +62,12 @@ export default function AdminChamada() {
         status: data.status,
         metodo: data.metodo
       }));
-
-      const res = await fetch('/api/admin/chamada', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ aulaId: selectedAula, presencas: presencasList })
-      });
-
-      if (res.ok) {
-        setEditMode(false);
-        setManualChanges({});
-        // Reload
-        const params = new URLSearchParams();
-        if (selectedModulo) params.append('moduloId', selectedModulo);
-        if (selectedAula) params.append('aulaId', selectedAula);
-
-        fetch(`/api/admin/chamada?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
-          .then((r) => r.json())
-          .then(setPresencas);
-        setFeedback('Chamada salva com sucesso.');
-      }
-    } catch (err) {
+      await apiPost('/api/admin/chamada', { aulaId: selectedAula, presencas: presencasList });
+      setEditMode(false);
+      setManualChanges({});
+      reloadChamada(selectedModulo, selectedAula);
+      setFeedback('Chamada salva com sucesso.');
+    } catch {
       setFeedback('Nao foi possivel salvar a chamada.');
     } finally {
       setSaving(false);

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+
 import AppIcon from '../../components/AppIcon';
 import AvatarCropModal from '../../components/AvatarCropModal';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
+import { apiGet, apiFetch } from '../../lib/apiClient';
 
 export default function AdminAlunoDetalhes() {
   const { id } = useParams();
@@ -14,7 +16,6 @@ export default function AdminAlunoDetalhes() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const token = localStorage.getItem('accessToken');
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -31,11 +32,7 @@ export default function AdminAlunoDetalhes() {
     try {
       const formData = new FormData();
       formData.append('foto', blob, 'avatar.jpg');
-      const response = await fetch(`/api/admin/aluno/${id}/foto`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
+      const response = await apiFetch(`/api/admin/aluno/${id}/foto`, { method: 'PUT', body: formData });
       const data = await response.json();
       if (!response.ok) { setFeedback(data.error || 'Erro ao salvar foto.'); return; }
       setAluno((current: any) => ({ ...current, foto: data.foto }));
@@ -51,8 +48,7 @@ export default function AdminAlunoDetalhes() {
   };
 
   useEffect(() => {
-    fetch(`/api/admin/aluno/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
+    apiGet(`/api/admin/aluno/${id}`)
       .then(setAluno)
       .catch(() => setLoadError('Nao foi possivel carregar o relatorio do aluno.'))
       .finally(() => setLoading(false));
@@ -337,7 +333,7 @@ export default function AdminAlunoDetalhes() {
                         <button
                           className="text-link-button"
                           onClick={() => {
-                            void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                            void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
                               setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
                             });
                           }}

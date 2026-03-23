@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import type { AuthRequest } from '../middleware/auth.js';
+import { logger } from '../utils/logger.js';
 
 type ChangeEntity = 'modulo' | 'aula';
 type ChangeAction = 'criado' | 'atualizado' | 'excluido';
@@ -30,6 +31,6 @@ export async function logContentChange(
       },
     });
   } catch (error) {
-    console.error('Erro ao registrar mudanca de conteudo:', error);
+    logger.error('Erro ao registrar mudanca de conteudo:', error);
   }
 }

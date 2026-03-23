@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+
 import AppIcon from '../../components/AppIcon';
+import { apiGet, apiPut, apiDelete, apiFetch } from '../../lib/apiClient';
 
 interface EditState {
   id: string;
@@ -26,11 +28,8 @@ export default function AdminMateriais() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const token = localStorage.getItem('accessToken');
-
   const loadMateriais = () => {
-    fetch('/api/admin/materiais', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
+    apiGet('/api/admin/materiais')
       .then(setMateriais)
       .catch(() => setFeedback('Nao foi possivel carregar os materiais agora.'))
       .finally(() => setLoading(false));
@@ -38,13 +37,10 @@ export default function AdminMateriais() {
 
   useEffect(() => {
     loadMateriais();
-    fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
-      .then((data) => {
-        if (Array.isArray(data)) setModulos(data);
-      })
+    apiGet<unknown[]>('/api/admin/aulas')
+      .then((data) => { if (Array.isArray(data)) setModulos(data); })
       .catch(() => setFeedback('Nao foi possivel carregar a relacao de aulas.'));
-  }, [token]);
+  }, []);
 
   const handleUpload = async (event: { preventDefault(): void }) => {
     event.preventDefault();
@@ -62,11 +58,7 @@ export default function AdminMateriais() {
     formData.append('arquivo', arquivo);
 
     try {
-      const response = await fetch('/api/admin/material', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
+      const response = await apiFetch('/api/admin/material', { method: 'POST', body: formData });
 
       if (!response.ok) {
         setFeedback('Nao foi possivel enviar o material.');
@@ -92,16 +84,9 @@ export default function AdminMateriais() {
     if (!window.confirm('Excluir este material? Esta acao nao pode ser desfeita.')) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/admin/material/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setMateriais(prev => prev.filter(m => m.id !== id));
-        setFeedback('Material excluido com sucesso.');
-      } else {
-        setFeedback('Erro ao excluir material.');
-      }
+      await apiDelete(`/api/admin/material/${id}`);
+      setMateriais(prev => prev.filter((m: { id: string }) => m.id !== id));
+      setFeedback('Material excluido com sucesso.');
     } catch {
       setFeedback('Erro ao excluir material.');
     } finally {
@@ -125,24 +110,16 @@ export default function AdminMateriais() {
     if (!editState) return;
     setSavingEdit(true);
     try {
-      const res = await fetch(`/api/admin/material/${editState.id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          titulo: editState.titulo,
-          descricao: editState.descricao,
-          categoria: editState.categoria,
-          permiteDownload: editState.permiteDownload,
-          aulaId: editState.aulaId || null
-        })
+      await apiPut(`/api/admin/material/${editState.id}`, {
+        titulo: editState.titulo,
+        descricao: editState.descricao,
+        categoria: editState.categoria,
+        permiteDownload: editState.permiteDownload,
+        aulaId: editState.aulaId || null
       });
-      if (res.ok) {
-        setFeedback('Material atualizado com sucesso.');
-        setEditState(null);
-        loadMateriais();
-      } else {
-        setFeedback('Erro ao atualizar material.');
-      }
+      setFeedback('Material atualizado com sucesso.');
+      setEditState(null);
+      loadMateriais();
     } catch {
       setFeedback('Erro ao atualizar material.');
     } finally {
@@ -171,16 +148,16 @@ export default function AdminMateriais() {
             <h3 className="section-title">Upload de material</h3>
             <form onSubmit={handleUpload}>
               <div className="form-group">
-                <label className="form-label">Titulo</label>
-                <input className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} required />
+                <label className="form-label" htmlFor="upload-titulo">Titulo</label>
+                <input id="upload-titulo" className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Descricao</label>
-                <textarea className="form-textarea" value={descricao} onChange={(event) => setDescricao(event.target.value)} rows={3} />
+                <label className="form-label" htmlFor="upload-descricao">Descricao</label>
+                <textarea id="upload-descricao" className="form-textarea" value={descricao} onChange={(event) => setDescricao(event.target.value)} rows={3} />
               </div>
               <div className="form-group">
-                <label className="form-label">Categoria</label>
-                <select className="form-select" value={categoria} onChange={(event) => setCategoria(event.target.value)}>
+                <label className="form-label" htmlFor="upload-categoria">Categoria</label>
+                <select id="upload-categoria" className="form-select" value={categoria} onChange={(event) => setCategoria(event.target.value)}>
                   <option value="geral">Geral</option>
                   <option value="biblico">Biblico</option>
                   <option value="teologico">Teologico</option>
@@ -189,8 +166,8 @@ export default function AdminMateriais() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Aula Relacionada (Opcional)</label>
-                <select className="form-select" value={aulaSelecionada} onChange={(event) => setAulaSelecionada(event.target.value)}>
+                <label className="form-label" htmlFor="upload-aula">Aula Relacionada (Opcional)</label>
+                <select id="upload-aula" className="form-select" value={aulaSelecionada} onChange={(event) => setAulaSelecionada(event.target.value)}>
                   <option value="">Nenhuma aula vinculada</option>
                   {modulos.map(modulo => (
                     <optgroup key={modulo.id} label={modulo.titulo}>
@@ -202,8 +179,8 @@ export default function AdminMateriais() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Arquivo</label>
-                <input type="file" accept=".pdf,.epub,.docx" onChange={(event) => setArquivo(event.target.files?.[0] || null)} className="form-input file-input" />
+                <label className="form-label" htmlFor="upload-arquivo">Arquivo</label>
+                <input id="upload-arquivo" type="file" accept=".pdf,.epub,.docx" onChange={(event) => setArquivo(event.target.files?.[0] || null)} className="form-input file-input" />
               </div>
               <div className="form-group">
                 <label className="checkbox-row">
@@ -226,16 +203,16 @@ export default function AdminMateriais() {
             </div>
             <form onSubmit={handleSaveEdit}>
               <div className="form-group">
-                <label className="form-label">Titulo</label>
-                <input className="form-input" value={editState.titulo} onChange={e => setEditState(s => s && ({ ...s, titulo: e.target.value }))} required />
+                <label className="form-label" htmlFor="edit-titulo">Titulo</label>
+                <input id="edit-titulo" className="form-input" value={editState.titulo} onChange={e => setEditState(s => s && ({ ...s, titulo: e.target.value }))} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Descricao</label>
-                <textarea className="form-textarea" value={editState.descricao} onChange={e => setEditState(s => s && ({ ...s, descricao: e.target.value }))} rows={3} />
+                <label className="form-label" htmlFor="edit-descricao">Descricao</label>
+                <textarea id="edit-descricao" className="form-textarea" value={editState.descricao} onChange={e => setEditState(s => s && ({ ...s, descricao: e.target.value }))} rows={3} />
               </div>
               <div className="form-group">
-                <label className="form-label">Categoria</label>
-                <select className="form-select" value={editState.categoria} onChange={e => setEditState(s => s && ({ ...s, categoria: e.target.value }))}>
+                <label className="form-label" htmlFor="edit-categoria">Categoria</label>
+                <select id="edit-categoria" className="form-select" value={editState.categoria} onChange={e => setEditState(s => s && ({ ...s, categoria: e.target.value }))}>
                   <option value="geral">Geral</option>
                   <option value="biblico">Biblico</option>
                   <option value="teologico">Teologico</option>
@@ -244,8 +221,8 @@ export default function AdminMateriais() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Aula Relacionada</label>
-                <select className="form-select" value={editState.aulaId} onChange={e => setEditState(s => s && ({ ...s, aulaId: e.target.value }))}>
+                <label className="form-label" htmlFor="edit-aula">Aula Relacionada</label>
+                <select id="edit-aula" className="form-select" value={editState.aulaId} onChange={e => setEditState(s => s && ({ ...s, aulaId: e.target.value }))}>
                   <option value="">Nenhuma aula vinculada</option>
                   {allAulas.map(a => (
                     <option key={a.id} value={a.id}>{a.modulo} — {a.titulo}</option>
@@ -291,7 +268,7 @@ export default function AdminMateriais() {
                           <AppIcon name="file" size={16} />
                           <div className="table-entity-copy">
                             <div style={{ fontWeight: 500 }}>{material.titulo}</div>
-                            {material.descricao && <div className="text-muted text-sm">{material.descricao.substring(0, 50)}</div>}
+                            {material.descricao && <div className="text-muted text-sm table-device-text">{material.descricao}</div>}
                           </div>
                         </div>
                       </td>
@@ -324,7 +301,7 @@ export default function AdminMateriais() {
                     <AppIcon name="file" size={20} />
                     <div className="admin-list-card-info">
                       <strong>{material.titulo}</strong>
-                      {material.descricao && <span className="text-muted text-sm">{material.descricao.substring(0, 70)}</span>}
+                      {material.descricao && <span className="text-muted text-sm">{material.descricao}</span>}
                       <span className="text-muted text-sm">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</span>
                     </div>
                   </div>

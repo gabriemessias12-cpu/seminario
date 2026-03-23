@@ -1,0 +1,67 @@
+version: '3.9'
+
+# ─── Produção local / self-hosted ─────────────────────────────────────────────
+# Sobe postgres + server (API) + client (nginx).
+# Pré-requisitos:
+#   1. Copie server/.env.example → server/.env e preencha as variáveis.
+#   2. docker-compose -f docker-compose.prod.yml up -d --build
+#
+# O client nginx já faz proxy de /api/ e /uploads/ para o container server,
+# então só é necessário expor a porta 80 externamente.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-seminario}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-seminario}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-seminario}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Não exponha 5432 externamente em produção
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./server/.env
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-seminario}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-seminario}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-seminario}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-seminario}
+    volumes:
+      - uploads_data:/app/uploads
+      - whisper_models:/app/whisper-models
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:3001/api/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  uploads_data:
+  whisper_models:

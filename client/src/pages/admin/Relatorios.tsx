@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+
 import AppIcon from '../../components/AppIcon';
 import BrandMark from '../../components/BrandMark';
+import { apiGet } from '../../lib/apiClient';
 
 export default function AdminRelatorios() {
   const [data, setData] = useState<any>(null);
@@ -8,11 +10,8 @@ export default function AdminRelatorios() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
-  const token = localStorage.getItem('accessToken');
-
   useEffect(() => {
-    fetch('/api/admin/relatorios', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
+    apiGet('/api/admin/relatorios')
       .then(setData)
       .catch(() => setError('Nao foi possivel carregar os relatorios agora.'))
       .finally(() => setLoading(false));

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
+
 import AppIcon from '../../components/AppIcon';
+import Sidebar from '../../components/Sidebar';
 import { apiUrl } from '../../lib/api';
+import { apiFetch, apiGet, apiPost, apiPut } from '../../lib/apiClient';
 
 declare global {
   interface Window {
@@ -49,7 +51,6 @@ function decodeYtk(k: string, aulaId: string): string | null {
 export default function StudentAulaPlayer() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const token = localStorage.getItem('accessToken');
   const videoRef = useRef<HTMLVideoElement>(null);
   const youtubeHostRef = useRef<HTMLDivElement>(null);
   const playerStageRef = useRef<HTMLDivElement>(null);
@@ -121,8 +122,8 @@ export default function StudentAulaPlayer() {
     let isMounted = true;
 
     Promise.all([
-      fetch(`/api/aluno/aula/${id}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal }).then((response) => response.json()),
-      fetch('/api/aluno/aulas', { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal }).then((response) => response.json())
+      apiFetch(`/api/aluno/aula/${id}`, { signal: controller.signal }).then((r) => r.json()),
+      apiFetch('/api/aluno/aulas', { signal: controller.signal }).then((r) => r.json())
     ])
       .then(([lessonData, modules]) => {
         if (!isMounted) return;
@@ -158,40 +159,34 @@ export default function StudentAulaPlayer() {
       isMounted = false;
       controller.abort();
     };
-  }, [id, token]);
+  }, [id]);
 
   useEffect(() => {
     if (!isYoutubeLesson || !id) return;
-    fetch(`/api/aluno/aula/${id}/ytk`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+    apiGet<any>(`/api/aluno/aula/${id}/ytk`)
       .then((data) => {
         if (data.k) {
           setYoutubeVideoId(decodeYtk(data.k, id));
         }
       })
-      .catch((err) => console.error('AulaPlayer fetch error:', err));
-  }, [id, isYoutubeLesson, token]);
+      .catch(() => {});
+  }, [id, isYoutubeLesson]);
 
   const saveProgress = useCallback((percentual: number, posicao: number, pausou = false) => {
     if (!id) return;
 
-    fetch('/api/aluno/progresso', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        aulaId: id,
-        percentualAssistido: percentual,
-        posicaoAtualSegundos: posicao,
-        pausou
-      })
+    apiPost<any>('/api/aluno/progresso', {
+      aulaId: id,
+      percentualAssistido: percentual,
+      posicaoAtualSegundos: posicao,
+      pausou
     })
-      .then((response) => response.json())
       .then((data) => {
         if (data.concluido) setCompleted(true);
         setMaxWatched((current: number) => Math.max(current, data.percentualAssistido || percentual));
       })
-      .catch((err) => console.error('AulaPlayer fetch error:', err));
-  }, [id, token]);
+      .catch(() => {});
+  }, [id]);
 
   const saveCurrentProgress = useCallback((pausou = false) => {
     if (!durationRef.current) return;
@@ -224,7 +219,7 @@ export default function StudentAulaPlayer() {
 
   useEffect(() => {
     if (!playing) return;
-    progressInterval.current = window.setInterval(() => saveCurrentProgress(false), 5000);
+    progressInterval.current = window.setInterval(() => saveCurrentProgress(false), 30000);
     return () => {
       if (progressInterval.current) clearInterval(progressInterval.current);
     };
@@ -537,22 +532,16 @@ export default function StudentAulaPlayer() {
       if (selected !== undefined && question.alternativas[selected]?.correta) score += 1;
     });
 
-    fetch('/api/aluno/quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ aulaId: id, respostas: quizAnswers, pontuacao: score, totalQuestoes: quizData.length })
-    }).catch((err) => console.error('AulaPlayer fetch error:', err));
+    apiPost('/api/aluno/quiz', { aulaId: id, respostas: quizAnswers, pontuacao: score, totalQuestoes: quizData.length })
+      .catch(() => {});
 
     setQuizScore(score);
     setQuizSubmitted(true);
   };
 
   const saveNotes = () => {
-    fetch('/api/aluno/anotacao', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ aulaId: id, conteudo: notes })
-    }).catch((err) => console.error('AulaPlayer fetch error:', err));
+    apiPut('/api/aluno/anotacao', { aulaId: id, conteudo: notes })
+      .catch(() => {});
   };
 
   const handleManualComplete = async () => {
@@ -562,16 +551,7 @@ export default function StudentAulaPlayer() {
     setLessonFeedback('');
 
     try {
-      const response = await fetch(`/api/aluno/aula/${id}/concluir`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setLessonFeedback(data.error || 'Nao foi possivel concluir a aula.');
-        return;
-      }
+      await apiPost(`/api/aluno/aula/${id}/concluir`);
 
       setCompleted(true);
       setMaxWatched(100);
@@ -604,8 +584,8 @@ export default function StudentAulaPlayer() {
           : item
       )));
       setLessonFeedback('Aula concluida com base na presenca confirmada.');
-    } catch {
-      setLessonFeedback('Erro ao comunicar com o servidor.');
+    } catch (err) {
+      setLessonFeedback(err instanceof Error ? err.message : 'Erro ao comunicar com o servidor.');
     } finally {
       setCompletionLoading(false);
     }
@@ -617,17 +597,7 @@ export default function StudentAulaPlayer() {
     setAssistantError('');
 
     try {
-      const response = await fetch('/api/aluno/ia/perguntar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ aulaId: id, pergunta: assistantQuestion })
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setAssistantError(data.error || 'Nao foi possivel consultar o assistente.');
-        return;
-      }
+      const data = await apiPost<any>('/api/aluno/ia/perguntar', { aulaId: id, pergunta: assistantQuestion });
 
       setAssistantMessages((current) => [
         {
@@ -644,8 +614,8 @@ export default function StudentAulaPlayer() {
         ...current
       ]);
       setAssistantQuestion('');
-    } catch {
-      setAssistantError('Erro ao comunicar com o servidor.');
+    } catch (err) {
+      setAssistantError(err instanceof Error ? err.message : 'Erro ao comunicar com o servidor.');
     } finally {
       setAssistantLoading(false);
     }

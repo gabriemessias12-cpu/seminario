@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3,
@@ -18,6 +18,25 @@ import { useAuth } from '../contexts/AuthContext';
 import BrandMark from './BrandMark';
 import { NavBar } from './ui/tubelight-navbar';
 
+const STUDENT_LINKS = [
+  { name: 'Inicio', url: '/dashboard', icon: Home },
+  { name: 'Conteudos', url: '/aulas', icon: Play },
+  { name: 'Avaliacoes', url: '/avaliacoes', icon: ScrollText },
+  { name: 'Biblioteca', url: '/materiais', icon: BookOpen },
+  { name: 'Perfil', url: '/perfil', icon: UserRound }
+];
+
+const ADMIN_LINKS = [
+  { name: 'Inicio', url: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'Alunos', url: '/admin/alunos', icon: Users },
+  { name: 'Avaliacoes', url: '/admin/avaliacoes', icon: ScrollText },
+  { name: 'Aulas', url: '/admin/aulas', icon: Play },
+  { name: 'Materiais', url: '/admin/materiais', icon: BookOpen },
+  { name: 'Chamada', url: '/admin/chamada', icon: ClipboardCheck },
+  { name: 'Avisos', url: '/admin/avisos', icon: BellRing },
+  { name: 'Relatorios', url: '/admin/relatorios', icon: BarChart3 }
+];
+
 interface SidebarProps {
   type: 'student' | 'admin';
 }
@@ -27,27 +46,16 @@ export default function Sidebar({ type }: SidebarProps) {
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
-  const studentLinks = [
-    { name: 'Inicio', url: '/dashboard', icon: Home },
-    { name: 'Conteudos', url: '/aulas', icon: Play },
-    { name: 'Avaliacoes', url: '/avaliacoes', icon: ScrollText },
-    { name: 'Biblioteca', url: '/materiais', icon: BookOpen },
-    { name: 'Perfil', url: '/perfil', icon: UserRound }
-  ];
+  const items = type === 'admin' ? ADMIN_LINKS : STUDENT_LINKS;
 
-  const adminLinks = [
-    { name: 'Inicio', url: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Alunos', url: '/admin/alunos', icon: Users },
-    { name: 'Avaliacoes', url: '/admin/avaliacoes', icon: ScrollText },
-    { name: 'Aulas', url: '/admin/aulas', icon: Play },
-    { name: 'Materiais', url: '/admin/materiais', icon: BookOpen },
-    { name: 'Chamada', url: '/admin/chamada', icon: ClipboardCheck },
-    { name: 'Avisos', url: '/admin/avisos', icon: BellRing },
-    { name: 'Relatorios', url: '/admin/relatorios', icon: BarChart3 }
-  ];
+  const initials = useMemo(() =>
+    user?.nome?.split(' ').map((item: string) => item[0]).slice(0, 2).join('').toUpperCase() || '?',
+    [user?.nome]
+  );
 
-  const items = type === 'admin' ? adminLinks : studentLinks;
-  const initials = user?.nome?.split(' ').map((item) => item[0]).slice(0, 2).join('').toUpperCase() || '?';
+  const handleToggleLogoutPopup = useCallback(() => {
+    setShowLogoutPopup((v) => !v);
+  }, []);
 
   const handleLogout = () => {
     const refreshToken = localStorage.getItem('refreshToken');
@@ -87,11 +95,11 @@ export default function Sidebar({ type }: SidebarProps) {
       <button
         aria-label="Perfil e opcoes de conta"
         className="nav-user-chip flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-white transition-colors hover:bg-white/10 cursor-pointer"
-        onClick={() => setShowLogoutPopup((v) => !v)}
+        onClick={handleToggleLogoutPopup}
         type="button"
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-white overflow-hidden">
-          {user?.foto ? <img alt="" className="h-full w-full object-cover" src={user.foto} /> : initials}
+          {user?.foto ? <img alt="" className="h-full w-full object-cover" loading="lazy" src={user.foto} /> : initials}
         </div>
         <div className="hidden min-w-0 lg:block">
           <strong className="block max-w-[120px] truncate text-sm leading-none text-white">{user?.nome}</strong>
@@ -120,7 +128,7 @@ export default function Sidebar({ type }: SidebarProps) {
           {/* User info */}
           <div className="flex items-center gap-3 px-4 py-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/20 text-base font-bold text-white overflow-hidden">
-              {user?.foto ? <img alt="" className="h-full w-full object-cover" src={user.foto} /> : initials}
+              {user?.foto ? <img alt="" className="h-full w-full object-cover" loading="lazy" src={user.foto} /> : initials}
             </div>
             <div className="min-w-0">
               <strong className="block truncate text-sm text-white">{user?.nome}</strong>
@@ -152,7 +160,7 @@ export default function Sidebar({ type }: SidebarProps) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-white overflow-hidden">
-          {user?.foto ? <img alt="" className="h-full w-full object-cover" src={user.foto} /> : initials}
+          {user?.foto ? <img alt="" className="h-full w-full object-cover" loading="lazy" src={user.foto} /> : initials}
         </div>
         <div className="min-w-0">
           <strong className="block truncate text-sm text-white">{user?.nome}</strong>

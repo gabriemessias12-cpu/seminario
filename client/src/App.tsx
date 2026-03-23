@@ -1,28 +1,30 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import AdminLoginPage from './pages/AdminLoginPage';
-import StudentDashboard from './pages/student/Dashboard';
-import StudentAulas from './pages/student/Aulas';
-import StudentAulaPlayer from './pages/student/AulaPlayer';
-import StudentAvaliacoes from './pages/student/Avaliacoes';
-import StudentMateriais from './pages/student/Materiais';
-import StudentPerfil from './pages/student/Perfil';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminAlunos from './pages/admin/Alunos';
-import AdminAlunoDetalhes from './pages/admin/AlunoDetalhes';
-import AdminAvaliacoes from './pages/admin/Avaliacoes';
-import AdminAulas from './pages/admin/Aulas';
-import AdminAulaNova from './pages/admin/AulaNova';
-import AdminAulaEditar from './pages/admin/AulaEditar';
-import AdminMateriais from './pages/admin/Materiais';
-import AdminChamada from './pages/admin/Chamada';
-import AdminAvisos from './pages/admin/Avisos';
-import AdminRelatorios from './pages/admin/Relatorios';
-import AdminConfiguracoes from './pages/admin/Configuracoes';
+import { lazy, Suspense, ReactNode } from 'react';
 import AdminLayout from './components/layouts/AdminLayout';
-import { ReactNode } from 'react';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
+const StudentAulas = lazy(() => import('./pages/student/Aulas'));
+const StudentAulaPlayer = lazy(() => import('./pages/student/AulaPlayer'));
+const StudentAvaliacoes = lazy(() => import('./pages/student/Avaliacoes'));
+const StudentMateriais = lazy(() => import('./pages/student/Materiais'));
+const StudentPerfil = lazy(() => import('./pages/student/Perfil'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminAlunos = lazy(() => import('./pages/admin/Alunos'));
+const AdminAlunoDetalhes = lazy(() => import('./pages/admin/AlunoDetalhes'));
+const AdminAvaliacoes = lazy(() => import('./pages/admin/Avaliacoes'));
+const AdminAulas = lazy(() => import('./pages/admin/Aulas'));
+const AdminAulaNova = lazy(() => import('./pages/admin/AulaNova'));
+const AdminAulaEditar = lazy(() => import('./pages/admin/AulaEditar'));
+const AdminMateriais = lazy(() => import('./pages/admin/Materiais'));
+const AdminChamada = lazy(() => import('./pages/admin/Chamada'));
+const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
+const AdminRelatorios = lazy(() => import('./pages/admin/Relatorios'));
+const AdminConfiguracoes = lazy(() => import('./pages/admin/Configuracoes'));
 
 // This array would typically be in a separate config file or a Sidebar component
 // For the purpose of this edit, it's placed here as per the user's snippet structure.
@@ -66,6 +68,7 @@ function ProtectedRoute({ children, role }: { children: ReactNode; role: 'aluno'
 
 function AppRoutes() {
   return (
+    <Suspense fallback={<div className="skeleton" style={{ minHeight: '100vh' }} />}>
     <Routes>
       {/* Public */}
       <Route path="/" element={<LandingPage />} />
@@ -107,15 +110,18 @@ function AppRoutes() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

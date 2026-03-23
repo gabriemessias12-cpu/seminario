@@ -1,23 +1,14 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
-
-interface Aluno {
-  id: string;
-  nome: string;
-  email: string;
-  foto?: string | null;
-  ativo: boolean;
-  ultimoAcesso?: string | null;
-  progressoGeral: number;
-}
+import { apiGet, apiPut, apiPost } from '../../lib/apiClient';
+import type { AlunoListItem } from '../../types/models';
 
 export default function AdminAlunos() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('accessToken');
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [alunos, setAlunos] = useState<AlunoListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -29,8 +20,7 @@ export default function AdminAlunos() {
 
   const loadAlunos = () => {
     setLoadError('');
-    fetchWithTimeout('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+    apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
       .catch(() => setLoadError('Nao foi possivel carregar a lista de alunos agora.'))
       .finally(() => setLoading(false));
@@ -40,18 +30,22 @@ export default function AdminAlunos() {
     loadAlunos();
   }, []);
 
-  const filtered = alunos.filter((aluno) =>
-    aluno.nome.toLowerCase().includes(search.toLowerCase()) ||
-    aluno.email.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const filtered = useMemo(() =>
+    alunos.filter((aluno) =>
+      aluno.nome.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      aluno.email.toLowerCase().includes(debouncedSearch.toLowerCase())
+    ),
+    [alunos, debouncedSearch]
   );
 
   const toggleStatus = async (id: string) => {
     try {
-      await fetch(`/api/admin/aluno/${id}/toggle`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      await apiPut(`/api/admin/aluno/${id}/toggle`);
       setAlunos((current) => current.map((aluno) => (
         aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno
       )));
@@ -66,31 +60,16 @@ export default function AdminAlunos() {
     setFeedback('');
 
     try {
-      const response = await fetch('/api/admin/aluno', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ nome, email, telefone, senha })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel cadastrar o aluno.');
-        setSaving(false);
-        return;
-      }
-
-      setFeedback(`Aluno criado com sucesso. Senha temporaria: ${data.senhaTemporaria}`);
+      const data = await apiPost<{ senhaTemporaria?: string; error?: string }>('/api/admin/aluno', { nome, email, telefone, senha });
+      setFeedback(`Aluno criado com sucesso. Senha temporaria: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
       setNome('');
       setEmail('');
       setTelefone('');
       setSenha('123456');
       setShowForm(false);
       loadAlunos();
-    } catch {
-      setFeedback('Erro ao comunicar com o servidor.');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Erro ao comunicar com o servidor.');
     } finally {
       setSaving(false);
     }
@@ -181,7 +160,7 @@ export default function AdminAlunos() {
                         <div className="table-entity">
                           <div className="table-entity-avatar" style={{ overflow: 'hidden', padding: 0 }}>
                             {aluno.foto
-                              ? <img alt="" src={aluno.foto} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              ? <img alt="" loading="lazy" src={aluno.foto} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                               : aluno.nome?.[0]}
                           </div>
                           <div className="table-entity-copy">
@@ -229,7 +208,7 @@ export default function AdminAlunos() {
                   <div className="admin-list-card-header">
                     <div className="table-entity-avatar" style={{ overflow: 'hidden', padding: 0 }}>
                       {aluno.foto
-                        ? <img alt="" src={aluno.foto} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ? <img alt="" loading="lazy" src={aluno.foto} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         : aluno.nome?.[0]}
                     </div>
                     <div className="admin-list-card-info">

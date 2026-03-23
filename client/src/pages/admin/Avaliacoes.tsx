@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+
 import AppIcon from '../../components/AppIcon';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
+import { apiGet, apiPost, apiPut, apiDelete } from '../../lib/apiClient';
 import {
   buildObjectiveReview,
   createEmptyDissertativeQuestion,
@@ -63,7 +65,6 @@ function buildInitialQuestions() {
 }
 
 export default function AdminAvaliacoes() {
-  const token = localStorage.getItem('accessToken');
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [modulos, setModulos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,8 +102,8 @@ export default function AdminAvaliacoes() {
     setLoading(true);
     setPageError('');
     Promise.all([
-      fetch('/api/admin/avaliacoes', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
-      fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json())
+      apiGet<Avaliacao[]>('/api/admin/avaliacoes'),
+      apiGet<any[]>('/api/admin/aulas')
     ])
       .then(([avaliacoesData, modulosData]) => {
         setAvaliacoes(avaliacoesData);
@@ -147,52 +148,26 @@ export default function AdminAvaliacoes() {
     setQuestoesObjetivas(buildInitialQuestions());
   };
 
-  const fetchAvaliacaoDetail = async (avaliacaoId: string) => {
-    const response = await fetch(`/api/admin/avaliacao/${avaliacaoId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Nao foi possivel carregar a avaliacao.');
-    }
-
-    return data as DetailedAvaliacao;
-  };
+  const fetchAvaliacaoDetail = (avaliacaoId: string) =>
+    apiGet<DetailedAvaliacao>(`/api/admin/avaliacao/${avaliacaoId}`);
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
     setFeedback('');
 
     try {
-      const response = await fetch(editingId ? `/api/admin/avaliacao/${editingId}` : '/api/admin/avaliacao', {
-        method: editingId ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          titulo,
-          descricao,
-          tipo,
-          formato,
-          moduloId: moduloId || null,
-          aulaId: aulaId || null,
-          dataLimite: dataLimite || null,
-          notaMaxima,
-          publicado,
-          permiteArquivo,
-          permiteTexto,
-          resultadoImediato,
-          tempoLimiteMinutos: tempoLimiteMinutos || null,
-          questoesObjetivas: formato === 'objetiva' ? questoesObjetivas : []
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel salvar a avaliacao.');
-        return;
+      const payload = {
+        titulo, descricao, tipo, formato,
+        moduloId: moduloId || null, aulaId: aulaId || null,
+        dataLimite: dataLimite || null, notaMaxima, publicado,
+        permiteArquivo, permiteTexto, resultadoImediato,
+        tempoLimiteMinutos: tempoLimiteMinutos || null,
+        questoesObjetivas: formato === 'objetiva' ? questoesObjetivas : []
+      };
+      if (editingId) {
+        await apiPut(`/api/admin/avaliacao/${editingId}`, payload);
+      } else {
+        await apiPost('/api/admin/avaliacao', payload);
       }
 
       resetForm();
@@ -236,15 +211,7 @@ export default function AdminAvaliacoes() {
 
     setFeedback('');
     try {
-      const response = await fetch(`/api/admin/avaliacao/${avaliacaoId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel excluir a avaliacao.');
-        return;
-      }
+      await apiDelete(`/api/admin/avaliacao/${avaliacaoId}`);
 
       if (selectedId === avaliacaoId) {
         setSelectedId(null);
@@ -322,20 +289,7 @@ export default function AdminAvaliacoes() {
     setSavingCorrectionId(entregaId);
 
     try {
-      const response = await fetch(`/api/admin/entrega-avaliacao/${entregaId}/correcao`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel salvar a correcao.');
-        return;
-      }
+      await apiPut(`/api/admin/entrega-avaliacao/${entregaId}/correcao`, payload);
 
       if (selectedId) {
         await loadAvaliacao(selectedId);
@@ -836,7 +790,7 @@ export default function AdminAvaliacoes() {
                         <button
                           className="text-link-button"
                           onClick={() => {
-                            void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                            void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
                               setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
                             });
                           }}

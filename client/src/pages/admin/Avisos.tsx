@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+
 import AppIcon from '../../components/AppIcon';
+import { apiGet, apiPost } from '../../lib/apiClient';
+import type { AlunoListItem } from '../../types/models';
 
 export default function AdminAvisos() {
-  const token = localStorage.getItem('accessToken');
-  const [alunos, setAlunos] = useState<any[]>([]);
+  const [alunos, setAlunos] = useState<AlunoListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -13,12 +15,11 @@ export default function AdminAvisos() {
   const [alunoId, setAlunoId] = useState('');
 
   useEffect(() => {
-    fetch('/api/admin/alunos', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
+    apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
       .catch(() => setFeedback('Nao foi possivel carregar a lista de alunos.'))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, []);
 
   const handleSend = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,17 +29,7 @@ export default function AdminAvisos() {
     setFeedback('');
 
     try {
-      const response = await fetch('/api/admin/notificacao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ titulo, mensagem, alunoId: alunoId || null })
-      });
-
-      if (!response.ok) {
-        setFeedback('Nao foi possivel enviar o aviso.');
-        return;
-      }
-
+      await apiPost('/api/admin/notificacao', { titulo, mensagem, alunoId: alunoId || null });
       setFeedback('Aviso enviado com sucesso.');
       setTitulo('');
       setMensagem('');

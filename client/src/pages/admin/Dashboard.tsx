@@ -1,44 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppIcon from '../../components/AppIcon';
-import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
-
-interface SecurityAlert {
-  id: string;
-  mensagem: string;
-  ip?: string;
-  dispositivo?: string;
-  criadoEm: string;
-  lido: boolean;
-  usuario: { id: string; nome: string; email: string };
-}
+import { apiGet, apiPut } from '../../lib/apiClient';
+import type { AdminDashboardData, SecurityAlert } from '../../types/models';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [alertas, setAlertas] = useState<SecurityAlert[]>([]);
-  const token = localStorage.getItem('accessToken');
 
   useEffect(() => {
-    fetchWithTimeout('/api/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
-      .then(setData)
+    Promise.all([
+      apiGet<AdminDashboardData>('/api/admin/dashboard'),
+      apiGet<SecurityAlert[]>('/api/admin/alertas-seguranca')
+    ])
+      .then(([dashData, alertasData]) => {
+        setData(dashData);
+        if (Array.isArray(alertasData)) setAlertas(alertasData);
+      })
       .catch(() => setError('Nao foi possivel carregar o painel administrativo agora.'))
       .finally(() => setLoading(false));
-
-    fetchWithTimeout('/api/admin/alertas-seguranca', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then((data: SecurityAlert[]) => { if (Array.isArray(data)) setAlertas(data); })
-      .catch((error) => { console.error('Erro ao carregar alertas de segurança:', error); });
   }, []);
 
   const marcarLido = async (id: string) => {
-    await fetch(`/api/admin/alerta-seguranca/${id}/ler`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    await apiPut(`/api/admin/alerta-seguranca/${id}/ler`).catch(() => undefined);
     setAlertas(prev => prev.map(a => a.id === id ? { ...a, lido: true } : a));
   };
 
@@ -76,7 +63,7 @@ export default function AdminDashboard() {
                           {new Date(alerta.criadoEm).toLocaleString('pt-BR')}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                      <div className="alert-action-row" style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                         <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${alerta.usuario.id}`)} type="button">Ver aluno</button>
                         <button className="btn btn-ghost btn-sm" onClick={() => marcarLido(alerta.id)} type="button">Dispensar</button>
                       </div>
@@ -107,7 +94,7 @@ export default function AdminDashboard() {
               <div className="card">
                 <h3 className="section-title">Percentual medio assistido por aula</h3>
                 <div className="bar-chart">
-                  {data.aulasStats?.map((aula: any, index: number) => (
+                  {data.aulasStats?.map((aula, index) => (
                     <div key={aula.id} className="bar" style={{ height: `${Math.max(aula.mediaConclusao, 5)}%` }}>
                       <div className="bar-value">{aula.mediaConclusao}%</div>
                       <div className="bar-label">A{index + 1}</div>
@@ -120,9 +107,10 @@ export default function AdminDashboard() {
                 <h3 className="section-title">Alunos que precisam de atencao</h3>
                 {data.alunosAtencao?.length ? (
                   <div className="attention-list">
-                    {data.alunosAtencao.map((aluno: any) => (
+                    {data.alunosAtencao.map((aluno) => (
                       <div
                         key={aluno.id}
+                        aria-label={`Ver detalhes de ${aluno.nome}`}
                         className="attention-item"
                         onClick={() => navigate(`/admin/aluno/${aluno.id}`)}
                         onKeyDown={(event) => {
@@ -166,7 +154,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.atividadeRecente?.length ? data.atividadeRecente.map((item: any) => (
+                    {data.atividadeRecente?.length ? data.atividadeRecente.map((item) => (
                       <tr key={item.id}>
                         <td style={{ fontWeight: 500 }}>{item.usuario?.nome}</td>
                         <td><span className="badge badge-success">Login</span></td>

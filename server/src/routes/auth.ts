@@ -1,10 +1,37 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { generateTokens, verifyRefreshToken, authMiddleware, AuthRequest } from '../middleware/auth.js';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
+import { generateTokens, verifyAndRotateRefreshToken, invalidateRefreshToken, authMiddleware, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 const prisma = new PrismaClient();
+
+// --- Rate limiters ---
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: 'Muitas tentativas de login. Aguarde 15 minutos e tente novamente.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const refreshLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 15,
+  message: { error: 'Muitas requisicoes de refresh. Aguarde um momento.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// --- Zod schemas ---
+const loginSchema = z.object({
+  email: z.string().email('Email invalido').max(255),
+  senha: z.string().min(1, 'Senha obrigatoria').max(128)
+});
+
+// ---
 
 function parseUserAgent(ua: string): string {
   const mobile = /Mobile|Android|iPhone|iPad/i.test(ua);
@@ -23,22 +50,35 @@ function parseUserAgent(ua: string): string {
 }
 
 // POST /api/auth/login
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
+router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, senha } = req.body;
-    if (!email || !senha) {
-      res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
 
+    const { email, senha } = parsed.data;
+
+    const realIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || req.ip || 'unknown';
+    const ua = req.headers['user-agent'] || 'unknown';
+    const dispositivo = parseUserAgent(ua);
+
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.ativo) {
+      // Record failed attempt only when the user account exists (avoids user enumeration via timing)
+      if (user) {
+        await prisma.loginHistorico.create({ data: { usuarioId: user.id, ip: realIp, dispositivo, sucesso: false } }).catch(() => {});
+        await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com senha incorreta para ${user.email}. IP: ${realIp} · ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
+      }
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
 
     const senhaValida = await bcrypt.compare(senha, user.senhaHash);
     if (!senhaValida) {
+      await prisma.loginHistorico.create({ data: { usuarioId: user.id, ip: realIp, dispositivo, sucesso: false } }).catch(() => {});
+      await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com senha incorreta para ${user.email}. IP: ${realIp} · ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
@@ -48,11 +88,6 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       where: { id: user.id },
       data: { ultimoAcesso: new Date() }
     });
-
-    // Extract real IP (behind Railway/nginx proxy)
-    const realIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || req.ip || 'unknown';
-    const ua = req.headers['user-agent'] || 'unknown';
-    const dispositivo = parseUserAgent(ua);
 
     // Log login
     await prisma.loginHistorico.create({
@@ -79,7 +114,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         data: {
           usuarioId: user.id,
           tipo: 'novo_ip',
-          mensagem: `Acesso de IP novo detectado para ${user.nome} (${user.email}). IP: ${realIp} · Dispositivo: ${dispositivo}`,
+          mensagem: `Acesso de IP novo detectado para ${user.nome}. IP: ${realIp} · Dispositivo: ${dispositivo}`,
           ip: realIp,
           dispositivo
         }
@@ -99,39 +134,40 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         foto: user.foto
       }
     });
-  } catch (error) {
-    console.error('Login error:', error);
+  } catch {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
 // POST /api/auth/refresh
-router.post('/refresh', async (req: Request, res: Response): Promise<void> => {
+router.post('/refresh', refreshLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { refreshToken } = req.body;
-    if (!refreshToken) {
+    if (!refreshToken || typeof refreshToken !== 'string') {
       res.status(400).json({ error: 'Refresh token obrigatório' });
       return;
     }
 
-    const payload = verifyRefreshToken(refreshToken);
+    const { payload, newTokens } = verifyAndRotateRefreshToken(refreshToken);
+
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.ativo) {
       res.status(401).json({ error: 'Usuário inválido' });
       return;
     }
 
-    const newPayload = { userId: user.id, email: user.email, papel: user.papel, nome: user.nome };
-    const tokens = generateTokens(newPayload);
-
-    res.json(tokens);
+    res.json(newTokens);
   } catch {
-    res.status(401).json({ error: 'Refresh token inválido' });
+    res.status(401).json({ error: 'Refresh token inválido ou expirado' });
   }
 });
 
 // POST /api/auth/logout
-router.post('/logout', async (_req: Request, res: Response): Promise<void> => {
+router.post('/logout', async (req: Request, res: Response): Promise<void> => {
+  const { refreshToken } = req.body;
+  if (refreshToken && typeof refreshToken === 'string') {
+    invalidateRefreshToken(refreshToken);
+  }
   res.json({ ok: true });
 });
 

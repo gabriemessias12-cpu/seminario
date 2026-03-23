@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import AppIcon from '../../components/AppIcon';
 import AvatarCropModal from '../../components/AvatarCropModal';
+import { apiGet, apiPost, apiDelete, apiFetch } from '../../lib/apiClient';
 import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type FeedbackTone = 'success' | 'warning';
@@ -41,8 +43,6 @@ export default function AdminAulas() {
   const [feedback, setFeedback] = useState('');
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>('warning');
   const [history, setHistory] = useState<ContentHistoryItem[]>([]);
-  const token = localStorage.getItem('accessToken');
-
   const [showNewModule, setShowNewModule] = useState(false);
   const [newModTitle, setNewModTitle] = useState('');
   const [newModDesc, setNewModDesc] = useState('');
@@ -70,8 +70,8 @@ export default function AdminAulas() {
     setHistoryLoading(true);
 
     Promise.all([
-      fetch('/api/admin/aulas', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
-      fetch('/api/admin/conteudo-historico?limit=12', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
+      apiGet<any[]>('/api/admin/aulas'),
+      apiGet<any[]>('/api/admin/conteudo-historico?limit=12'),
     ])
       .then(([modulosData, historyData]) => {
         setModulos(Array.isArray(modulosData) ? modulosData : []);
@@ -135,24 +135,14 @@ export default function AdminAulas() {
     event.preventDefault();
     if (!newModTitle.trim()) return;
     try {
-      const response = await fetch('/api/admin/modulo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ titulo: newModTitle.trim(), descricao: newModDesc.trim() }),
+      const created = await apiPost<{ id: string }>('/api/admin/modulo', {
+        titulo: newModTitle.trim(),
+        descricao: newModDesc.trim()
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error || 'Nao foi possivel criar o modulo.');
-      }
-      const created = await response.json();
       if (newModCapaFile && created.id) {
         const fd = new FormData();
         fd.append('capa', newModCapaFile);
-        await fetch(`/api/admin/modulo/${created.id}/capa`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        });
+        await apiFetch(`/api/admin/modulo/${created.id}/capa`, { method: 'PUT', body: fd });
       }
       clearModuleDraft();
       setFeedbackTone('success');
@@ -175,11 +165,7 @@ export default function AdminAulas() {
     try {
       const fd = new FormData();
       fd.append('capa', blob, 'capa.jpg');
-      const response = await fetch(`/api/admin/modulo/${target}/capa`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
+      const response = await apiFetch(`/api/admin/modulo/${target}/capa`, { method: 'PUT', body: fd });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Erro ao salvar capa.');
       setModulos((prev) => prev.map((m) => m.id === target ? { ...m, capaUrl: data.capaUrl } : m));
@@ -217,15 +203,7 @@ export default function AdminAulas() {
     }
 
     try {
-      const response = await fetch(`/api/admin/modulo/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error || 'Nao foi possivel excluir o modulo.');
-      }
+      await apiDelete(`/api/admin/modulo/${id}`);
 
       setFeedbackTone('success');
       setFeedback('Modulo removido e historico atualizado em tempo real.');

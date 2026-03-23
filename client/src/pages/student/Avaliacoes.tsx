@@ -1,8 +1,10 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Sidebar from '../../components/Sidebar';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import AppIcon from '../../components/AppIcon';
+import Sidebar from '../../components/Sidebar';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
-import { ObjectiveReviewItem, StudentObjectiveQuestion } from '../../lib/objective-assessment';
+import { apiGet, apiFetch } from '../../lib/apiClient';
+import type { ObjectiveReviewItem, StudentObjectiveQuestion } from '../../lib/objective-assessment';
 
 type Avaliacao = {
   id: string;
@@ -49,7 +51,6 @@ function formatCountdown(seconds: number) {
 }
 
 export default function StudentAvaliacoes() {
-  const token = localStorage.getItem('accessToken');
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -73,10 +74,7 @@ export default function StudentAvaliacoes() {
   const loadData = () => {
     setLoading(true);
     setPageError('');
-    fetch('/api/aluno/avaliacoes', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((response) => response.json())
+    apiGet<Avaliacao[]>('/api/aluno/avaliacoes')
       .then((data) => {
         setAvaliacoes(data);
         setRespostasTexto(Object.fromEntries(
@@ -190,9 +188,8 @@ export default function StudentAvaliacoes() {
     const submitTimeout = setTimeout(() => submitController.abort(), 30000);
 
     try {
-      const response = await fetch(`/api/aluno/avaliacao/${avaliacao.id}/entrega`, {
+      const response = await apiFetch(`/api/aluno/avaliacao/${avaliacao.id}/entrega`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
         signal: submitController.signal
       });
@@ -208,8 +205,7 @@ export default function StudentAvaliacoes() {
       setArquivos((current) => ({ ...current, [avaliacao.id]: null }));
       // Reload data after successful submission
       setLoading(true);
-      fetch('/api/aluno/avaliacoes', { headers: { Authorization: `Bearer ${token}` } })
-        .then((r) => r.json())
+      apiGet<Avaliacao[]>('/api/aluno/avaliacoes')
         .then((d) => {
           if (!isMountedRef.current) return;
           setAvaliacoes(d);
@@ -228,7 +224,7 @@ export default function StudentAvaliacoes() {
     } finally {
       setSubmittingId(null);
     }
-  }, [arquivos, respostasObjetivas, respostasTexto, token]);
+  }, [arquivos, respostasObjetivas, respostasTexto]);
 
   // Cleanup all timers on unmount
   useEffect(() => {
@@ -409,7 +405,7 @@ export default function StudentAvaliacoes() {
                           <button
                             className="btn btn-outline btn-sm"
                             onClick={() => {
-                              void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${avaliacao.entregaAtual?.id}/arquivo`, token).catch((error) => {
+                              void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${avaliacao.entregaAtual?.id}/arquivo`).catch((error) => {
                                 setFeedback((current) => ({
                                   ...current,
                                   [avaliacao.id]: error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.'

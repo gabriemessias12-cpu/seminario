@@ -1,16 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { apiUrl } from '../lib/api';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 
-interface User {
-  id: string;
-  nome: string;
-  email: string;
-  papel: string;
-  foto?: string;
-}
+import { configureApiClient } from '../lib/apiClient';
+import { apiUrl } from '../lib/api';
+import type { User } from '../types/models';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   loading: boolean;
   login: (email: string, senha: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   logout: () => void;
@@ -56,6 +52,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('accessToken'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -96,7 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const data = await res.json();
-        if (isMounted) setUser(data);
+        if (isMounted) {
+          setUser(data);
+          setToken(localStorage.getItem('accessToken'));
+        }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           return;
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, senha: string) => {
+  const login = useCallback(async (email: string, senha: string) => {
     try {
       const res = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
@@ -133,13 +133,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       setUser(data.user);
+      setToken(data.accessToken);
       return { success: true, user: data.user };
     } catch {
       return { success: false, error: 'Erro de conexão com o servidor' };
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     void fetch(apiUrl('/api/auth/logout'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,17 +149,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
-  };
+    setToken(null);
+  }, []);
+
+  // Configure apiClient with token/logout callbacks so it can handle 401 transparently
+  useEffect(() => {
+    configureApiClient({
+      onTokenRefreshed: (newToken) => setToken(newToken),
+      onLogout: logout
+    });
+  }, [logout]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    token,
+    loading,
+    login,
+    logout,
+    isAdmin: user?.papel === 'admin' || user?.papel === 'pastor',
+    isAluno: user?.papel === 'aluno' || user?.papel === 'admin' || user?.papel === 'pastor'
+  }), [user, token, loading, login, logout]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      login,
-      logout,
-      isAdmin: user?.papel === 'admin' || user?.papel === 'pastor',
-      isAluno: user?.papel === 'aluno' || user?.papel === 'admin' || user?.papel === 'pastor'
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

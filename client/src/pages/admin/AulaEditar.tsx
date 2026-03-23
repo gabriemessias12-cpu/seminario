@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+
 import AppIcon from '../../components/AppIcon';
+import { apiGet, apiPost, apiFetch } from '../../lib/apiClient';
 import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type MediaSourceType = 'youtube' | 'upload';
@@ -43,7 +45,6 @@ export default function AdminAulaEditar() {
   const [transcriptFeedback, setTranscriptFeedback] = useState('');
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
-  const token = localStorage.getItem('accessToken');
   const draftKey = `admin:aula:editar:${id}`;
 
   const dateTimeFormatter = useMemo(
@@ -57,8 +58,8 @@ export default function AdminAulaEditar() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/admin/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
-      fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } }).then((response) => response.json()),
+      apiGet<any>(`/api/admin/aula/${id}`),
+      apiGet<any[]>('/api/admin/modulos'),
     ])
       .then(([aulaData, modulosData]) => {
         const moduleList = Array.isArray(modulosData) ? modulosData : [];
@@ -95,7 +96,7 @@ export default function AdminAulaEditar() {
         setLoading(false);
         setDraftReady(true);
       });
-  }, [draftKey, id, token]);
+  }, [draftKey, id]);
 
   useEffect(() => {
     if (!draftReady || !id) {
@@ -155,23 +156,14 @@ export default function AdminAulaEditar() {
     setGeneratingTranscript(true);
     setTranscriptFeedback('');
     try {
-      const response = await fetch(`/api/admin/aula/${id}/gerar-transcricao`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Erro ao gerar transcricao');
+      const data = await apiPost<any>(`/api/admin/aula/${id}/gerar-transcricao`);
       if (data.partial) {
         setTranscriptFeedback(data.error || 'Transcricao parcial salva.');
       } else {
         const provider = data.provider ? ` via ${data.provider}` : '';
         setTranscriptFeedback(`Transcricao obtida com sucesso${provider} (${data.chars} caracteres). Revise abaixo e clique em "Salvar transcricao e gerar conteudo com IA".`);
-        // Reload transcript from server into textarea
-        const aulaRes = await fetch(`/api/admin/aula/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-        if (aulaRes.ok) {
-          const aulaData = await aulaRes.json();
-          setTranscricao(aulaData.transcricao || '');
-        }
+        const aulaData = await apiGet<any>(`/api/admin/aula/${id}`);
+        setTranscricao(aulaData.transcricao || '');
       }
     } catch (error) {
       setTranscriptFeedback(error instanceof Error ? error.message : 'Nao foi possivel gerar a transcricao.');
@@ -185,13 +177,8 @@ export default function AdminAulaEditar() {
     setProcessingIA(true);
     setIaFeedback('');
     try {
-      const response = await fetch(`/api/admin/aula/${id}/processar-ia`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcricao: transcricao.trim() })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || 'Erro ao processar IA');
+      const data = await apiPost<any>(`/api/admin/aula/${id}/processar-ia`, { transcricao: transcricao.trim() });
+      if (!data) throw new Error('Erro ao processar IA');
       setIaFeedback(`Conteudo gerado com sucesso via ${data.provider}. Versiculos, pontos-chave, glossario e quiz atualizados.`);
     } catch (error) {
       setIaFeedback(error instanceof Error ? error.message : 'Erro ao gerar conteudo com IA.');
@@ -227,13 +214,8 @@ export default function AdminAulaEditar() {
     }
 
     try {
-      const response = await fetch(`/api/admin/aula/${id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const response = await apiFetch(`/api/admin/aula/${id}`, { method: 'PUT', body: formData });
       const data = await response.json();
-
       if (!response.ok) {
         setFeedback(data.error || 'Nao foi possivel salvar a aula.');
         return;

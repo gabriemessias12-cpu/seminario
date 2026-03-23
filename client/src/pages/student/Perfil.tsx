@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Sidebar from '../../components/Sidebar';
+
 import AppIcon from '../../components/AppIcon';
 import AvatarCropModal from '../../components/AvatarCropModal';
+import Sidebar from '../../components/Sidebar';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
+import { apiGet, apiPut, apiFetch } from '../../lib/apiClient';
 
 export default function StudentPerfil() {
-  const token = localStorage.getItem('accessToken');
   const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editNome, setEditNome] = useState('');
@@ -24,10 +25,7 @@ export default function StudentPerfil() {
 
   const loadPerfil = () => {
     setLoadError('');
-    fetch('/api/aluno/perfil', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((response) => response.json())
+    apiGet<any>('/api/aluno/perfil')
       .then((data) => {
         setPerfil(data);
         setEditNome(data.user?.nome || '');
@@ -54,22 +52,8 @@ export default function StudentPerfil() {
     setFeedback('');
 
     try {
-      const response = await fetch('/api/aluno/perfil', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ nome: editNome, telefone: editTel })
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel atualizar o perfil.');
-        return;
-      }
-
-      setPerfil((current: any) => ({
-        ...current,
-        user: { ...current.user, ...data }
-      }));
+      const data = await apiPut<any>('/api/aluno/perfil', { nome: editNome, telefone: editTel });
+      setPerfil((current: any) => ({ ...current, user: { ...current.user, ...data } }));
       setFeedback('Perfil atualizado com sucesso.');
     } catch {
       setFeedback('Erro ao comunicar com o servidor.');
@@ -92,11 +76,7 @@ export default function StudentPerfil() {
     try {
       const formData = new FormData();
       formData.append('foto', blob, 'avatar.jpg');
-      const response = await fetch('/api/aluno/perfil/foto', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
+      const response = await apiFetch('/api/aluno/perfil/foto', { method: 'PUT', body: formData });
       const data = await response.json();
       if (!response.ok) { setFeedback(data.error || 'Erro ao salvar foto.'); return; }
       setPerfil((current: any) => ({ ...current, user: { ...current.user, foto: data.foto } }));
@@ -119,17 +99,7 @@ export default function StudentPerfil() {
 
     setSavingPassword(true);
     try {
-      const response = await fetch('/api/aluno/senha', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ senhaAtual, novaSenha })
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setPasswordFeedback(data.error || 'Nao foi possivel alterar a senha.');
-        return;
-      }
+      await apiPut('/api/aluno/senha', { senhaAtual, novaSenha });
 
       setSenhaAtual('');
       setNovaSenha('');
@@ -154,13 +124,22 @@ export default function StudentPerfil() {
   }
 
   const user = perfil?.user;
-  const mediaQuiz = perfil?.resultados?.length
-    ? `${Math.round(perfil.resultados.reduce((sum: number, resultado: any) => sum + ((resultado.pontuacao / resultado.totalQuestoes) * 100), 0) / perfil.resultados.length)}%`
-    : 'N/A';
-  const mediaAtividades = typeof perfil?.relatorioAcademico?.entregasResumo?.mediaNotas === 'number'
-    ? perfil.relatorioAcademico.entregasResumo.mediaNotas.toFixed(1)
-    : 'N/A';
-  const boletimPorModulo = perfil?.relatorioAcademico?.boletimPorModulo || [];
+
+  const mediaQuiz = useMemo(() => {
+    if (!perfil?.resultados?.length) return 'N/A';
+    const soma = perfil.resultados.reduce((sum: number, r: any) =>
+      sum + ((r.pontuacao / r.totalQuestoes) * 100), 0);
+    return `${Math.round(soma / perfil.resultados.length)}%`;
+  }, [perfil?.resultados]);
+
+  const mediaAtividades = useMemo(() => {
+    const media = perfil?.relatorioAcademico?.entregasResumo?.mediaNotas;
+    return typeof media === 'number' ? media.toFixed(1) : 'N/A';
+  }, [perfil?.relatorioAcademico?.entregasResumo?.mediaNotas]);
+  const boletimPorModulo = useMemo(
+    () => perfil?.relatorioAcademico?.boletimPorModulo || [],
+    [perfil?.relatorioAcademico?.boletimPorModulo]
+  );
 
   return (
     <div className="layout student-layout">
@@ -198,7 +177,7 @@ export default function StudentPerfil() {
             <div className="profile-card-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 {user?.foto
-                  ? <img alt="Foto de perfil" className="profile-avatar-large" src={user.foto} style={{ objectFit: 'cover', borderRadius: '50%' }} />
+                  ? <img alt="Foto de perfil" className="profile-avatar-large" loading="lazy" src={user.foto} style={{ objectFit: 'cover', borderRadius: '50%' }} />
                   : <div className="profile-avatar-large">{initials}</div>
                 }
                 <button
@@ -323,7 +302,7 @@ export default function StudentPerfil() {
                         <button
                           className="text-link-button"
                           onClick={() => {
-                            void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${entrega.id}/arquivo`, token).catch((error) => {
+                            void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
                               setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
                             });
                           }}

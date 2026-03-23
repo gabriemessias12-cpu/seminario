@@ -1,4 +1,5 @@
 import { loadEnvFiles } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 loadEnvFiles();
 
@@ -668,7 +669,7 @@ export async function processIAFromTranscript(
     );
     return { ...serialize(payload), provider: 'openai' };
   } catch (error) {
-    console.error('Falha ao enriquecer aula com OpenAI:', error);
+    logger.error('Falha ao enriquecer aula com OpenAI:', error);
     return { ...serialize(fallback), provider: 'local' };
   }
 }
@@ -727,7 +728,7 @@ export async function processAIPipeline(aulaId: string, titulo: string, descrica
 
     return { ...serializePipeline(payload), provider: 'openai' };
   } catch (error) {
-    console.error('Falha ao gerar pipeline da aula com OpenAI. Recuando para o modo local.', error);
+    logger.error('Falha ao gerar pipeline da aula com OpenAI. Recuando para o modo local.', error);
     return { ...fallback, provider: 'local' };
   }
 }
@@ -766,7 +767,7 @@ export async function askLessonAssistant(input: AssistantInput) {
 
     return { ...payload, provider: 'openai' };
   } catch (error) {
-    console.error('Falha ao responder pergunta do assistente com OpenAI. Recuando para o modo local.', error);
+    logger.error('Falha ao responder pergunta do assistente com OpenAI. Recuando para o modo local.', error);
     return { ...fallback, provider: 'local' };
   }
 }

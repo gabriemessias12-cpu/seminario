@@ -1,0 +1,29 @@
+version: '3.9'
+
+# ─── Desenvolvimento local ────────────────────────────────────────────────────
+# Sobe apenas o PostgreSQL local para que o server e o client rodem nativamente.
+# Use: docker-compose up -d postgres
+# Então: npm run dev:server  /  npm run dev:client
+#
+# Para subir a stack completa em modo produção local use docker-compose.prod.yml
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: seminario
+      POSTGRES_PASSWORD: seminario_dev
+      POSTGRES_DB: seminario
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U seminario']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:

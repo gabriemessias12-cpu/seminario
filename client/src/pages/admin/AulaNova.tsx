@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import AppIcon from '../../components/AppIcon';
+import { apiGet, apiFetch } from '../../lib/apiClient';
 import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type MediaSourceType = 'youtube' | 'upload';
@@ -31,8 +33,6 @@ export default function AdminAulaNova() {
   const [aiStatus, setAiStatus] = useState('');
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
-  const token = localStorage.getItem('accessToken');
-
   const dateTimeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat('pt-BR', {
@@ -43,8 +43,7 @@ export default function AdminAulaNova() {
   );
 
   useEffect(() => {
-    fetch('/api/admin/modulos', { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => response.json())
+    apiGet<any[]>('/api/admin/modulos')
       .then((data) => {
         const moduleList = Array.isArray(data) ? data : [];
         const storedDraft = readDraft<LessonDraft>(LESSON_DRAFT_KEY);
@@ -66,7 +65,7 @@ export default function AdminAulaNova() {
       })
       .catch(() => setAiStatus('Nao foi possivel carregar os modulos agora.'))
       .finally(() => setDraftReady(true));
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     if (!draftReady) {
@@ -154,12 +153,7 @@ export default function AdminAulaNova() {
     }
 
     try {
-      const response = await fetch('/api/admin/aula', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
+      const response = await apiFetch('/api/admin/aula', { method: 'POST', body: formData });
       const data = await response.json();
       if (!response.ok) {
         setAiStatus(data.error || 'Erro ao criar aula.');

@@ -1,47 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+import AppIcon from '../../components/AppIcon';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
-import AppIcon from '../../components/AppIcon';
-import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
-
-interface DashboardData {
-  totalAulas: number;
-  aulasConcluidas: number;
-  percentualCurso: number;
-  mediaQuiz: number;
-  notificacoes: Array<{ id: string; titulo: string; mensagem: string }>;
-  proximaAula: any;
-  atividadeRecente: any[];
-}
+import { apiGet, apiPut } from '../../lib/apiClient';
+import type { Modulo, StudentDashboardData } from '../../types/models';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [modulos, setModulos] = useState<any[]>([]);
+  const [data, setData] = useState<StudentDashboardData | null>(null);
+  const [modulos, setModulos] = useState<Modulo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const loadData = () => {
-    const token = localStorage.getItem('accessToken');
     setLoading(true);
     setError('');
     Promise.all([
-      fetchWithTimeout('/api/aluno/dashboard', {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then((response) => response.json()),
-      fetchWithTimeout('/api/aluno/aulas', {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then((response) => response.json())
+      apiGet<StudentDashboardData>('/api/aluno/dashboard'),
+      apiGet<Modulo[]>('/api/aluno/aulas')
     ])
       .then(([dashboard, aulas]) => {
         setData(dashboard);
         setModulos(aulas);
       })
-      .catch(() => {
-        setError('Nao foi possivel carregar o painel do aluno agora.');
-      })
+      .catch(() => setError('Nao foi possivel carregar o painel do aluno agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -50,17 +35,10 @@ export default function StudentDashboard() {
   }, []);
 
   const handleMarkRead = async (id: string) => {
-    const token = localStorage.getItem('accessToken');
     try {
-      const res = await fetch(`/api/aluno/notificacao/${id}/lida`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        // Optimistic update or reload
-        loadData();
-      }
-    } catch (err) {
+      await apiPut(`/api/aluno/notificacao/${id}/lida`);
+      loadData();
+    } catch {
       setError('Nao foi possivel atualizar a notificacao.');
     }
   };
@@ -170,7 +148,7 @@ export default function StudentDashboard() {
                 {data?.proximaAula?.descricao || 'Voce terminou todas as aulas publicadas. Revise materiais e resultados.'}
               </p>
               {data?.proximaAula && (
-                <button className="btn btn-accent" type="button" onClick={() => navigate(`/aula/${data.proximaAula.id}`)}>
+                <button className="btn btn-accent" type="button" onClick={() => navigate(`/aula/${data.proximaAula!.id}`)}>
                   <AppIcon name="chevron-right" size={16} />
                   <span>Acessar aula</span>
                 </button>

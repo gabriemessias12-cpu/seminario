@@ -1,25 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import Sidebar from '../../components/Sidebar';
+
 import AppIcon from '../../components/AppIcon';
+import Sidebar from '../../components/Sidebar';
+import { apiGet } from '../../lib/apiClient';
 import { apiUrl } from '../../lib/api';
-import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
+import type { Material } from '../../types/models';
 
 function getFileUrl(urlArquivo: string) {
   return urlArquivo.startsWith('/uploads/') ? `/api${urlArquivo}` : apiUrl(urlArquivo);
 }
 
 export default function StudentMateriais() {
-  const [materiais, setMateriais] = useState<any[]>([]);
+  const [materiais, setMateriais] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
-    fetchWithTimeout('/api/aluno/materiais', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-    })
-      .then((response) => response.json())
+    apiGet<Material[]>('/api/aluno/materiais')
       .then(setMateriais)
       .catch(() => setError('Nao foi possivel carregar a biblioteca agora.'))
       .finally(() => setLoading(false));

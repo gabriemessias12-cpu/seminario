@@ -17,6 +17,7 @@ import {
 } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
 import { extractYouTubeVideoId, getLessonVideoKind, getYouTubeEmbedUrl } from '../utils/video-source.js';
+import { logger } from '../utils/logger.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -230,7 +231,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
       ia: iaStatus
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar dashboard' });
   }
 });
@@ -278,7 +279,7 @@ router.get('/aulas', async (req: AuthRequest, res: Response): Promise<void> => {
       }))
     );
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar aulas' });
   }
 });
@@ -355,7 +356,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
       ia: iaStatus
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar aula' });
   }
 });
@@ -393,7 +394,7 @@ router.get('/aula/:id/ytk', authMiddleware, async (req: AuthRequest, res: Respon
 
     res.json({ k: encoded });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao obter token de video' });
   }
 });
@@ -507,7 +508,7 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     res.setHeader('Content-Length', fileSize);
     fs.createReadStream(videoPath).pipe(res);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar video' });
   }
 });
@@ -610,7 +611,7 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
       res.json(progresso);
     }
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar progresso' });
   }
 });
@@ -678,7 +679,7 @@ router.post('/aula/:id/concluir', async (req: AuthRequest, res: Response): Promi
       progresso
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao concluir aula' });
   }
 });
@@ -701,7 +702,7 @@ router.post('/quiz', async (req: AuthRequest, res: Response): Promise<void> => {
 
     res.json(resultado);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar resultado do quiz' });
   }
 });
@@ -720,7 +721,7 @@ router.put('/anotacao', async (req: AuthRequest, res: Response): Promise<void> =
 
     res.json(anotacao);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar anotação' });
   }
 });
@@ -728,13 +729,21 @@ router.put('/anotacao', async (req: AuthRequest, res: Response): Promise<void> =
 // GET /api/aluno/materiais
 router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const materiais = await prisma.material.findMany({
-      include: { materiaisAula: { include: { aula: { select: { titulo: true } } } } },
-      orderBy: { criadoEm: 'desc' }
-    });
-    res.json(materiais);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
+
+    const [materiais, total] = await Promise.all([
+      prisma.material.findMany({
+        include: { materiaisAula: { include: { aula: { select: { titulo: true } } } } },
+        orderBy: { criadoEm: 'desc' },
+        take: pageSize,
+        skip: (page - 1) * pageSize
+      }),
+      prisma.material.count()
+    ]);
+    res.json({ data: materiais, total, page, pageSize });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar materiais' });
   }
 });
@@ -783,7 +792,7 @@ router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void>
       };
     }));
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar avaliacoes' });
   }
 });
@@ -965,7 +974,7 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
 
     res.json(entrega);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao enviar atividade' });
   }
 });
@@ -998,7 +1007,7 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
 
     sendStoredUpload(res, entrega.arquivoUrl, 'uploads/submissions');
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao baixar arquivo da entrega' });
   }
 });
@@ -1084,7 +1093,7 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
       ia: iaStatus
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar perfil' });
   }
 });
@@ -1103,7 +1112,7 @@ router.put('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
 
     res.json(user);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao atualizar perfil' });
   }
 });
@@ -1126,7 +1135,7 @@ router.put('/perfil/foto', authMiddleware, uploadAvatar.single('foto'), async (r
     await prisma.user.update({ where: { id: userId }, data: { foto: fotoUrl } });
     res.json({ foto: fotoUrl });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar foto.' });
   }
 });
@@ -1138,7 +1147,7 @@ router.get('/ia/status', async (req: AuthRequest, res: Response): Promise<void> 
     const iaStatus = formatAIStatus(await syncDailyAICredits(prisma, userId));
     res.json(iaStatus);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar status de IA' });
   }
 });
@@ -1151,7 +1160,7 @@ router.put('/ia/consentimento', async (req: AuthRequest, res: Response): Promise
     const status = await updateAIConsent(prisma, userId, compartilhaDadosIA);
     res.json(formatAIStatus(status));
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao atualizar preferencia de IA' });
   }
 });
@@ -1233,7 +1242,7 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
       interacao: parseInteractionRecord(registro)
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao consultar o assistente da aula' });
   }
 });
@@ -1272,9 +1281,20 @@ router.put('/senha', async (req: AuthRequest, res: Response): Promise<void> => {
       data: { senhaHash }
     });
 
+    // Audit: senha alterada
+    const realIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
+    await prisma.alertaSeguranca.create({
+      data: {
+        usuarioId: userId,
+        tipo: 'senha_alterada',
+        mensagem: `Senha alterada com sucesso. IP: ${realIp}`,
+        ip: realIp,
+      }
+    }).catch(() => {});
+
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao atualizar senha' });
   }
 });
@@ -1295,6 +1315,51 @@ router.put('/notificacao/:id/lida', async (req: AuthRequest, res: Response): Pro
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro' });
+  }
+});
+
+// DELETE /api/aluno/conta — LGPD: direito ao esquecimento (anonimiza dados pessoais)
+router.delete('/conta', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const { senha } = req.body;
+
+    if (!senha || typeof senha !== 'string') {
+      res.status(400).json({ error: 'Confirme sua senha para excluir a conta.' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ error: 'Usuario nao encontrado.' });
+      return;
+    }
+
+    const senhaValida = await bcrypt.compare(senha, user.senhaHash);
+    if (!senhaValida) {
+      res.status(401).json({ error: 'Senha incorreta. A exclusao nao foi realizada.' });
+      return;
+    }
+
+    // Anonimiza dados pessoais em vez de deletar para manter integridade referencial
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        nome: '[Conta Excluida]',
+        email: `excluido_${userId}@dadosexcluidos.ibvn`,
+        senhaHash: 'EXCLUIDO',
+        telefone: null,
+        foto: null,
+        ativo: false
+      }
+    });
+
+    // Audit: deleção de conta (LGPD)
+    logger.info('account deleted (LGPD anonymisation)', { userId });
+
+    res.json({ ok: true, message: 'Conta excluida conforme a LGPD. Seus dados pessoais foram anonimizados.' });
+  } catch {
+    res.status(500).json({ error: 'Erro ao excluir conta.' });
   }
 });
 

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/Sidebar';
+
 import AppIcon from '../../components/AppIcon';
-import { fetchWithTimeout } from '../../utils/fetchWithTimeout';
+import Sidebar from '../../components/Sidebar';
+import { apiGet } from '../../lib/apiClient';
 
 export default function StudentAulas() {
   const navigate = useNavigate();
@@ -13,10 +14,7 @@ export default function StudentAulas() {
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
-    fetchWithTimeout('/api/aluno/aulas', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-    })
-      .then((response) => response.json())
+    apiGet<any[]>('/api/aluno/aulas')
       .then(setModulos)
       .catch(() => setError('Nao foi possivel carregar os conteudos agora.'))
       .finally(() => setLoading(false));
@@ -104,12 +102,10 @@ export default function StudentAulas() {
           <div className="catalog-grid">
             {modulos.map((modulo: any, index: number) => (
               <article className="catalog-card" key={modulo.id}>
-                <div className="catalog-card-visual" style={{ 
-                  backgroundImage: modulo.capaUrl ? `url(${modulo.capaUrl})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}>
-                  {!modulo.capaUrl && <span>{String(index + 1).padStart(2, '0')}</span>}
+                <div className="catalog-card-visual" style={{ backgroundColor: 'var(--color-surface-elevated, #1e1e2e)', position: 'relative', overflow: 'hidden' }}>
+                  {modulo.capaUrl
+                    ? <img alt="" loading="lazy" src={modulo.capaUrl} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span>{String(index + 1).padStart(2, '0')}</span>}
                 </div>
                 <strong>{modulo.titulo}</strong>
                 <p>{modulo.descricao}</p>
@@ -162,6 +158,7 @@ export default function StudentAulas() {
                       return (
                         <button
                           key={aula.id}
+                          aria-label={`Assistir: ${aula.titulo} — ${status.label}`}
                           className="lesson-list-item lesson-list-item-advanced"
                           type="button"
                           onClick={() => navigate(`/aula/${aula.id}`)}

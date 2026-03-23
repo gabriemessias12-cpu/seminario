@@ -8,16 +8,62 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ─── ENUMs ───────────────────────────────────────────────────────────────────
+
+enum PapelUsuario {
+  aluno
+  admin
+  pastor
+}
+
+enum StatusIA {
+  pendente
+  processando
+  concluido
+  erro
+}
+
+enum StatusEntrega {
+  pendente
+  enviado
+  corrigido
+}
+
+enum StatusPresenca {
+  presente
+  parcial
+  ausente
+}
+
+enum MetodoPresenca {
+  digital
+  meet
+  presencial
+}
+
+enum FormatoAvaliacao {
+  discursiva
+  objetiva
+}
+
+enum TipoAlertaSeguranca {
+  novo_ip
+  login_falho
+  senha_alterada
+}
+
+// ─── MODELS ──────────────────────────────────────────────────────────────────
+
 model User {
-  id            String    @id @default(uuid())
+  id            String        @id @default(uuid())
   nome          String
-  email         String    @unique
+  email         String        @unique
   senhaHash     String
-  papel         String    @default("aluno")
+  papel         PapelUsuario  @default(aluno)
   foto          String?
   telefone      String?
-  ativo         Boolean   @default(true)
-  criadoEm      DateTime  @default(now())
+  ativo         Boolean       @default(true)
+  criadoEm      DateTime      @default(now())
   ultimoAcesso  DateTime?
   compartilhaDadosIA    Boolean  @default(false)
   aiCreditosDisponiveis Int      @default(3)
@@ -33,6 +79,10 @@ model User {
   entregasAvaliacao EntregaAvaliacao[]
   registrosConteudo RegistroMudancaConteudo[]
   alertasSeguranca  AlertaSeguranca[]
+
+  @@index([papel])
+  @@index([ultimoAcesso])
+  @@index([ativo])
 }
 
 model Modulo {
@@ -46,6 +96,9 @@ model Modulo {
 
   aulas     Aula[]
   avaliacoes Avaliacao[]
+
+  @@index([ativo])
+  @@index([ordem])
 }
 
 model Aula {
@@ -63,7 +116,7 @@ model Aula {
   pontosChave     String?   @db.Text
   versiculos      String?   @db.Text
   glossario       String?   @db.Text
-  statusIA        String    @default("pendente")
+  statusIA        StatusIA  @default(pendente)
   criadoEm        DateTime  @default(now())
 
   modulo         Modulo           @relation(fields: [moduloId], references: [id], onDelete: Cascade)
@@ -75,53 +128,67 @@ model Aula {
   materiaisAula  MaterialAula[]
   interacoesIA   InteracaoIA[]
   avaliacoes     Avaliacao[]
+
+  @@index([moduloId])
+  @@index([publicado])
+  @@index([criadoEm(sort: Desc)])
+  @@index([statusIA])
 }
 
 model Avaliacao {
-  id                 String    @id @default(uuid())
+  id                 String           @id @default(uuid())
   titulo             String
   descricao          String?
-  tipo               String    @default("trabalho")
-  formato            String    @default("discursiva")
+  tipo               String           @default("trabalho")
+  formato            FormatoAvaliacao @default(discursiva)
   moduloId           String?
   aulaId             String?
   dataLimite         DateTime?
-  notaMaxima         Float     @default(10)
-  publicado          Boolean   @default(false)
-  permiteArquivo     Boolean   @default(true)
-  permiteTexto       Boolean   @default(false)
-  questoesObjetivas  String?   @db.Text
-  resultadoImediato  Boolean   @default(true)
+  notaMaxima         Float            @default(10)
+  publicado          Boolean          @default(false)
+  permiteArquivo     Boolean          @default(true)
+  permiteTexto       Boolean          @default(false)
+  questoesObjetivas  String?          @db.Text
+  resultadoImediato  Boolean          @default(true)
   tempoLimiteMinutos Int?
-  criadoEm           DateTime  @default(now())
+  criadoEm           DateTime         @default(now())
 
   modulo   Modulo?            @relation(fields: [moduloId], references: [id], onDelete: SetNull)
   aula     Aula?              @relation(fields: [aulaId], references: [id], onDelete: SetNull)
   entregas EntregaAvaliacao[]
+
+  @@index([publicado])
+  @@index([moduloId])
+  @@index([aulaId])
+  @@index([dataLimite])
 }
 
 model EntregaAvaliacao {
-  id                 String    @id @default(uuid())
+  id                 String        @id @default(uuid())
   avaliacaoId        String
   alunoId            String
-  respostaTexto      String?   @db.Text
+  respostaTexto      String?       @db.Text
   arquivoUrl         String?
-  respostasObjetivas String?   @db.Text
-  status             String    @default("pendente")
+  respostasObjetivas String?       @db.Text
+  status             StatusEntrega @default(pendente)
   nota               Float?
   totalQuestoes      Int?
   acertosObjetivos   Int?
   percentualObjetivo Float?
-  comentarioCorrecao String?   @db.Text
+  comentarioCorrecao String?       @db.Text
   enviadoEm          DateTime?
   corrigidoEm        DateTime?
-  atualizadoEm       DateTime  @updatedAt
-  criadoEm           DateTime  @default(now())
+  atualizadoEm       DateTime      @updatedAt
+  criadoEm           DateTime      @default(now())
 
   avaliacao Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Cascade)
   aluno     User      @relation(fields: [alunoId], references: [id], onDelete: Cascade)
 
   @@unique([avaliacaoId, alunoId])
+  @@index([alunoId])
+  @@index([avaliacaoId])
+  @@index([status])
+  @@index([corrigidoEm])
 }
 
 model Quiz {
@@ -130,6 +197,8 @@ model Quiz {
   questoes String @db.Text
 
   aula Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  @@index([aulaId])
 }
 
 model ProgressoAluno {
@@ -149,6 +218,10 @@ model ProgressoAluno {
   aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
 
   @@unique([alunoId, aulaId])
+  @@index([alunoId])
+  @@index([aulaId])
+  @@index([concluido])
+  @@index([alunoId, concluido])
 }
 
 model ResultadoQuiz {
@@ -162,6 +235,10 @@ model ResultadoQuiz {
 
   aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  @@index([alunoId])
+  @@index([aulaId])
+  @@index([feitoEm(sort: Desc)])
 }
 
 model Material {
@@ -175,6 +252,9 @@ model Material {
   criadoEm        DateTime @default(now())
 
   materiaisAula MaterialAula[]
+
+  @@index([categoria])
+  @@index([criadoEm(sort: Desc)])
 }
 
 model MaterialAula {
@@ -186,21 +266,26 @@ model MaterialAula {
   aula     Aula     @relation(fields: [aulaId], references: [id], onDelete: Cascade)
 
   @@unique([materialId, aulaId])
+  @@index([aulaId])
+  @@index([materialId])
 }
 
 model Presenca {
-  id           String   @id @default(uuid())
+  id           String         @id @default(uuid())
   alunoId      String
   aulaId       String
-  status       String   @default("ausente")
-  metodo       String   @default("digital")
-  percentual   Float    @default(0)
-  registradoEm DateTime @default(now())
+  status       StatusPresenca @default(ausente)
+  metodo       MetodoPresenca @default(digital)
+  percentual   Float          @default(0)
+  registradoEm DateTime       @default(now())
 
   aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
   aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
 
   @@unique([alunoId, aulaId])
+  @@index([alunoId])
+  @@index([aulaId])
+  @@index([status])
 }
 
 model Notificacao {
@@ -212,6 +297,9 @@ model Notificacao {
   criadaEm DateTime @default(now())
 
   aluno User @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@index([alunoId])
+  @@index([alunoId, lida])
 }
 
 model AnotacaoAluno {
@@ -225,6 +313,7 @@ model AnotacaoAluno {
   aula  Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
 
   @@unique([alunoId, aulaId])
+  @@index([alunoId])
 }
 
 model LoginHistorico {
@@ -236,6 +325,10 @@ model LoginHistorico {
   sucesso     Boolean  @default(true)
 
   usuario User @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@index([dataHora(sort: Desc)])
+  @@index([usuarioId, sucesso])
 }
 
 model InteracaoIA {
@@ -248,19 +341,25 @@ model InteracaoIA {
 
   aluno User  @relation(fields: [alunoId], references: [id])
   aula  Aula? @relation(fields: [aulaId], references: [id])
+
+  @@index([alunoId])
+  @@index([aulaId])
 }
 
 model AlertaSeguranca {
-  id          String   @id @default(uuid())
+  id          String              @id @default(uuid())
   usuarioId   String
-  tipo        String   // 'novo_ip'
+  tipo        TipoAlertaSeguranca
   mensagem    String
   ip          String?
   dispositivo String?
-  lido        Boolean  @default(false)
-  criadoEm   DateTime @default(now())
+  lido        Boolean             @default(false)
+  criadoEm   DateTime             @default(now())
 
   usuario User @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@index([lido])
 }
 
 model RegistroMudancaConteudo {
@@ -275,4 +374,7 @@ model RegistroMudancaConteudo {
   criadoEm       DateTime @default(now())
 
   usuario User? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([criadoEm(sort: Desc)])
+  @@index([entidade, entidadeId])
 }

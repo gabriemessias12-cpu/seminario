@@ -1,9 +1,7 @@
-import { apiUrl } from './api';
+import { apiFetch } from './apiClient';
 
-export async function downloadAuthenticatedFile(path: string, token: string | null) {
-  const response = await fetch(apiUrl(path), {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-  });
+export async function downloadAuthenticatedFile(path: string) {
+  const response = await apiFetch(path);
 
   if (!response.ok) {
     const data = await response.json().catch(() => null);

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+
 import AvatarCropModal from '../../components/AvatarCropModal';
+import { apiGet, apiFetch } from '../../lib/apiClient';
 
 interface LeadershipSlide {
   slot: number;
@@ -9,7 +11,6 @@ interface LeadershipSlide {
 }
 
 export default function AdminConfiguracoes() {
-  const token = localStorage.getItem('accessToken');
   const [slides, setSlides] = useState<LeadershipSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState('');
@@ -21,9 +22,8 @@ export default function AdminConfiguracoes() {
   const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    fetch('/api/admin/brand/lideranca', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then((data: LeadershipSlide[]) => { if (Array.isArray(data)) setSlides(data); })
+    apiGet<LeadershipSlide[]>('/api/admin/brand/lideranca')
+      .then((data) => { if (Array.isArray(data)) setSlides(data); })
       .catch(() => setFeedback('Nao foi possivel carregar as configuracoes.'))
       .finally(() => setLoading(false));
   }, []);
@@ -46,11 +46,7 @@ export default function AdminConfiguracoes() {
       fd.append('foto', blob, 'foto.jpg');
       const name = editingName[slot] ?? slides.find(s => s.slot === slot)?.name ?? '';
       if (name) fd.append('name', name);
-      const response = await fetch(`/api/admin/brand/lideranca/${slot}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
+      const response = await apiFetch(`/api/admin/brand/lideranca/${slot}`, { method: 'PUT', body: fd });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Erro ao salvar foto.');
       setSlides(prev => prev.map(s => s.slot === slot ? { ...s, ...data, url: data.url + '?t=' + Date.now() } : s));
@@ -70,11 +66,7 @@ export default function AdminConfiguracoes() {
     try {
       const fd = new FormData();
       fd.append('name', name);
-      const response = await fetch(`/api/admin/brand/lideranca/${slot}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
+      const response = await apiFetch(`/api/admin/brand/lideranca/${slot}`, { method: 'PUT', body: fd });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Erro ao salvar nome.');
       setSlides(prev => prev.map(s => s.slot === slot ? { ...s, name: data.name } : s));

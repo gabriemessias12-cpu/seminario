@@ -5,19 +5,27 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth.js';
 import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { processAIPipeline, processIAFromTranscript } from '../services/ai-mock.js';
 import { logContentChange } from '../services/content-change-log.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { mkdtemp, rm, stat, readFile } from 'fs/promises';
 import { tmpdir } from 'os';
+import crypto from 'crypto';
 import { extractYouTubeVideoId, getLessonVideoKind, normalizeLessonVideoUrl } from '../utils/video-source.js';
+import { logger } from '../utils/logger.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// Validates YouTube video IDs to prevent command injection
+function isValidYouTubeId(id: string): boolean {
+  return /^[a-zA-Z0-9_-]{1,20}$/.test(id);
+}
 
 // Fetch YouTube auto-generated transcript via InnerTube API (no yt-dlp, no Whisper)
 // Returns plain text or null if unavailable
@@ -25,7 +33,7 @@ async function fetchYoutubeTranscript(videoId: string, preferLang = 'pt'): Promi
   try {
     const playerController = new AbortController();
     const playerTimeout = setTimeout(() => playerController.abort(), 15000);
-    let playerRes: Response;
+    let playerRes: globalThis.Response;
     try {
       playerRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
         method: 'POST',
@@ -49,7 +57,7 @@ async function fetchYoutubeTranscript(videoId: string, preferLang = 'pt'): Promi
     const track = tracks.find((t) => t.languageCode === preferLang) ?? tracks[0];
     const xmlController = new AbortController();
     const xmlTimeout = setTimeout(() => xmlController.abort(), 15000);
-    let xmlRes: Response;
+    let xmlRes: globalThis.Response;
     try {
       xmlRes = await fetch(track.baseUrl as string, { signal: xmlController.signal });
     } finally {
@@ -77,11 +85,13 @@ async function fetchYoutubeTranscript(videoId: string, preferLang = 'pt'): Promi
 
 // Auto-detect YouTube video duration using yt-dlp (returns seconds, 0 on failure)
 async function getYoutubeDuration(videoId: string): Promise<number> {
+  if (!isValidYouTubeId(videoId)) return 0;
   try {
-    const { stdout } = await execAsync(
-      `yt-dlp --print duration --no-playlist -q --extractor-args "youtube:player_client=ios,mweb" "https://www.youtube.com/watch?v=${videoId}"`,
-      { timeout: 30000 }
-    );
+    const { stdout } = await execFileAsync('yt-dlp', [
+      '--print', 'duration', '--no-playlist', '-q',
+      '--extractor-args', 'youtube:player_client=ios,mweb',
+      `https://www.youtube.com/watch?v=${videoId}`
+    ], { timeout: 30000 });
     const secs = Number(stdout.trim());
     return Number.isFinite(secs) && secs > 0 ? Math.round(secs) : 0;
   } catch {
@@ -92,10 +102,12 @@ async function getYoutubeDuration(videoId: string): Promise<number> {
 // Auto-detect local file duration using ffprobe (returns seconds, 0 on failure)
 async function getFileDuration(filePath: string): Promise<number> {
   try {
-    const { stdout } = await execAsync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`,
-      { timeout: 15000 }
-    );
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      filePath
+    ], { timeout: 15000 });
     const secs = Number(stdout.trim());
     return Number.isFinite(secs) && secs > 0 ? Math.round(secs) : 0;
   } catch {
@@ -238,78 +250,55 @@ router.use(adminMiddleware);
 // GET /api/admin/dashboard
 router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const totalAlunos = await prisma.user.count({ where: { papel: 'aluno' } });
-    const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const alunosAtivos = await prisma.user.count({
-      where: { papel: 'aluno', ultimoAcesso: { gte: seteDiasAtras } }
-    });
-    const aulasPublicadas = await prisma.aula.count({ where: { publicado: true } });
+    // Use RPCs and parallel queries — all aggregations done at DB level
+    const [metrics, alunosAtencao, atividadeRecente, aulasStats] = await Promise.all([
+      // RPC: métricas globais em query única
+      prisma.$queryRaw<Array<{
+        total_alunos: bigint; alunos_ativos_7d: bigint; aulas_publicadas: bigint;
+        total_progressos: bigint; progressos_concluidos: bigint; taxa_conclusao: number;
+      }>>`SELECT * FROM get_admin_dashboard_metrics()`,
 
-    const progressos = await prisma.progressoAluno.findMany();
-    const taxaConclusao = progressos.length > 0
-      ? Math.round(progressos.filter((p: { concluido: boolean }) => p.concluido).length / progressos.length * 100)
-      : 0;
+      // RPC: alunos com baixo progresso — filtragem e ordenação no banco
+      prisma.$queryRaw<Array<{
+        aluno_id: string; nome: string; email: string; foto: string | null; progresso_medio: number;
+      }>>`SELECT * FROM get_low_progress_students(20, 10)`,
 
-    // Students needing attention (< 20% progress)
-    const alunos = await prisma.user.findMany({
-      where: { papel: 'aluno' },
-      include: { progressos: true }
-    });
+      // Atividade recente
+      prisma.loginHistorico.findMany({
+        include: { usuario: { select: { nome: true, email: true } } },
+        orderBy: { dataHora: 'desc' },
+        take: 10
+      }),
 
-    const alunosAtencao = alunos
-      .map((a: {
-        id: string;
-        nome: string;
-        email: string;
-        foto: string | null;
-        progressos: Array<{ percentualAssistido: number }>;
-      }) => {
-        const avg = a.progressos.length > 0
-          ? a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / a.progressos.length
-          : 0;
-        return { id: a.id, nome: a.nome, email: a.email, foto: a.foto, progressoMedio: Math.round(avg) };
-      })
-      .filter((a: { progressoMedio: number }) => a.progressoMedio < 20)
-      .slice(0, 10);
+      // RPC: stats por aula — JOIN com agregação no banco
+      prisma.$queryRaw<Array<{
+        aula_id: string; titulo: string; total_alunos: bigint; media_conclusao: number;
+      }>>`SELECT * FROM get_lesson_engagement_stats()`
+    ]);
 
-    // Recent activity
-    const atividadeRecente = await prisma.loginHistorico.findMany({
-      include: { usuario: { select: { nome: true, email: true } } },
-      orderBy: { dataHora: 'desc' },
-      take: 10
-    });
-
-    // Per-lesson stats
-    const aulas = await prisma.aula.findMany({
-      where: { publicado: true },
-      include: { progressos: true },
-      orderBy: { criadoEm: 'asc' }
-    });
-
-    const aulasStats = aulas.map((a: {
-      id: string;
-      titulo: string;
-      progressos: Array<{ percentualAssistido: number }>;
-    }) => ({
-      id: a.id,
-      titulo: a.titulo,
-      totalAlunos: a.progressos.length,
-      mediaConclusao: a.progressos.length > 0
-        ? Math.round(a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / a.progressos.length)
-        : 0
-    }));
-
+    const m = metrics[0];
     res.json({
-      totalAlunos,
-      alunosAtivos,
-      aulasPublicadas,
-      taxaConclusao,
-      alunosAtencao,
+      totalAlunos:    Number(m?.total_alunos ?? 0),
+      alunosAtivos:   Number(m?.alunos_ativos_7d ?? 0),
+      aulasPublicadas: Number(m?.aulas_publicadas ?? 0),
+      taxaConclusao:  Math.round(Number(m?.taxa_conclusao ?? 0)),
+      alunosAtencao:  alunosAtencao.map((a) => ({
+        id: a.aluno_id,
+        nome: a.nome,
+        email: a.email,
+        foto: a.foto,
+        progressoMedio: Math.round(Number(a.progresso_medio))
+      })),
       atividadeRecente,
-      aulasStats
+      aulasStats: aulasStats.map((a) => ({
+        id: a.aula_id,
+        titulo: a.titulo,
+        totalAlunos: Number(a.total_alunos),
+        mediaConclusao: Math.round(Number(a.media_conclusao))
+      }))
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar dashboard admin' });
   }
 });
@@ -317,46 +306,44 @@ router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void>
 // GET /api/admin/alunos
 router.get('/alunos', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const alunos = await prisma.user.findMany({
-      where: { papel: 'aluno' },
-      include: { progressos: true },
-      orderBy: { criadoEm: 'desc' }
-    });
+    const [alunos, progressoStats, concluidosStats] = await Promise.all([
+      prisma.user.findMany({
+        where: { papel: 'aluno' },
+        select: { id: true, nome: true, email: true, foto: true, telefone: true, ativo: true, criadoEm: true, ultimoAcesso: true },
+        orderBy: { criadoEm: 'desc' }
+      }),
+      prisma.progressoAluno.groupBy({
+        by: ['alunoId'],
+        _count: { id: true },
+        _avg: { percentualAssistido: true }
+      }),
+      prisma.progressoAluno.groupBy({
+        by: ['alunoId'],
+        where: { concluido: true },
+        _count: { id: true }
+      })
+    ]);
 
-    const result = alunos.map((a: {
-      id: string;
-      nome: string;
-      email: string;
-      foto: string | null;
-      telefone: string | null;
-      ativo: boolean;
-      criadoEm: Date;
-      ultimoAcesso: Date | null;
-      progressos: Array<{ concluido: boolean; percentualAssistido: number }>;
-    }) => {
-      const totalAulas = a.progressos.length;
-      const conc = a.progressos.filter((p: { concluido: boolean }) => p.concluido).length;
-      const avg = totalAulas > 0
-        ? Math.round(a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / totalAulas)
-        : 0;
-      return {
-        id: a.id,
-        nome: a.nome,
-        email: a.email,
-        foto: a.foto,
-        telefone: a.telefone,
-        ativo: a.ativo,
-        criadoEm: a.criadoEm,
-        ultimoAcesso: a.ultimoAcesso,
-        progressoGeral: avg,
-        aulasConcluidas: conc,
-        totalAulasAcessadas: totalAulas
-      };
-    });
+    const statsMap = new Map(progressoStats.map((s) => [s.alunoId, s]));
+    const concluidosMap = new Map(concluidosStats.map((s) => [s.alunoId, s._count.id]));
+
+    const result = alunos.map((a) => ({
+      id: a.id,
+      nome: a.nome,
+      email: a.email,
+      foto: a.foto,
+      telefone: a.telefone,
+      ativo: a.ativo,
+      criadoEm: a.criadoEm,
+      ultimoAcesso: a.ultimoAcesso,
+      progressoGeral: Math.round(statsMap.get(a.id)?._avg.percentualAssistido || 0),
+      aulasConcluidas: concluidosMap.get(a.id) || 0,
+      totalAulasAcessadas: statsMap.get(a.id)?._count.id || 0
+    }));
 
     res.json(result);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar alunos' });
   }
 });
@@ -370,64 +357,65 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    const aluno = await prisma.user.findUnique({
-      where: { id: alunoId },
-      include: {
-        progressos: {
-          include: { aula: { select: { titulo: true, duracaoSegundos: true, modulo: { select: { titulo: true } } } } }
-        },
-        resultadosQuiz: {
-          include: { aula: { select: { titulo: true } } },
-          orderBy: { feitoEm: 'desc' }
-        },
-        presencas: {
-          include: { aula: { select: { titulo: true } } }
-        },
-        entregasAvaliacao: {
-          include: {
-            avaliacao: {
-              select: {
-                id: true,
-                titulo: true,
-                tipo: true,
-                formato: true,
-                resultadoImediato: true,
-                questoesObjetivas: true,
-                notaMaxima: true,
-                modulo: { select: { titulo: true } },
-                aula: { select: { titulo: true } }
+    const [aluno, modulos] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: alunoId },
+        include: {
+          progressos: {
+            include: { aula: { select: { titulo: true, duracaoSegundos: true, modulo: { select: { titulo: true } } } } }
+          },
+          resultadosQuiz: {
+            include: { aula: { select: { titulo: true } } },
+            orderBy: { feitoEm: 'desc' }
+          },
+          presencas: {
+            include: { aula: { select: { titulo: true } } }
+          },
+          entregasAvaliacao: {
+            include: {
+              avaliacao: {
+                select: {
+                  id: true,
+                  titulo: true,
+                  tipo: true,
+                  formato: true,
+                  resultadoImediato: true,
+                  questoesObjetivas: true,
+                  notaMaxima: true,
+                  modulo: { select: { titulo: true } },
+                  aula: { select: { titulo: true } }
+                }
+              }
+            },
+            orderBy: { atualizadoEm: 'desc' }
+          },
+          loginHistorico: {
+            orderBy: { dataHora: 'desc' },
+            take: 20
+          }
+        }
+      }),
+      prisma.modulo.findMany({
+        where: { ativo: true },
+        include: {
+          aulas: {
+            where: { publicado: true },
+            include: {
+              presencas: {
+                where: { alunoId },
+                select: { status: true }
               }
             }
-          },
-          orderBy: { atualizadoEm: 'desc' }
+          }
         },
-        loginHistorico: {
-          orderBy: { dataHora: 'desc' },
-          take: 20
-        }
-      }
-    });
+        orderBy: { ordem: 'asc' }
+      })
+    ]);
 
     if (!aluno) {
       res.status(404).json({ error: 'Aluno não encontrado' });
       return;
     }
-
-    const modulos = await prisma.modulo.findMany({
-      where: { ativo: true },
-      include: {
-        aulas: {
-          where: { publicado: true },
-          include: {
-            presencas: {
-              where: { alunoId },
-              select: { status: true }
-            }
-          }
-        }
-      },
-      orderBy: { ordem: 'asc' }
-    });
 
     res.json({
       ...aluno,
@@ -438,46 +426,54 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       }
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar aluno' });
   }
+});
+
+const createAlunoSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(255).trim(),
+  email: z.string().email('Email invalido').max(255),
+  senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128).optional(),
+  telefone: z.string().max(30).optional()
 });
 
 // POST /api/admin/aluno - create student
 router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { nome, email, senha, telefone } = req.body;
-    if (!nome || !email) {
-      res.status(400).json({ error: 'Nome e email sao obrigatorios' });
+    const parsed = createAlunoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
 
-    const emailNormalizado = String(email).trim().toLowerCase();
+    const { nome, email, senha, telefone } = parsed.data;
+    const emailNormalizado = email.trim().toLowerCase();
     const existente = await prisma.user.findUnique({ where: { email: emailNormalizado } });
     if (existente) {
       res.status(409).json({ error: 'Ja existe um usuario com esse email' });
       return;
     }
 
-    const senhaLimpa = String(senha || '123456');
-    const senhaHash = await bcrypt.hash(senhaLimpa, 10);
+    const senhaGerada = senha ?? crypto.randomBytes(8).toString('hex');
+    const senhaHash = await bcrypt.hash(senhaGerada, 10);
 
     const aluno = await prisma.user.create({
       data: {
-        nome: String(nome).trim(),
+        nome: nome.trim(),
         email: emailNormalizado,
         senhaHash,
-        telefone: telefone ? String(telefone).trim() : null,
+        telefone: telefone?.trim() || null,
         papel: 'aluno'
       }
     });
 
-    res.json({
-      ...aluno,
-      senhaTemporaria: senhaLimpa
-    });
+    // Return temporary password only when auto-generated (admin must share it securely)
+    const response: Record<string, unknown> = { ...aluno };
+    if (!senha) response.senhaTemporaria = senhaGerada;
+    res.json(response);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao criar aluno' });
   }
 });
@@ -523,7 +519,7 @@ router.put('/aluno/:id/foto', uploadAvatar.single('foto'), async (req: AuthReque
     await prisma.user.update({ where: { id: alunoId }, data: { foto: fotoUrl } });
     res.json({ foto: fotoUrl });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar foto.' });
   }
 });
@@ -546,7 +542,7 @@ router.get('/aulas', async (_req: AuthRequest, res: Response): Promise<void> => 
 
     res.json(modulos);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar aulas' });
   }
 });
@@ -675,9 +671,9 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
         }
       });
 
-      console.log(`AI pipeline completed for lesson: ${titulo}`);
+      logger.info(`AI pipeline completed for lesson: ${titulo}`);
     }).catch(async (err) => {
-      console.error('AI pipeline error:', err);
+      logger.error('AI pipeline error:', err);
       await prisma.aula.update({
         where: { id: aula.id },
         data: { statusIA: 'erro' }
@@ -686,7 +682,7 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
 
     res.json(aula);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao criar aula' });
   }
 });
@@ -872,7 +868,7 @@ router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> =>
 
     res.json(modulo);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao criar modulo' });
   }
 });
@@ -930,7 +926,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
 
     res.json(modulo);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao atualizar modulo' });
   }
 });
@@ -954,7 +950,7 @@ router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthR
     await prisma.modulo.update({ where: { id: moduloId }, data: { capaUrl } });
     res.json({ capaUrl });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar capa.' });
   }
 });
@@ -998,7 +994,7 @@ router.delete('/modulo/:id', async (req: AuthRequest, res: Response): Promise<vo
 
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao excluir modulo' });
   }
 });
@@ -1032,7 +1028,7 @@ router.get('/conteudo-historico', async (req: AuthRequest, res: Response): Promi
       detalhes: parseStoredDetails(item.detalhes),
     })));
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar historico de conteudo' });
   }
 });
@@ -1062,16 +1058,16 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
     // Link to lessons if provided
     if (aulasRelacionadas) {
       const aulaIds = JSON.parse(Array.isArray(aulasRelacionadas) ? aulasRelacionadas[0] : aulasRelacionadas);
-      for (const aulaId of aulaIds) {
-        await prisma.materialAula.create({
-          data: { materialId: material.id, aulaId }
+      if (aulaIds.length > 0) {
+        await prisma.materialAula.createMany({
+          data: aulaIds.map((aulaId: string) => ({ materialId: material.id, aulaId }))
         });
       }
     }
 
     res.json(material);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao fazer upload de material' });
   }
 });
@@ -1089,7 +1085,7 @@ router.delete('/material/:id', async (req: AuthRequest, res: Response): Promise<
     await prisma.material.delete({ where: { id: String(req.params.id) } });
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao excluir material' });
   }
 });
@@ -1114,52 +1110,67 @@ router.put('/material/:id', async (req: AuthRequest, res: Response): Promise<voi
     }
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao editar material' });
   }
 });
 
 // GET /api/admin/materiais
-router.get('/materiais', async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const materiais = await prisma.material.findMany({
-      include: { materiaisAula: { include: { aula: { select: { titulo: true } } } } },
-      orderBy: { criadoEm: 'desc' }
-    });
-    res.json(materiais);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
+    const skip = (page - 1) * pageSize;
+
+    const [materiais, total] = await Promise.all([
+      prisma.material.findMany({
+        include: { materiaisAula: { include: { aula: { select: { titulo: true } } } } },
+        orderBy: { criadoEm: 'desc' },
+        take: pageSize,
+        skip
+      }),
+      prisma.material.count()
+    ]);
+    res.json({ data: materiais, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch {
     res.status(500).json({ error: 'Erro' });
   }
 });
 
 // GET /api/admin/avaliacoes
-router.get('/avaliacoes', async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const avaliacoes = await prisma.avaliacao.findMany({
-      include: {
-        modulo: { select: { id: true, titulo: true } },
-        aula: { select: { id: true, titulo: true } },
-        entregas: {
-          select: {
-            id: true,
-            status: true,
-            nota: true
-          }
-        }
-      },
-      orderBy: [
-        { dataLimite: 'asc' },
-        { criadoEm: 'desc' }
-      ]
-    });
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
+    const skip = (page - 1) * pageSize;
 
-    res.json(avaliacoes.map((avaliacao) => ({
-      ...avaliacao,
-      quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
-      resumoEntregas: buildDeliverySummary(avaliacao.entregas)
-    })));
+    const [avaliacoes, total] = await Promise.all([
+      prisma.avaliacao.findMany({
+        include: {
+          modulo: { select: { id: true, titulo: true } },
+          aula: { select: { id: true, titulo: true } },
+          entregas: { select: { id: true, status: true, nota: true } }
+        },
+        orderBy: [{ dataLimite: 'asc' }, { criadoEm: 'desc' }],
+        take: pageSize,
+        skip
+      }),
+      prisma.avaliacao.count()
+    ]);
+
+    res.json({
+      data: avaliacoes.map((avaliacao) => ({
+        ...avaliacao,
+        quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
+        resumoEntregas: buildDeliverySummary(avaliacao.entregas)
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar avaliacoes' });
   }
 });
@@ -1220,7 +1231,7 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
 
     res.json(avaliacao);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao criar avaliacao' });
   }
 });
@@ -1288,7 +1299,7 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
 
     res.json(avaliacao);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao atualizar avaliacao' });
   }
 });
@@ -1324,7 +1335,7 @@ router.delete('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise
 
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao excluir avaliacao' });
   }
 });
@@ -1366,14 +1377,15 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    const questoes = parseObjectiveQuestions(avaliacao.questoesObjetivas);
     res.json({
       ...avaliacao,
-      questoesObjetivas: parseObjectiveQuestions(avaliacao.questoesObjetivas),
-      quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
+      questoesObjetivas: questoes,
+      quantidadeQuestoes: questoes.length,
       resumoEntregas: buildDeliverySummary(avaliacao.entregas)
     });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar avaliacao' });
   }
 });
@@ -1422,9 +1434,17 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
       }
     });
 
+    await logContentChange(prisma, req, {
+      entity: 'entrega_avaliacao',
+      entityId: entregaId,
+      title: entrega.avaliacao.titulo,
+      action: 'atualizado',
+      details: { alunoId: entrega.aluno.id, nota, status },
+    });
+
     res.json(entrega);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar correcao' });
   }
 });
@@ -1450,7 +1470,7 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
 
     sendStoredUpload(res, entrega.arquivoUrl, 'uploads/submissions');
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao baixar arquivo da entrega' });
   }
 });
@@ -1494,7 +1514,7 @@ router.get('/chamada', async (req: AuthRequest, res: Response): Promise<void> =>
 
     res.json(presencas);
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar chamada' });
   }
 });
@@ -1526,9 +1546,15 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       });
     }
 
+    logger.info('chamada registrada', {
+      aulaId,
+      totalPresencas: presencas.length,
+      adminId: req.user?.userId,
+    });
+
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar chamada' });
   }
 });
@@ -1556,7 +1582,7 @@ router.post('/notificacao', async (req: AuthRequest, res: Response): Promise<voi
 
     res.json({ ok: true });
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     res.status(500).json({ error: 'Erro ao enviar notificacao' });
   }
 });
@@ -1707,18 +1733,17 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
 // Transcribe audio using local faster-whisper (preferred — $0, no limits)
 async function transcribeLocal(audioFile: string): Promise<string> {
   const scriptPath = path.join(process.cwd(), 'whisper_transcribe.py');
-  const { stdout } = await execAsync(
-    `python3 "${scriptPath}" "${audioFile}"`,
-    { timeout: 10800000, maxBuffer: 10 * 1024 * 1024 } // 3h timeout, 10MB buffer
-  );
+  const { stdout } = await execFileAsync('python3', [scriptPath, audioFile], {
+    timeout: 10800000, maxBuffer: 10 * 1024 * 1024 // 3h timeout, 10MB buffer
+  });
   return stdout.trim();
 }
 
 // Splits audio file into 20-min chunks for API fallback (Groq 25MB limit)
 async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSecs = 1200): Promise<string[]> {
-  const { stdout } = await execAsync(
-    `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${audioFile}"`
-  );
+  const { stdout } = await execFileAsync('ffprobe', [
+    '-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', audioFile
+  ]);
   const totalSecs = parseFloat(stdout.trim());
   if (!totalSecs || Number.isNaN(totalSecs)) throw new Error('Nao foi possivel determinar a duracao do audio.');
 
@@ -1728,10 +1753,11 @@ async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSec
   for (let i = 0; i < numChunks; i++) {
     const start = i * chunkSecs;
     const chunkFile = path.join(tempDir, `chunk-${String(i).padStart(3, '0')}.mp3`);
-    await execAsync(
-      `ffmpeg -y -i "${audioFile}" -ss ${start} -t ${chunkSecs} -ar 16000 -ac 1 -b:a 32k -f mp3 "${chunkFile}"`,
-      { timeout: 120000 }
-    );
+    await execFileAsync('ffmpeg', [
+      '-y', '-i', audioFile,
+      '-ss', String(start), '-t', String(chunkSecs),
+      '-ar', '16000', '-ac', '1', '-b:a', '32k', '-f', 'mp3', chunkFile
+    ], { timeout: 120000 });
     chunks.push(chunkFile);
   }
 
@@ -1826,7 +1852,7 @@ router.post('/aula/:id/processar-ia', authMiddleware, adminMiddleware, async (re
 
     res.json({ ok: true, provider: result.provider });
   } catch (error) {
-    console.error('Processar IA error:', error);
+    logger.error('Processar IA error:', error);
     res.status(500).json({ error: 'Erro ao processar IA.' });
   }
 });
@@ -1869,16 +1895,18 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     const rawAudio = path.join(tempDir, 'audio.mp3');
 
     try {
-      await execAsync(
-        `yt-dlp -x --audio-format mp3 --audio-quality 0 --no-playlist --extractor-args "youtube:player_client=ios,mweb" -P "${tempDir}" -o "audio.%(ext)s" "https://www.youtube.com/watch?v=${videoId}"`,
-        { timeout: 600000 }
-      );
+      if (!isValidYouTubeId(videoId)) throw new Error('ID de video invalido.');
+      await execFileAsync('yt-dlp', [
+        '-x', '--audio-format', 'mp3', '--audio-quality', '0', '--no-playlist',
+        '--extractor-args', 'youtube:player_client=ios,mweb',
+        '-P', tempDir, '-o', 'audio.%(ext)s',
+        `https://www.youtube.com/watch?v=${videoId}`
+      ], { timeout: 600000 });
 
       const processedAudio = path.join(tempDir, 'audio.wav');
-      await execAsync(
-        `ffmpeg -y -i "${rawAudio}" -ar 16000 -ac 1 "${processedAudio}"`,
-        { timeout: 300000 }
-      );
+      await execFileAsync('ffmpeg', [
+        '-y', '-i', rawAudio, '-ar', '16000', '-ac', '1', processedAudio
+      ], { timeout: 300000 });
 
       let transcricao = '';
       let provider = 'Whisper local';
@@ -1886,7 +1914,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
       try {
         transcricao = await transcribeLocal(processedAudio);
       } catch (localError) {
-        console.warn('Local whisper unavailable, falling back to API:', localError instanceof Error ? localError.message : localError);
+        logger.warn('Local whisper unavailable, falling back to API:', localError instanceof Error ? localError.message : localError);
 
         const apiProvider = getApiTranscriptionProvider();
         if (!apiProvider) {
@@ -1942,7 +1970,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
       await rm(tempDir, { recursive: true, force: true }).catch(() => {});
     }
   } catch (error) {
-    console.error('Transcricao error:', error);
+    logger.error('Transcricao error:', error);
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes('Whisper HTTP')) {
       res.status(502).json({ error: `Erro na API de transcricao. Detalhe: ${msg}` });
