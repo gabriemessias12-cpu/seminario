@@ -19,6 +19,7 @@ RUN npm install --omit=optional
 COPY tsconfig.json ./
 COPY src ./src
 COPY whisper_transcribe.py ./
+COPY docker-entrypoint.sh ./
 
 RUN npm run build && test -f dist/src/index.js
 ENV NODE_ENV=production
@@ -27,7 +28,8 @@ ENV NODE_ENV=production
 RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8', download_root='/app/whisper-models')"
 
 RUN mkdir -p /app/uploads/materials /app/uploads/thumbnails /app/uploads/videos /app/uploads/submissions /app/uploads/avatars /app/uploads/brand
+RUN chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/index.js"]
+CMD ["/app/docker-entrypoint.sh"]
