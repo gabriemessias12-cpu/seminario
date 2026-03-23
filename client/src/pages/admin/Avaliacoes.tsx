@@ -60,6 +60,14 @@ type DetailedAvaliacao = Avaliacao & {
   entregas: Entrega[];
 };
 
+type AvaliacaoListResponse = Avaliacao[] | {
+  data?: Avaliacao[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+};
+
 function buildInitialQuestions() {
   return [createEmptyObjectiveQuestion(0)];
 }
@@ -102,12 +110,18 @@ export default function AdminAvaliacoes() {
     setLoading(true);
     setPageError('');
     Promise.all([
-      apiGet<Avaliacao[]>('/api/admin/avaliacoes'),
+      apiGet<AvaliacaoListResponse>('/api/admin/avaliacoes'),
       apiGet<any[]>('/api/admin/aulas')
     ])
       .then(([avaliacoesData, modulosData]) => {
-        setAvaliacoes(avaliacoesData);
-        setModulos(modulosData);
+        const listaAvaliacoes = Array.isArray(avaliacoesData)
+          ? avaliacoesData
+          : Array.isArray(avaliacoesData?.data)
+            ? avaliacoesData.data
+            : [];
+
+        setAvaliacoes(listaAvaliacoes);
+        setModulos(Array.isArray(modulosData) ? modulosData : []);
       })
       .catch(() => setPageError('Nao foi possivel carregar as avaliacoes agora.'))
       .finally(() => setLoading(false));

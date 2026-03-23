@@ -6,6 +6,14 @@ import { apiGet } from '../../lib/apiClient';
 import { apiUrl } from '../../lib/api';
 import type { Material } from '../../types/models';
 
+type MaterialListResponse = Material[] | {
+  data?: Material[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+};
+
 function getFileUrl(urlArquivo: string) {
   return urlArquivo.startsWith('/uploads/') ? `/api${urlArquivo}` : apiUrl(urlArquivo);
 }
@@ -18,8 +26,15 @@ export default function StudentMateriais() {
   const [busca, setBusca] = useState('');
 
   useEffect(() => {
-    apiGet<Material[]>('/api/aluno/materiais')
-      .then(setMateriais)
+    apiGet<MaterialListResponse>('/api/aluno/materiais')
+      .then((response) => {
+        const lista = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        setMateriais(lista);
+      })
       .catch(() => setError('Nao foi possivel carregar a biblioteca agora.'))
       .finally(() => setLoading(false));
   }, []);

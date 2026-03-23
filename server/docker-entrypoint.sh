@@ -9,6 +9,87 @@ run_migrate_deploy() {
   npx prisma migrate deploy
 }
 
+ensure_dashboard_rpcs() {
+  echo "Garantindo funcoes SQL do dashboard (fallback de compatibilidade)..."
+  npx prisma db execute --schema prisma/schema.prisma --stdin <<'SQL'
+CREATE OR REPLACE FUNCTION get_admin_dashboard_metrics()
+RETURNS TABLE(
+  total_alunos BIGINT,
+  alunos_ativos_7d BIGINT,
+  aulas_publicadas BIGINT,
+  total_progressos BIGINT,
+  progressos_concluidos BIGINT,
+  taxa_conclusao NUMERIC
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    (SELECT COUNT(*) FROM "User" WHERE papel = 'aluno')::BIGINT,
+    (SELECT COUNT(*) FROM "User" WHERE papel = 'aluno' AND "ultimoAcesso" >= NOW() - INTERVAL '7 days')::BIGINT,
+    (SELECT COUNT(*) FROM "Aula" WHERE publicado = true)::BIGINT,
+    (SELECT COUNT(*) FROM "ProgressoAluno")::BIGINT,
+    (SELECT COUNT(*) FROM "ProgressoAluno" WHERE concluido = true)::BIGINT,
+    ROUND(
+      (SELECT COUNT(*) FROM "ProgressoAluno" WHERE concluido = true)::NUMERIC /
+      NULLIF((SELECT COUNT(*) FROM "ProgressoAluno"), 0) * 100,
+      2
+    );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION get_low_progress_students(
+  p_threshold FLOAT DEFAULT 20,
+  p_limit INT DEFAULT 10
+)
+RETURNS TABLE(
+  aluno_id TEXT,
+  nome TEXT,
+  email TEXT,
+  foto TEXT,
+  progresso_medio NUMERIC
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    u.id::TEXT,
+    u.nome::TEXT,
+    u.email::TEXT,
+    u.foto::TEXT,
+    ROUND(COALESCE(AVG(pa."percentualAssistido"), 0)::NUMERIC, 2) AS progresso_medio
+  FROM "User" u
+  LEFT JOIN "ProgressoAluno" pa ON u.id = pa."alunoId"
+  WHERE u.papel = 'aluno' AND u.ativo = true
+  GROUP BY u.id, u.nome, u.email, u.foto
+  HAVING COALESCE(AVG(pa."percentualAssistido"), 0) < p_threshold
+  ORDER BY progresso_medio ASC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+CREATE OR REPLACE FUNCTION get_lesson_engagement_stats()
+RETURNS TABLE(
+  aula_id TEXT,
+  titulo TEXT,
+  total_alunos BIGINT,
+  media_conclusao NUMERIC
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    a.id::TEXT,
+    a.titulo::TEXT,
+    COUNT(DISTINCT pa."alunoId")::BIGINT,
+    ROUND(COALESCE(AVG(pa."percentualAssistido"), 0)::NUMERIC, 2)
+  FROM "Aula" a
+  LEFT JOIN "ProgressoAluno" pa ON a.id = pa."aulaId"
+  WHERE a.publicado = true
+  GROUP BY a.id, a.titulo, a."criadoEm"
+  ORDER BY a."criadoEm" ASC;
+END;
+$$ LANGUAGE plpgsql STABLE;
+SQL
+}
+
 repair_alerta_tipo_enum() {
   echo "Aplicando reparo de compatibilidade para AlertaSeguranca.tipo..."
   npx prisma db execute --schema prisma/schema.prisma --stdin <<'SQL'
@@ -51,5 +132,7 @@ else
   npx prisma migrate resolve --applied "$FAILED_MIGRATION_NAME" || true
   run_migrate_deploy || true
 fi
+
+ensure_dashboard_rpcs || true
 
 exec node dist/src/index.js

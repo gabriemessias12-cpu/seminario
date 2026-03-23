@@ -12,15 +12,23 @@ export default function AdminDashboard() {
   const [alertas, setAlertas] = useState<SecurityAlert[]>([]);
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       apiGet<AdminDashboardData>('/api/admin/dashboard'),
       apiGet<SecurityAlert[]>('/api/admin/alertas-seguranca')
     ])
-      .then(([dashData, alertasData]) => {
-        setData(dashData);
-        if (Array.isArray(alertasData)) setAlertas(alertasData);
+      .then(([dashResult, alertasResult]) => {
+        if (dashResult.status === 'fulfilled') {
+          setData(dashResult.value);
+        } else {
+          setError('Nao foi possivel carregar o painel administrativo agora.');
+        }
+
+        if (alertasResult.status === 'fulfilled' && Array.isArray(alertasResult.value)) {
+          setAlertas(alertasResult.value);
+        } else if (dashResult.status === 'fulfilled') {
+          setError('Painel carregado, mas os alertas de seguranca estao indisponiveis no momento.');
+        }
       })
-      .catch(() => setError('Nao foi possivel carregar o painel administrativo agora.'))
       .finally(() => setLoading(false));
   }, []);
 

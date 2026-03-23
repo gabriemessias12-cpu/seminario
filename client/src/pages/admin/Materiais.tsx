@@ -12,6 +12,14 @@ interface EditState {
   aulaId: string;
 }
 
+type MaterialListResponse = any[] | {
+  data?: any[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+};
+
 export default function AdminMateriais() {
   const [materiais, setMateriais] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,8 +37,15 @@ export default function AdminMateriais() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const loadMateriais = () => {
-    apiGet<any[]>('/api/admin/materiais')
-      .then(setMateriais)
+    apiGet<MaterialListResponse>('/api/admin/materiais')
+      .then((response) => {
+        const lista = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        setMateriais(lista);
+      })
       .catch(() => setFeedback('Nao foi possivel carregar os materiais agora.'))
       .finally(() => setLoading(false));
   };

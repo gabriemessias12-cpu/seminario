@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+﻿import { Router, Response } from 'express';
 import { PrismaClient, StatusEntrega } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
@@ -250,52 +250,159 @@ router.use(adminMiddleware);
 // GET /api/admin/dashboard
 router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // Use RPCs and parallel queries — all aggregations done at DB level
-    const [metrics, alunosAtencao, atividadeRecente, aulasStats] = await Promise.all([
-      // RPC: métricas globais em query única
-      prisma.$queryRaw<Array<{
-        total_alunos: bigint; alunos_ativos_7d: bigint; aulas_publicadas: bigint;
-        total_progressos: bigint; progressos_concluidos: bigint; taxa_conclusao: number;
-      }>>`SELECT * FROM get_admin_dashboard_metrics()`,
+    try {
+      // Fast path: use DB RPCs when available.
+      const [metrics, alunosAtencao, atividadeRecente, aulasStats] = await Promise.all([
+        prisma.$queryRaw<Array<{
+          total_alunos: bigint;
+          alunos_ativos_7d: bigint;
+          aulas_publicadas: bigint;
+          total_progressos: bigint;
+          progressos_concluidos: bigint;
+          taxa_conclusao: number;
+        }>>`SELECT * FROM get_admin_dashboard_metrics()`,
+        prisma.$queryRaw<Array<{
+          aluno_id: string;
+          nome: string;
+          email: string;
+          foto: string | null;
+          progresso_medio: number;
+        }>>`SELECT * FROM get_low_progress_students(20, 10)`,
+        prisma.loginHistorico.findMany({
+          include: { usuario: { select: { nome: true, email: true } } },
+          orderBy: { dataHora: 'desc' },
+          take: 10
+        }),
+        prisma.$queryRaw<Array<{
+          aula_id: string;
+          titulo: string;
+          total_alunos: bigint;
+          media_conclusao: number;
+        }>>`SELECT * FROM get_lesson_engagement_stats()`
+      ]);
 
-      // RPC: alunos com baixo progresso — filtragem e ordenação no banco
-      prisma.$queryRaw<Array<{
-        aluno_id: string; nome: string; email: string; foto: string | null; progresso_medio: number;
-      }>>`SELECT * FROM get_low_progress_students(20, 10)`,
+      const m = metrics[0];
 
-      // Atividade recente
+      res.json({
+        totalAlunos: Number(m?.total_alunos ?? 0),
+        alunosAtivos: Number(m?.alunos_ativos_7d ?? 0),
+        aulasPublicadas: Number(m?.aulas_publicadas ?? 0),
+        taxaConclusao: Math.round(Number(m?.taxa_conclusao ?? 0)),
+        alunosAtencao: alunosAtencao.map((a) => ({
+          id: a.aluno_id,
+          nome: a.nome,
+          email: a.email,
+          foto: a.foto,
+          progressoMedio: Math.round(Number(a.progresso_medio))
+        })),
+        atividadeRecente,
+        aulasStats: aulasStats.map((a) => ({
+          id: a.aula_id,
+          titulo: a.titulo,
+          totalAlunos: Number(a.total_alunos),
+          mediaConclusao: Math.round(Number(a.media_conclusao))
+        }))
+      });
+      return;
+    } catch (rpcError) {
+      logger.warn('Falha nas RPCs do dashboard admin, aplicando fallback via ORM.', rpcError);
+    }
+
+    const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      totalAlunos,
+      alunosAtivos,
+      aulasPublicadas,
+      totalProgressos,
+      progressosConcluidos,
+      atividadeRecente,
+      progressoPorAluno,
+      progressoPorAula,
+      aulasPublicadasBase
+    ] = await Promise.all([
+      prisma.user.count({ where: { papel: 'aluno' } }),
+      prisma.user.count({
+        where: {
+          papel: 'aluno',
+          ultimoAcesso: { gte: seteDiasAtras }
+        }
+      }),
+      prisma.aula.count({ where: { publicado: true } }),
+      prisma.progressoAluno.count(),
+      prisma.progressoAluno.count({ where: { concluido: true } }),
       prisma.loginHistorico.findMany({
         include: { usuario: { select: { nome: true, email: true } } },
         orderBy: { dataHora: 'desc' },
         take: 10
       }),
-
-      // RPC: stats por aula — JOIN com agregação no banco
-      prisma.$queryRaw<Array<{
-        aula_id: string; titulo: string; total_alunos: bigint; media_conclusao: number;
-      }>>`SELECT * FROM get_lesson_engagement_stats()`
+      prisma.progressoAluno.groupBy({
+        by: ['alunoId'],
+        _avg: { percentualAssistido: true }
+      }),
+      prisma.progressoAluno.groupBy({
+        by: ['aulaId'],
+        _avg: { percentualAssistido: true },
+        _count: { id: true }
+      }),
+      prisma.aula.findMany({
+        where: { publicado: true },
+        select: { id: true, titulo: true }
+      })
     ]);
 
-    const m = metrics[0];
-    res.json({
-      totalAlunos:    Number(m?.total_alunos ?? 0),
-      alunosAtivos:   Number(m?.alunos_ativos_7d ?? 0),
-      aulasPublicadas: Number(m?.aulas_publicadas ?? 0),
-      taxaConclusao:  Math.round(Number(m?.taxa_conclusao ?? 0)),
-      alunosAtencao:  alunosAtencao.map((a) => ({
-        id: a.aluno_id,
-        nome: a.nome,
-        email: a.email,
-        foto: a.foto,
-        progressoMedio: Math.round(Number(a.progresso_medio))
-      })),
-      atividadeRecente,
-      aulasStats: aulasStats.map((a) => ({
-        id: a.aula_id,
-        titulo: a.titulo,
-        totalAlunos: Number(a.total_alunos),
-        mediaConclusao: Math.round(Number(a.media_conclusao))
+    const aulasMap = new Map(aulasPublicadasBase.map((aula) => [aula.id, aula.titulo]));
+    const taxaConclusao = totalProgressos > 0
+      ? Math.round((progressosConcluidos / totalProgressos) * 100)
+      : 0;
+
+    const alunosAtencaoMedias = progressoPorAluno
+      .map((item) => ({
+        alunoId: item.alunoId,
+        progressoMedio: Math.round(item._avg.percentualAssistido ?? 0)
       }))
+      .filter((item) => item.progressoMedio < 20)
+      .sort((a, b) => a.progressoMedio - b.progressoMedio)
+      .slice(0, 10);
+
+    const alunosAtencaoIds = alunosAtencaoMedias.map((item) => item.alunoId);
+    const alunosAtencaoBase = alunosAtencaoIds.length
+      ? await prisma.user.findMany({
+        where: { id: { in: alunosAtencaoIds } },
+        select: { id: true, nome: true, email: true, foto: true }
+      })
+      : [];
+    const alunosAtencaoMap = new Map(alunosAtencaoBase.map((aluno) => [aluno.id, aluno]));
+
+    const alunosAtencao = alunosAtencaoMedias.map((item) => {
+      const aluno = alunosAtencaoMap.get(item.alunoId);
+      return {
+        id: item.alunoId,
+        nome: aluno?.nome ?? 'Aluno',
+        email: aluno?.email ?? '',
+        foto: aluno?.foto ?? null,
+        progressoMedio: item.progressoMedio
+      };
+    });
+
+    const aulasStats = progressoPorAula
+      .filter((item) => aulasMap.has(item.aulaId))
+      .map((item) => ({
+        id: item.aulaId,
+        titulo: aulasMap.get(item.aulaId) ?? 'Aula',
+        totalAlunos: item._count.id,
+        mediaConclusao: Math.round(item._avg.percentualAssistido ?? 0)
+      }))
+      .sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+
+    res.json({
+      totalAlunos,
+      alunosAtivos,
+      aulasPublicadas,
+      taxaConclusao,
+      alunosAtencao,
+      atividadeRecente,
+      aulasStats
     });
   } catch (error) {
     logger.error(error);
@@ -413,7 +520,7 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
     ]);
 
     if (!aluno) {
-      res.status(404).json({ error: 'Aluno não encontrado' });
+      res.status(404).json({ error: 'Aluno nÃ£o encontrado' });
       return;
     }
 
@@ -488,7 +595,7 @@ router.put('/aluno/:id/toggle', async (req: AuthRequest, res: Response): Promise
     }
 
     const aluno = await prisma.user.findUnique({ where: { id: alunoId } });
-    if (!aluno) { res.status(404).json({ error: 'Não encontrado' }); return; }
+    if (!aluno) { res.status(404).json({ error: 'NÃ£o encontrado' }); return; }
 
     await prisma.user.update({
       where: { id: alunoId },
@@ -566,7 +673,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
         resultadosQuiz: true
       }
     });
-    if (!aula) { res.status(404).json({ error: 'Aula não encontrada' }); return; }
+    if (!aula) { res.status(404).json({ error: 'Aula nÃ£o encontrada' }); return; }
     const videoTipo = getLessonVideoKind(aula.urlVideo);
     res.json({
       ...aula,
@@ -931,7 +1038,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
   }
 });
 
-// PUT /api/admin/modulo/:id/capa — upload cover image
+// PUT /api/admin/modulo/:id/capa â€” upload cover image
 router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const moduloId = readString(req.params.id);
@@ -1040,7 +1147,7 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
     const file = req.file;
 
     if (!file) {
-      res.status(400).json({ error: 'Arquivo obrigatório' });
+      res.status(400).json({ error: 'Arquivo obrigatÃ³rio' });
       return;
     }
 
@@ -1140,6 +1247,7 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
 // GET /api/admin/avaliacoes
 router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const usingPagination = typeof req.query.page !== 'undefined' || typeof req.query.pageSize !== 'undefined';
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
     const skip = (page - 1) * pageSize;
@@ -1158,12 +1266,19 @@ router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void>
       prisma.avaliacao.count()
     ]);
 
+    const mapped = avaliacoes.map((avaliacao) => ({
+      ...avaliacao,
+      quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
+      resumoEntregas: buildDeliverySummary(avaliacao.entregas)
+    }));
+
+    if (!usingPagination) {
+      res.json(mapped);
+      return;
+    }
+
     res.json({
-      data: avaliacoes.map((avaliacao) => ({
-        ...avaliacao,
-        quantidadeQuestoes: parseObjectiveQuestions(avaliacao.questoesObjetivas).length,
-        resumoEntregas: buildDeliverySummary(avaliacao.entregas)
-      })),
+      data: mapped,
       total,
       page,
       pageSize,
@@ -1731,7 +1846,7 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
   }
 });
 
-// Transcribe audio using local faster-whisper (preferred — $0, no limits)
+// Transcribe audio using local faster-whisper (preferred â€” $0, no limits)
 async function transcribeLocal(audioFile: string): Promise<string> {
   const scriptPath = path.join(process.cwd(), 'whisper_transcribe.py');
   const { stdout } = await execFileAsync('python3', [scriptPath, audioFile], {
@@ -1811,7 +1926,7 @@ async function transcribeChunk(chunkFile: string, provider: NonNullable<ReturnTy
   return data.text?.trim() ?? '';
 }
 
-// POST /api/admin/aula/:id/processar-ia — save transcript and generate IA content via OpenAI
+// POST /api/admin/aula/:id/processar-ia â€” save transcript and generate IA content via OpenAI
 router.post('/aula/:id/processar-ia', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const aulaId = readString(req.params.id);
@@ -1858,7 +1973,7 @@ router.post('/aula/:id/processar-ia', authMiddleware, adminMiddleware, async (re
   }
 });
 
-// POST /api/admin/aula/:id/gerar-transcricao — local Whisper (free) with API fallback
+// POST /api/admin/aula/:id/gerar-transcricao â€” local Whisper (free) with API fallback
 router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   const aulaId = readString(req.params.id);
   if (!aulaId) {
@@ -1981,7 +2096,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   }
 });
 
-// GET /api/admin/alertas-seguranca — list security alerts (unread first)
+// GET /api/admin/alertas-seguranca â€” list security alerts (unread first)
 router.get('/alertas-seguranca', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const alertas = await prisma.alertaSeguranca.findMany({
@@ -1995,7 +2110,7 @@ router.get('/alertas-seguranca', async (_req: AuthRequest, res: Response): Promi
   }
 });
 
-// PUT /api/admin/alerta-seguranca/:id/ler — mark alert as read
+// PUT /api/admin/alerta-seguranca/:id/ler â€” mark alert as read
 router.put('/alerta-seguranca/:id/ler', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await prisma.alertaSeguranca.update({ where: { id: String(req.params.id) }, data: { lido: true } });
@@ -2005,7 +2120,7 @@ router.put('/alerta-seguranca/:id/ler', async (req: AuthRequest, res: Response):
   }
 });
 
-// GET /api/admin/brand/lideranca — returns current leadership slides config
+// GET /api/admin/brand/lideranca â€” returns current leadership slides config
 router.get('/brand/lideranca', (_req: AuthRequest, res: Response): void => {
   const config = readBrandConfig();
   const slides = config.map((entry) => {
@@ -2021,7 +2136,7 @@ router.get('/brand/lideranca', (_req: AuthRequest, res: Response): void => {
   res.json(slides);
 });
 
-// PUT /api/admin/brand/lideranca/:slot — upload photo and/or update name
+// PUT /api/admin/brand/lideranca/:slot â€” upload photo and/or update name
 router.put('/brand/lideranca/:slot', uploadBrand.single('foto'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slot = Number(req.params.slot);

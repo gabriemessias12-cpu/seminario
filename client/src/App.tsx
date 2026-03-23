@@ -59,7 +59,7 @@ function ProtectedRoute({ children, role }: { children: ReactNode; role: 'aluno'
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (role === 'aluno' && user.papel !== 'aluno') {
+  if (role === 'aluno' && user.papel !== 'aluno' && user.papel !== 'admin' && user.papel !== 'pastor') {
     return <Navigate to="/admin/dashboard" replace />;
   }
 

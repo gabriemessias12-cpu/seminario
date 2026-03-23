@@ -729,6 +729,7 @@ router.put('/anotacao', async (req: AuthRequest, res: Response): Promise<void> =
 // GET /api/aluno/materiais
 router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const usingPagination = typeof req.query.page !== 'undefined' || typeof req.query.pageSize !== 'undefined';
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
 
@@ -741,6 +742,12 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
       }),
       prisma.material.count()
     ]);
+
+    if (!usingPagination) {
+      res.json(materiais);
+      return;
+    }
+
     res.json({ data: materiais, total, page, pageSize });
   } catch (error) {
     logger.error(error);
@@ -1016,7 +1023,6 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
 router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
-    const iaStatus = formatAIStatus(await syncDailyAICredits(prisma, userId));
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -1032,53 +1038,92 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
       }
     });
 
-    const progressos = await prisma.progressoAluno.findMany({
-      where: { alunoId: userId },
-      include: { aula: { select: { titulo: true, modulo: { select: { titulo: true } } } } },
-      orderBy: { dataInicio: 'desc' }
+    if (!user) {
+      res.status(404).json({ error: 'Usuario nao encontrado' });
+      return;
+    }
+
+    const limitePadrao = aiCreditSettings.creditosBase + (user.compartilhaDadosIA ? aiCreditSettings.bonusCompartilhamento : 0);
+    let iaStatus = formatAIStatus({
+      id: user.id,
+      compartilhaDadosIA: user.compartilhaDadosIA,
+      aiCreditosDisponiveis: user.aiCreditosDisponiveis,
+      aiCreditosUltimaRecarga: user.aiCreditosUltimaRecarga,
+      limiteDiario: limitePadrao
     });
 
-    const resultados = await prisma.resultadoQuiz.findMany({
-      where: { alunoId: userId },
-      include: { aula: { select: { titulo: true } } },
-      orderBy: { feitoEm: 'desc' }
-    });
+    try {
+      iaStatus = formatAIStatus(await syncDailyAICredits(prisma, userId));
+    } catch (creditError) {
+      logger.warn('Falha ao sincronizar creditos de IA no perfil do aluno.', creditError);
+    }
 
-    const entregasAvaliacao = await prisma.entregaAvaliacao.findMany({
-      where: { alunoId: userId },
-      include: {
-        avaliacao: {
-          select: {
-            id: true,
-            titulo: true,
-            tipo: true,
-            formato: true,
-            resultadoImediato: true,
-            questoesObjetivas: true,
-            notaMaxima: true,
-            modulo: { select: { titulo: true } },
-            aula: { select: { titulo: true } }
-          }
-        }
-      },
-      orderBy: { atualizadoEm: 'desc' }
-    });
-
-    const modulos = await prisma.modulo.findMany({
-      where: { ativo: true },
-      include: {
-        aulas: {
-          where: { publicado: true },
-          include: {
-            presencas: {
-              where: { alunoId: userId },
-              select: { status: true }
+    const [progressosResult, resultadosResult, entregasResult, modulosResult] = await Promise.allSettled([
+      prisma.progressoAluno.findMany({
+        where: { alunoId: userId },
+        include: { aula: { select: { titulo: true, modulo: { select: { titulo: true } } } } },
+        orderBy: { dataInicio: 'desc' }
+      }),
+      prisma.resultadoQuiz.findMany({
+        where: { alunoId: userId },
+        include: { aula: { select: { titulo: true } } },
+        orderBy: { feitoEm: 'desc' }
+      }),
+      prisma.entregaAvaliacao.findMany({
+        where: { alunoId: userId },
+        include: {
+          avaliacao: {
+            select: {
+              id: true,
+              titulo: true,
+              tipo: true,
+              formato: true,
+              resultadoImediato: true,
+              questoesObjetivas: true,
+              notaMaxima: true,
+              modulo: { select: { titulo: true } },
+              aula: { select: { titulo: true } }
             }
           }
-        }
-      },
-      orderBy: { ordem: 'asc' }
-    });
+        },
+        orderBy: { atualizadoEm: 'desc' }
+      }),
+      prisma.modulo.findMany({
+        where: { ativo: true },
+        include: {
+          aulas: {
+            where: { publicado: true },
+            include: {
+              presencas: {
+                where: { alunoId: userId },
+                select: { status: true }
+              }
+            }
+          }
+        },
+        orderBy: { ordem: 'asc' }
+      })
+    ]);
+
+    const progressos = progressosResult.status === 'fulfilled' ? progressosResult.value : [];
+    if (progressosResult.status === 'rejected') {
+      logger.warn('Falha ao carregar progressos do aluno no perfil.', progressosResult.reason);
+    }
+
+    const resultados = resultadosResult.status === 'fulfilled' ? resultadosResult.value : [];
+    if (resultadosResult.status === 'rejected') {
+      logger.warn('Falha ao carregar resultados de quiz no perfil.', resultadosResult.reason);
+    }
+
+    const entregasAvaliacao = entregasResult.status === 'fulfilled' ? entregasResult.value : [];
+    if (entregasResult.status === 'rejected') {
+      logger.warn('Falha ao carregar entregas de avaliacao no perfil.', entregasResult.reason);
+    }
+
+    const modulos = modulosResult.status === 'fulfilled' ? modulosResult.value : [];
+    if (modulosResult.status === 'rejected') {
+      logger.warn('Falha ao carregar frequencia por modulo no perfil.', modulosResult.reason);
+    }
 
     res.json({
       user,
