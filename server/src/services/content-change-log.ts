@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import type { AuthRequest } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 
-type ChangeEntity = 'modulo' | 'aula';
+type ChangeEntity = 'modulo' | 'aula' | 'material' | 'avaliacao' | 'entrega_avaliacao';
 type ChangeAction = 'criado' | 'atualizado' | 'excluido';
 
 interface ContentChangeInput {

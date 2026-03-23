@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, StatusEntrega } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import fs from 'fs';
@@ -1395,7 +1395,7 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
   try {
     const entregaId = readString(req.params.id);
     const comentarioCorrecao = readString(req.body.comentarioCorrecao);
-    const status = readString(req.body.status) || 'corrigido';
+    const status = (readString(req.body.status) || 'corrigido') as StatusEntrega;
     const nota = Number(readString(req.body.nota));
 
     if (!entregaId) {
@@ -1434,12 +1434,13 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
       }
     });
 
+    const entregaWithRels = entrega as typeof entrega & { avaliacao: { titulo: string }; aluno: { id: string } };
     await logContentChange(prisma, req, {
       entity: 'entrega_avaliacao',
       entityId: entregaId,
-      title: entrega.avaliacao.titulo,
+      title: entregaWithRels.avaliacao.titulo,
       action: 'atualizado',
-      details: { alunoId: entrega.aluno.id, nota, status },
+      details: { alunoId: entregaWithRels.aluno.id, nota, status },
     });
 
     res.json(entrega);

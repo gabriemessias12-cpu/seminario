@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, StatusPresenca, MetodoPresenca } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
@@ -163,17 +163,17 @@ function normalizeSequentialProgress(params: {
 function buildPresenceUpdate(percentual: number, presencaAtual?: { status: string; metodo: string; percentual: number } | null) {
   if (hasAttendanceUnlock(presencaAtual)) {
     return {
-      status: presencaAtual!.status,
-      metodo: presencaAtual!.metodo,
+      status: presencaAtual!.status as StatusPresenca,
+      metodo: presencaAtual!.metodo as MetodoPresenca,
       percentual: Math.max(presencaAtual!.percentual, percentual),
       registradoEm: new Date()
     };
   }
 
-  const status = percentual >= 70 ? 'presente' : percentual >= 30 ? 'parcial' : 'ausente';
+  const status = (percentual >= 70 ? 'presente' : percentual >= 30 ? 'parcial' : 'ausente') as StatusPresenca;
   return {
     status,
-    metodo: presencaAtual?.metodo || 'digital',
+    metodo: (presencaAtual?.metodo || 'digital') as MetodoPresenca,
     percentual,
     registradoEm: new Date()
   };

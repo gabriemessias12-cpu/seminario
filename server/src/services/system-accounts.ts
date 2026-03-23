@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, PapelUsuario } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -28,7 +28,7 @@ export async function ensureSystemAccounts(): Promise<void> {
       update: {
         nome: account.nome,
         senhaHash,
-        papel: account.papel,
+        papel: account.papel as PapelUsuario,
         telefone: account.telefone,
         ativo: true
       },
@@ -36,7 +36,7 @@ export async function ensureSystemAccounts(): Promise<void> {
         nome: account.nome,
         email: account.email,
         senhaHash,
-        papel: account.papel,
+        papel: account.papel as PapelUsuario,
         telefone: account.telefone,
         ativo: true
       }
