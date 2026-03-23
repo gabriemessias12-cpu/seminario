@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm install --omit=optional
 
 COPY tsconfig.json ./
 COPY src ./src

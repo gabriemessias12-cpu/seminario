@@ -29,7 +29,7 @@ export default function AdminMateriais() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const loadMateriais = () => {
-    apiGet('/api/admin/materiais')
+    apiGet<any[]>('/api/admin/materiais')
       .then(setMateriais)
       .catch(() => setFeedback('Nao foi possivel carregar os materiais agora.'))
       .finally(() => setLoading(false));
