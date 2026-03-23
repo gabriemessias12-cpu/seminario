@@ -112,17 +112,6 @@ export default function StudentPerfil() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="layout student-layout">
-        <Sidebar type="student" />
-        <main className="main-content student-main">
-          <div className="skeleton" style={{ height: 320 }} />
-        </main>
-      </div>
-    );
-  }
-
   const user = perfil?.user;
 
   const mediaQuiz = useMemo(() => {
@@ -140,6 +129,17 @@ export default function StudentPerfil() {
     () => perfil?.relatorioAcademico?.boletimPorModulo || [],
     [perfil?.relatorioAcademico?.boletimPorModulo]
   );
+
+  if (loading) {
+    return (
+      <div className="layout student-layout">
+        <Sidebar type="student" />
+        <main className="main-content student-main">
+          <div className="skeleton" style={{ height: 320 }} />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="layout student-layout">
