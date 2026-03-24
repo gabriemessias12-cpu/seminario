@@ -552,7 +552,7 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
     ]);
 
     if (!aluno) {
-      res.status(404).json({ error: 'Aluno nÃ£o encontrado' });
+      res.status(404).json({ error: 'Aluno não encontrado' });
       return;
     }
 
@@ -627,7 +627,7 @@ router.put('/aluno/:id/toggle', async (req: AuthRequest, res: Response): Promise
     }
 
     const aluno = await prisma.user.findUnique({ where: { id: alunoId } });
-    if (!aluno) { res.status(404).json({ error: 'NÃ£o encontrado' }); return; }
+    if (!aluno) { res.status(404).json({ error: 'Não encontrado' }); return; }
 
     await prisma.user.update({
       where: { id: alunoId },
@@ -644,7 +644,7 @@ router.delete('/aluno/:id', async (req: AuthRequest, res: Response): Promise<voi
   try {
     const alunoId = readString(req.params.id);
     if (!alunoId) {
-      res.status(400).json({ error: 'Aluno invalido' });
+      res.status(400).json({ error: 'Aluno inválido' });
       return;
     }
 
@@ -654,12 +654,12 @@ router.delete('/aluno/:id', async (req: AuthRequest, res: Response): Promise<voi
     });
 
     if (!aluno) {
-      res.status(404).json({ error: 'Aluno nao encontrado' });
+      res.status(404).json({ error: 'Aluno não encontrado' });
       return;
     }
 
     if (aluno.papel !== 'aluno') {
-      res.status(400).json({ error: 'Somente usuarios do tipo aluno podem ser excluidos por esta rota.' });
+      res.status(400).json({ error: 'Somente usuários do tipo aluno podem ser excluídos por esta rota.' });
       return;
     }
 
@@ -668,7 +668,23 @@ router.delete('/aluno/:id', async (req: AuthRequest, res: Response): Promise<voi
       fs.unlink(oldPath, () => {});
     }
 
-    await prisma.user.delete({ where: { id: alunoId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.interacaoIA.deleteMany({ where: { alunoId } });
+      await tx.loginHistorico.deleteMany({ where: { usuarioId: alunoId } });
+      await tx.alertaSeguranca.deleteMany({ where: { usuarioId: alunoId } });
+      await tx.notificacao.deleteMany({ where: { alunoId } });
+      await tx.anotacaoAluno.deleteMany({ where: { alunoId } });
+      await tx.presenca.deleteMany({ where: { alunoId } });
+      await tx.entregaAvaliacao.deleteMany({ where: { alunoId } });
+      await tx.resultadoQuiz.deleteMany({ where: { alunoId } });
+      await tx.progressoAluno.deleteMany({ where: { alunoId } });
+      await tx.registroMudancaConteudo.updateMany({
+        where: { usuarioId: alunoId },
+        data: { usuarioId: null }
+      });
+      await tx.user.delete({ where: { id: alunoId } });
+    });
+
     res.json({ ok: true });
   } catch (error) {
     logger.error(error);
@@ -742,7 +758,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
         resultadosQuiz: true
       }
     });
-    if (!aula) { res.status(404).json({ error: 'Aula nÃ£o encontrada' }); return; }
+    if (!aula) { res.status(404).json({ error: 'Aula não encontrada' }); return; }
     const videoTipo = getLessonVideoKind(aula.urlVideo);
     res.json({
       ...aula,
@@ -1217,7 +1233,7 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
     const file = req.file;
 
     if (!file) {
-      res.status(400).json({ error: 'Arquivo obrigatÃ³rio' });
+      res.status(400).json({ error: 'Arquivo obrigatório' });
       return;
     }
 
@@ -1240,6 +1256,10 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
         select: { id: true }
       })
       : [];
+    if (moduloIdValue && aulasDoModulo.length === 0) {
+      res.status(400).json({ error: 'O módulo selecionado não possui aulas para vincular o material.' });
+      return;
+    }
     const aulaIds = Array.from(new Set([
       ...aulaIdsDiretos,
       ...aulasDoModulo.map((aula) => aula.id)
@@ -1301,6 +1321,10 @@ router.put('/material/:id', async (req: AuthRequest, res: Response): Promise<voi
         select: { id: true }
       })
       : [];
+    if (moduloIdValue && aulasDoModulo.length === 0) {
+      res.status(400).json({ error: 'O módulo selecionado não possui aulas para vincular o material.' });
+      return;
+    }
     const aulaIds = Array.from(new Set([
       ...aulaIdsDiretos,
       ...aulasDoModulo.map((aula) => aula.id)
@@ -1325,9 +1349,20 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
     const skip = (page - 1) * pageSize;
+    const moduloId = readString(req.query.moduloId as string | string[] | undefined);
+    const where = moduloId
+      ? {
+        materiaisAula: {
+          some: {
+            aula: { moduloId }
+          }
+        }
+      }
+      : undefined;
 
     const [materiais, total] = await Promise.all([
       prisma.material.findMany({
+        where,
         include: {
           materiaisAula: {
             include: {
@@ -1345,7 +1380,7 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
         take: pageSize,
         skip
       }),
-      prisma.material.count()
+      prisma.material.count({ where })
     ]);
     res.json({ data: materiais, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch {

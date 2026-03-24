@@ -732,15 +732,38 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
     const usingPagination = typeof req.query.page !== 'undefined' || typeof req.query.pageSize !== 'undefined';
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
+    const moduloId = readString(req.query.moduloId as string | string[] | undefined);
+    const where = moduloId
+      ? {
+        materiaisAula: {
+          some: {
+            aula: { moduloId }
+          }
+        }
+      }
+      : undefined;
 
     const [materiais, total] = await Promise.all([
       prisma.material.findMany({
-        include: { materiaisAula: { include: { aula: { select: { titulo: true } } } } },
+        where,
+        include: {
+          materiaisAula: {
+            include: {
+              aula: {
+                select: {
+                  id: true,
+                  titulo: true,
+                  modulo: { select: { id: true, titulo: true } }
+                }
+              }
+            }
+          }
+        },
         orderBy: { criadoEm: 'desc' },
         take: pageSize,
         skip: (page - 1) * pageSize
       }),
-      prisma.material.count()
+      prisma.material.count({ where })
     ]);
 
     if (!usingPagination) {
