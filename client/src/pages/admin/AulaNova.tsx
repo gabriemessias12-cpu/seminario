@@ -63,7 +63,7 @@ export default function AdminAulaNova() {
           setModuloId(moduleList[0].id);
         }
       })
-      .catch(() => setAiStatus('Nao foi possivel carregar os modulos agora.'))
+      .catch(() => setAiStatus('Não foi possível carregar os módulos agora.'))
       .finally(() => setDraftReady(true));
   }, []);
 
@@ -130,7 +130,7 @@ export default function AdminAulaNova() {
     if (sourceType === 'youtube') {
       const videoId = extractYoutubeVideoId(youtubeUrl);
       if (!videoId) {
-        setAiStatus('URL do YouTube invalida. Use o formato https://www.youtube.com/watch?v=ID ou https://youtu.be/ID');
+        setAiStatus('URL do YouTube inválida. Use o formato https://www.youtube.com/watch?v=ID ou https://youtu.be/ID');
         return;
       }
     }
@@ -163,7 +163,7 @@ export default function AdminAulaNova() {
 
       clearDraft(LESSON_DRAFT_KEY);
       setDraftSavedAt(null);
-      setAiStatus('Aula criada com sucesso, registrada no historico e sincronizada. Redirecionando...');
+      setAiStatus('Aula criada com sucesso, registrada no histórico e sincronizada. Redirecionando...');
       setTimeout(() => navigate('/admin/aulas'), 1200);
     } catch {
       setAiStatus('Erro ao criar aula.');
@@ -180,16 +180,16 @@ export default function AdminAulaNova() {
 
       <div className="page-header">
         <h1>Nova Aula</h1>
-        <p>Cadastre o conteudo do seminario com arquivo local ou link do YouTube nao listado.</p>
+        <p>Cadastre o conteúdo do seminário com arquivo local ou link do YouTube não listado.</p>
       </div>
 
       <div className="card content-form-card">
         <form className="content-form" onSubmit={handleSubmit}>
           <div className="page-header-split mb-2">
             <div>
-              <h3 className="section-title">Conteudo da aula</h3>
+              <h3 className="section-title">Conteúdo da aula</h3>
               <p className="text-muted">
-                O rascunho textual e salvo automaticamente para sobreviver a atualizacoes de pagina.
+                O rascunho textual é salvo automaticamente para sobreviver a atualizações de página.
               </p>
             </div>
             <button className="btn btn-outline btn-sm" onClick={clearLessonDraft} type="button">
@@ -198,18 +198,18 @@ export default function AdminAulaNova() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Titulo da aula</label>
+            <label className="form-label">Título da aula</label>
             <input className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} required />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Descricao</label>
+            <label className="form-label">Descrição</label>
             <textarea className="form-textarea" value={descricao} onChange={(event) => setDescricao(event.target.value)} rows={4} />
           </div>
 
           <div className="form-row form-row-compact">
             <div className="form-group">
-              <label className="form-label">Modulo</label>
+              <label className="form-label">Módulo</label>
               <select className="form-select" value={moduloId} onChange={(event) => setModuloId(event.target.value)}>
                 {modulos.map((modulo) => (
                   <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
@@ -220,7 +220,7 @@ export default function AdminAulaNova() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Origem do video</label>
+            <label className="form-label">Origem do vídeo</label>
             <div className="media-source-grid">
               <button
                 className={`media-source-card ${sourceType === 'youtube' ? 'active' : ''}`}
@@ -235,7 +235,7 @@ export default function AdminAulaNova() {
                 </span>
                 <div>
                   <strong>YouTube</strong>
-                  <p>Recomendado para aulas grandes, economizando espaco na VPS.</p>
+                  <p>Recomendado para aulas grandes, economizando espaço na VPS.</p>
                 </div>
               </button>
 
@@ -252,7 +252,7 @@ export default function AdminAulaNova() {
                 </span>
                 <div>
                   <strong>Arquivo local</strong>
-                  <p>Ideal para videos menores ou conteudos que precisam ficar hospedados aqui.</p>
+                  <p>Ideal para vídeos menores ou conteúdos que precisam ficar hospedados aqui.</p>
                 </div>
               </button>
             </div>
@@ -268,11 +268,11 @@ export default function AdminAulaNova() {
                 value={youtubeUrl}
                 onChange={(event) => setYoutubeUrl(event.target.value)}
               />
-              <p className="form-helper-text">Use preferencialmente um video nao listado. No player do aluno ele continua integrado a aula.</p>
+              <p className="form-helper-text">Use preferencialmente um vídeo não listado. No player do aluno ele continua integrado à aula.</p>
             </div>
           ) : (
             <div className="form-group">
-              <label className="form-label">Video da aula</label>
+              <label className="form-label">Vídeo da aula</label>
               <input
                 accept="video/mp4,video/quicktime,video/x-msvideo"
                 className="form-input file-input"
@@ -283,7 +283,7 @@ export default function AdminAulaNova() {
                 <p className="form-helper-text">{video.name} ({(video.size / 1024 / 1024).toFixed(1)} MB)</p>
               ) : (
                 <p className="form-helper-text">
-                  O sistema protege esse video no player do aluno e evita download direto. Se voce atualizar a pagina,
+                  O sistema protege esse vídeo no player do aluno e evita download direto. Se você atualizar a página,
                   o navegador exige selecionar o arquivo novamente.
                 </p>
               )}
@@ -300,7 +300,7 @@ export default function AdminAulaNova() {
           <div className="inline-feedback neutral">
             {draftSavedAt
               ? `Rascunho salvo automaticamente em ${dateTimeFormatter.format(draftSavedAt)}.`
-              : 'Cada campo textual desta aula fica salvo automaticamente enquanto voce digita.'}
+              : 'Cada campo textual desta aula fica salvo automaticamente enquanto você digita.'}
           </div>
 
           {aiStatus && (

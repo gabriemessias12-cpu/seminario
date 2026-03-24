@@ -31,7 +31,7 @@ const MODULE_DRAFT_KEY = 'admin:aulas:new-module-draft';
 function formatHistoryAction(item: ContentHistoryItem): string {
   const actionLabel =
     item.acao === 'criado' ? 'criou' : item.acao === 'atualizado' ? 'atualizou' : 'removeu';
-  const entityLabel = item.entidade === 'modulo' ? 'o modulo' : 'a aula';
+  const entityLabel = item.entidade === 'modulo' ? 'o módulo' : 'a aula';
   return `${item.usuarioNome} ${actionLabel} ${entityLabel}`;
 }
 
@@ -79,7 +79,7 @@ export default function AdminAulas() {
       })
       .catch(() => {
         setFeedbackTone('warning');
-        setFeedback('Nao foi possivel carregar os modulos e o historico agora.');
+        setFeedback('Não foi possível carregar os módulos e o histórico agora.');
       })
       .finally(() => {
         setLoading(false);
@@ -146,11 +146,11 @@ export default function AdminAulas() {
       }
       clearModuleDraft();
       setFeedbackTone('success');
-      setFeedback('Modulo criado com sucesso.');
+      setFeedback('Módulo criado com sucesso.');
       loadData();
     } catch (error) {
       setFeedbackTone('warning');
-      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel criar o modulo.');
+      setFeedback(error instanceof Error ? error.message : 'Não foi possível criar o módulo.');
     }
   };
 
@@ -170,7 +170,7 @@ export default function AdminAulas() {
       if (!response.ok) throw new Error(data?.error || 'Erro ao salvar capa.');
       setModulos((prev) => prev.map((m) => m.id === target ? { ...m, capaUrl: data.capaUrl } : m));
       setFeedbackTone('success');
-      setFeedback('Capa do modulo atualizada.');
+      setFeedback('Capa do módulo atualizada.');
     } catch (error) {
       setFeedbackTone('warning');
       setFeedback(error instanceof Error ? error.message : 'Erro ao salvar capa.');
@@ -198,7 +198,7 @@ export default function AdminAulas() {
   };
 
   const handleDeleteModulo = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este modulo e todas as suas aulas? Esta acao e irreversivel.')) {
+    if (!confirm('Deseja realmente excluir este módulo e todas as suas aulas? Esta ação é irreversível.')) {
       return;
     }
 
@@ -206,11 +206,11 @@ export default function AdminAulas() {
       await apiDelete(`/api/admin/modulo/${id}`);
 
       setFeedbackTone('success');
-      setFeedback('Modulo removido e historico atualizado em tempo real.');
+      setFeedback('Módulo removido e histórico atualizado em tempo real.');
       loadData();
     } catch (error) {
       setFeedbackTone('warning');
-      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel excluir o modulo.');
+      setFeedback(error instanceof Error ? error.message : 'Não foi possível excluir o módulo.');
     }
   };
 
@@ -229,12 +229,12 @@ export default function AdminAulas() {
 
       <div className="page-header page-header-split">
         <div>
-          <h1>Gestao de Conteudo</h1>
-          <p>Gerencie modulos, aulas por arquivo ou YouTube e a estrutura do Seminario Teologico.</p>
+          <h1>Gestão de Conteúdo</h1>
+          <p>Gerencie módulos, aulas por arquivo ou YouTube e a estrutura do Seminário Teológico.</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-outline" onClick={() => setShowNewModule((current) => !current)} type="button">
-            {showNewModule ? 'Cancelar' : 'Novo Modulo'}
+            {showNewModule ? 'Cancelar' : 'Novo Módulo'}
           </button>
           <button className="btn btn-accent" onClick={() => navigate('/admin/aula/nova')} type="button">
             Nova Aula
@@ -247,7 +247,7 @@ export default function AdminAulas() {
       {showNewModule && (
         <form className="panel-card page-surface-narrow mb-3" onSubmit={handleCreateModulo}>
           <div className="page-header-split mb-2">
-            <h3 className="section-title">Cadastrar Novo Modulo</h3>
+            <h3 className="section-title">Cadastrar Novo Módulo</h3>
             <button className="btn btn-outline btn-sm" onClick={clearModuleDraft} type="button">
               Limpar rascunho
             </button>
@@ -255,8 +255,8 @@ export default function AdminAulas() {
 
           <div className="search-field mb-3">
             <input
-              aria-label="Titulo do modulo"
-              placeholder="Titulo do modulo"
+              aria-label="Título do módulo"
+              placeholder="Título do módulo"
               value={newModTitle}
               onChange={(event) => setNewModTitle(event.target.value)}
             />
@@ -275,9 +275,9 @@ export default function AdminAulas() {
           </div>
 
           <textarea
-            aria-label="Descricao do modulo"
+            aria-label="Descrição do módulo"
             className="filter-select"
-            placeholder="Descricao curta"
+            placeholder="Descrição curta"
             style={{ width: '100%', minHeight: '96px', marginBottom: '1rem', padding: '0.85rem' }}
             value={newModDesc}
             onChange={(event) => setNewModDesc(event.target.value)}
@@ -287,9 +287,9 @@ export default function AdminAulas() {
             <div className="inline-feedback neutral">
               {draftSavedAt
                 ? `Rascunho salvo automaticamente em ${dateTimeFormatter.format(draftSavedAt)}.`
-                : 'Este formulario salva o rascunho automaticamente enquanto voce digita.'}
+                : 'Este formulário salva o rascunho automaticamente enquanto você digita.'}
             </div>
-            <button className="btn btn-primary" type="submit">Salvar Modulo</button>
+            <button className="btn btn-primary" type="submit">Salvar Módulo</button>
           </div>
         </form>
       )}
@@ -297,8 +297,8 @@ export default function AdminAulas() {
       <div className="panel-card page-surface-narrow mb-3">
         <div className="page-header-split mb-2">
           <div>
-            <h3 className="section-title">Historico de Conteudo</h3>
-            <p className="text-muted">Cada criacao, edicao ou exclusao de modulo e aula fica registrada no servidor.</p>
+            <h3 className="section-title">Histórico de Conteúdo</h3>
+            <p className="text-muted">Cada criação, edição ou exclusão de módulo e aula fica registrada no servidor.</p>
           </div>
         </div>
 
@@ -320,7 +320,7 @@ export default function AdminAulas() {
         ) : (
           <div className="empty-panel">
             <AppIcon name="clock" size={18} />
-            <p>Nenhuma alteracao de modulo ou aula foi registrada ainda.</p>
+            <p>Nenhuma alteração de módulo ou aula foi registrada ainda.</p>
           </div>
         )}
       </div>
@@ -362,7 +362,7 @@ export default function AdminAulas() {
                   type="button"
                   onClick={() => handleDeleteModulo(modulo.id)}
                 >
-                  Excluir Modulo
+                  Excluir Módulo
                 </button>
               </div>
             </div>
@@ -378,7 +378,7 @@ export default function AdminAulas() {
                     <th>Video</th>
                     <th>Alunos</th>
                     <th>% Medio</th>
-                    <th>Acoes</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -387,7 +387,7 @@ export default function AdminAulas() {
                     const mediaConclusao = totalAlunos > 0
                       ? Math.round(aula.progressos.reduce((sum: number, p: any) => sum + p.percentualAssistido, 0) / totalAlunos)
                       : 0;
-                    const videoLabel = String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem video';
+                    const videoLabel = String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem vídeo';
                     const videoBadge = String(aula.urlVideo || '').includes('youtube.com') ? 'badge-info' : aula.urlVideo ? 'badge-success' : 'badge-warning';
                     return (
                       <tr key={aula.id}>
@@ -421,7 +421,7 @@ export default function AdminAulas() {
                 const mediaConclusao = totalAlunos > 0
                   ? Math.round(aula.progressos.reduce((sum: number, p: any) => sum + p.percentualAssistido, 0) / totalAlunos)
                   : 0;
-                const videoLabel = String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem video';
+                const videoLabel = String(aula.urlVideo || '').includes('youtube.com') ? 'YouTube' : aula.urlVideo ? 'Arquivo' : 'Sem vídeo';
                 const videoBadge = String(aula.urlVideo || '').includes('youtube.com') ? 'badge-info' : aula.urlVideo ? 'badge-success' : 'badge-warning';
                 return (
                   <div className="admin-list-card" key={aula.id}>
@@ -433,7 +433,7 @@ export default function AdminAulas() {
                     </div>
                     <div className="chart-inline-progress">
                       <div className="progress-bar" style={{ flex: 1 }}><div className="progress-bar-fill" style={{ width: `${mediaConclusao}%` }} /></div>
-                      <span className="text-sm">{mediaConclusao}% medio</span>
+                      <span className="text-sm">{mediaConclusao}% médio</span>
                     </div>
                     <div className="admin-list-card-actions">
                       <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aula/${aula.id}/editar`)} type="button"><AppIcon name="settings" size={14} /><span>Editar</span></button>
@@ -448,7 +448,7 @@ export default function AdminAulas() {
       ) : (
         <div className="empty-panel">
           <AppIcon name="book" size={20} />
-          <p>Nenhum modulo foi cadastrado ainda.</p>
+          <p>Nenhum módulo foi cadastrado ainda.</p>
         </div>
       )}
     </>

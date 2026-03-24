@@ -19,22 +19,22 @@ import BrandMark from './BrandMark';
 import { NavBar } from './ui/tubelight-navbar';
 
 const STUDENT_LINKS = [
-  { name: 'Inicio', url: '/dashboard', icon: Home },
-  { name: 'Conteudos', url: '/aulas', icon: Play },
-  { name: 'Avaliacoes', url: '/avaliacoes', icon: ScrollText },
+  { name: 'Início', url: '/dashboard', icon: Home },
+  { name: 'Conteúdos', url: '/aulas', icon: Play },
+  { name: 'Avaliações', url: '/avaliacoes', icon: ScrollText },
   { name: 'Biblioteca', url: '/materiais', icon: BookOpen },
   { name: 'Perfil', url: '/perfil', icon: UserRound }
 ];
 
 const ADMIN_LINKS = [
-  { name: 'Inicio', url: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'Início', url: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Alunos', url: '/admin/alunos', icon: Users },
-  { name: 'Avaliacoes', url: '/admin/avaliacoes', icon: ScrollText },
+  { name: 'Avaliações', url: '/admin/avaliacoes', icon: ScrollText },
   { name: 'Aulas', url: '/admin/aulas', icon: Play },
   { name: 'Materiais', url: '/admin/materiais', icon: BookOpen },
   { name: 'Chamada', url: '/admin/chamada', icon: ClipboardCheck },
   { name: 'Avisos', url: '/admin/avisos', icon: BellRing },
-  { name: 'Relatorios', url: '/admin/relatorios', icon: BarChart3 }
+  { name: 'Relatórios', url: '/admin/relatorios', icon: BarChart3 }
 ];
 
 interface SidebarProps {
@@ -93,7 +93,7 @@ export default function Sidebar({ type }: SidebarProps) {
   const ProfileButton = (
     <div className="relative" ref={popupRef}>
       <button
-        aria-label="Perfil e opcoes de conta"
+        aria-label="Perfil e opções de conta"
         className="nav-user-chip flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-white transition-colors hover:bg-white/10 cursor-pointer"
         onClick={handleToggleLogoutPopup}
         type="button"
@@ -189,10 +189,10 @@ export default function Sidebar({ type }: SidebarProps) {
           <BrandMark className="nav-brand-mark h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
           <div className="nav-brand-copy min-w-0">
             <strong className="nav-brand-title block truncate text-base font-semibold leading-none text-white">
-              {type === 'admin' ? 'IBVN Admin' : 'Area do Aluno'}
+              {type === 'admin' ? 'IBVN Admin' : 'Área do Aluno'}
             </strong>
             <span className="nav-brand-subtitle block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
-              {type === 'admin' ? 'Instituto Biblico Vinha Nova' : 'Seminario Teologico IBVN'}
+              {type === 'admin' ? 'Instituto Bíblico Vinha Nova' : 'Seminário Teológico IBVN'}
             </span>
           </div>
         </Link>

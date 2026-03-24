@@ -123,7 +123,7 @@ export default function AdminAvaliacoes() {
         setAvaliacoes(listaAvaliacoes);
         setModulos(Array.isArray(modulosData) ? modulosData : []);
       })
-      .catch(() => setPageError('Nao foi possivel carregar as avaliacoes agora.'))
+      .catch(() => setPageError('Não foi possível carregar as avaliações agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -187,7 +187,7 @@ export default function AdminAvaliacoes() {
       resetForm();
       setShowForm(false);
       loadData();
-      setFeedback(editingId ? 'Avaliacao atualizada com sucesso.' : 'Avaliacao criada com sucesso.');
+      setFeedback(editingId ? 'Avaliação atualizada com sucesso.' : 'Avaliação criada com sucesso.');
     } catch {
       setFeedback('Erro ao comunicar com o servidor.');
     }
@@ -214,12 +214,12 @@ export default function AdminAvaliacoes() {
       setShowForm(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel carregar a avaliacao para edicao.');
+      setFeedback(error instanceof Error ? error.message : 'Não foi possível carregar a avaliação para edição.');
     }
   };
 
   const handleDelete = async (avaliacaoId: string) => {
-    if (!window.confirm('Deseja realmente excluir esta avaliacao e todas as entregas ligadas a ela?')) {
+    if (!window.confirm('Deseja realmente excluir esta avaliação e todas as entregas ligadas a ela?')) {
       return;
     }
 
@@ -237,10 +237,10 @@ export default function AdminAvaliacoes() {
         setShowForm(false);
       }
 
-      setFeedback('Avaliacao excluida com sucesso.');
+      setFeedback('Avaliação excluída com sucesso.');
       loadData();
     } catch {
-      setFeedback('Erro ao excluir a avaliacao.');
+      setFeedback('Erro ao excluir a avaliação.');
     }
   };
 
@@ -261,7 +261,7 @@ export default function AdminAvaliacoes() {
         ])
       ));
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'Nao foi possivel carregar as entregas.');
+      setFeedback(error instanceof Error ? error.message : 'Não foi possível carregar as entregas.');
     }
   };
 
@@ -308,10 +308,10 @@ export default function AdminAvaliacoes() {
       if (selectedId) {
         await loadAvaliacao(selectedId);
       }
-      setFeedback('Correcao salva com sucesso.');
+      setFeedback('Correção salva com sucesso.');
       loadData();
     } catch {
-      setFeedback('Erro ao salvar a correcao.');
+      setFeedback('Erro ao salvar a correção.');
     } finally {
       setSavingCorrectionId(null);
     }
@@ -395,8 +395,8 @@ export default function AdminAvaliacoes() {
     <>
       <div className="page-header page-header-split">
         <div>
-          <h1>Avaliacoes</h1>
-          <p>Cadastre provas discursivas ou objetivas, receba entregas e acompanhe correcao e desempenho.</p>
+          <h1>Avaliações</h1>
+          <p>Cadastre provas discursivas ou objetivas, receba entregas e acompanhe correção e desempenho.</p>
         </div>
         <div className="page-header-actions">
           <button
@@ -412,7 +412,7 @@ export default function AdminAvaliacoes() {
             }}
             type="button"
           >
-            {showForm ? 'Fechar cadastro' : 'Nova avaliacao'}
+            {showForm ? 'Fechar cadastro' : 'Nova avaliação'}
           </button>
         </div>
       </div>
@@ -424,12 +424,12 @@ export default function AdminAvaliacoes() {
         <div className="card content-form-card mb-3">
           <form className="content-form" onSubmit={handleCreate}>
             <div className="form-group">
-              <label className="form-label">Titulo</label>
+              <label className="form-label">Título</label>
               <input className="form-input" required value={titulo} onChange={(event) => setTitulo(event.target.value)} />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Descricao</label>
+              <label className="form-label">Descrição</label>
               <textarea className="form-textarea" rows={4} value={descricao} onChange={(event) => setDescricao(event.target.value)} />
             </div>
 
@@ -449,7 +449,7 @@ export default function AdminAvaliacoes() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Nota maxima</label>
+                <label className="form-label">Nota máxima</label>
                 <input className="form-input" min={1} step="0.5" type="number" value={notaMaxima} onChange={(event) => setNotaMaxima(event.target.value)} />
               </div>
               <div className="form-group">
@@ -462,7 +462,7 @@ export default function AdminAvaliacoes() {
               <div className="form-group">
                 <label className="form-label">Modulo</label>
                 <select className="form-select" value={moduloId} onChange={(event) => setModuloId(event.target.value)}>
-                  <option value="">Nao vincular modulo</option>
+                  <option value="">Não vincular módulo</option>
                   {modulos.map((modulo: any) => (
                     <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
                   ))}
@@ -471,7 +471,7 @@ export default function AdminAvaliacoes() {
               <div className="form-group">
                 <label className="form-label">Aula</label>
                 <select className="form-select" value={aulaId} onChange={(event) => setAulaId(event.target.value)}>
-                  <option value="">Nao vincular aula</option>
+                  <option value="">Não vincular aula</option>
                   {aulasDisponiveis.map((aula: any) => (
                     <option key={aula.id} value={aula.id}>{aula.moduloTitulo} - {aula.titulo}</option>
                   ))}
@@ -523,7 +523,7 @@ export default function AdminAvaliacoes() {
                 <div className="student-section-header compact">
                   <div>
                     <span className="section-kicker">Construtor</span>
-                    <h2>Questoes</h2>
+                    <h2>Questões</h2>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button className="btn btn-outline btn-sm" onClick={() => handleAddQuestion('objetiva')} type="button">
@@ -540,7 +540,7 @@ export default function AdminAvaliacoes() {
                     <article className="assessment-question-builder-card" key={questao.id}>
                       <div className="assessment-question-builder-head">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <strong>Questao {questionIndex + 1}</strong>
+                          <strong>Questão {questionIndex + 1}</strong>
                           <select
                             className="form-select"
                             style={{ width: 'auto', padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
@@ -573,7 +573,7 @@ export default function AdminAvaliacoes() {
                           <div className="assessment-option-grid">
                             {(questao.opcoes ?? ['', '', '', '']).map((opcao, optionIndex) => (
                               <div className="form-group" key={`${questao.id}-${optionIndex}`}>
-                                <label className="form-label">Opcao {String.fromCharCode(65 + optionIndex)}</label>
+                                <label className="form-label">Opção {String.fromCharCode(65 + optionIndex)}</label>
                                 <input
                                   className="form-input"
                                   value={opcao}
@@ -641,7 +641,7 @@ export default function AdminAvaliacoes() {
             )}
 
             <div className="content-form-actions">
-              <button className="btn btn-primary" type="submit">{editingId ? 'Salvar alteracoes' : 'Salvar avaliacao'}</button>
+              <button className="btn btn-primary" type="submit">{editingId ? 'Salvar alterações' : 'Salvar avaliação'}</button>
               {editingId && (
                 <button
                   className="btn btn-outline"
@@ -651,7 +651,7 @@ export default function AdminAvaliacoes() {
                   }}
                   type="button"
                 >
-                  Cancelar edicao
+                  Cancelar edição
                 </button>
               )}
             </div>
@@ -662,15 +662,15 @@ export default function AdminAvaliacoes() {
       <div className="content-panel-toolbar admin-toolbar-compact mb-3">
         <div className="search-field">
           <AppIcon name="search" size={16} />
-          <input aria-label="Buscar avaliacao" placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input aria-label="Buscar avaliação" placeholder="Buscar avaliação" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
         <div className="page-header-actions">
-          <select aria-label="Filtrar tipo de avaliacao" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
+          <select aria-label="Filtrar tipo de avaliação" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
             <option value="todos">Todos os tipos</option>
             <option value="trabalho">Trabalhos</option>
             <option value="prova">Provas</option>
           </select>
-          <select aria-label="Filtrar status de publicacao" className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+          <select aria-label="Filtrar status de publicação" className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
             <option value="todos">Todos os status</option>
             <option value="publicado">Publicadas</option>
             <option value="rascunho">Rascunhos</option>
@@ -693,7 +693,7 @@ export default function AdminAvaliacoes() {
                     <span className={`badge ${avaliacao.formato === 'objetiva' ? 'badge-purple' : 'badge-info'}`}>{avaliacao.formato}</span>
                   </div>
                   <h3>{avaliacao.titulo}</h3>
-                  <p>{avaliacao.descricao || 'Sem descricao cadastrada.'}</p>
+                  <p>{avaliacao.descricao || 'Sem descrição cadastrada.'}</p>
                 </div>
                 <span className={`badge ${avaliacao.publicado ? 'badge-success' : 'badge-error'}`}>
                   {avaliacao.publicado ? 'Publicado' : 'Rascunho'}
@@ -702,12 +702,12 @@ export default function AdminAvaliacoes() {
 
               <div className="assessment-meta">
                 <span><strong>Modulo:</strong> {avaliacao.modulo?.titulo || 'Livre'}</span>
-                <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Nao vinculada'}</span>
+                <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Não vinculada'}</span>
                 <span><strong>Prazo:</strong> {avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toLocaleString('pt-BR') : 'Sem prazo'}</span>
-                <span><strong>Nota maxima:</strong> {avaliacao.notaMaxima}</span>
+                <span><strong>Nota máxima:</strong> {avaliacao.notaMaxima}</span>
                 {avaliacao.formato === 'objetiva' && (
                   <>
-                    <span><strong>Questoes:</strong> {avaliacao.quantidadeQuestoes}</span>
+                    <span><strong>Questões:</strong> {avaliacao.quantidadeQuestoes}</span>
                     <span><strong>Tempo:</strong> {avaliacao.tempoLimiteMinutos ? `${avaliacao.tempoLimiteMinutos} min` : 'Livre'}</span>
                   </>
                 )}
@@ -736,7 +736,7 @@ export default function AdminAvaliacoes() {
           {!filteredAvaliacoes.length && (
             <div className="empty-panel">
               <AppIcon name="quiz" size={20} />
-              <p>{avaliacoes.length ? 'Nenhuma avaliacao corresponde aos filtros atuais.' : 'Nenhuma avaliacao cadastrada ainda.'}</p>
+              <p>{avaliacoes.length ? 'Nenhuma avaliação corresponde aos filtros atuais.' : 'Nenhuma avaliação cadastrada ainda.'}</p>
             </div>
           )}
         </div>
@@ -746,11 +746,11 @@ export default function AdminAvaliacoes() {
         <div className="card mt-3">
           <div className="student-section-header compact">
             <div>
-              <span className="section-kicker">Correcao</span>
+              <span className="section-kicker">Correção</span>
               <h2>{selectedAvaliacao.titulo}</h2>
               <p className="student-page-subtitle">
                 {selectedAvaliacao.formato === 'objetiva'
-                  ? `Prova objetiva com ${selectedAvaliacao.questoesObjetivas?.length || 0} questoes.`
+                  ? `Prova objetiva com ${selectedAvaliacao.questoesObjetivas?.length || 0} questões.`
                   : 'Atividade por envio de arquivo e/ou resposta em texto.'}
               </p>
             </div>
@@ -799,13 +799,13 @@ export default function AdminAvaliacoes() {
                     </div>
 
                     <div className="assessment-meta">
-                      <span><strong>Enviado em:</strong> {entrega.enviadoEm ? new Date(entrega.enviadoEm).toLocaleString('pt-BR') : 'Nao informado'}</span>
+                      <span><strong>Enviado em:</strong> {entrega.enviadoEm ? new Date(entrega.enviadoEm).toLocaleString('pt-BR') : 'Não informado'}</span>
                       {entrega.arquivoUrl && (
                         <button
                           className="text-link-button"
                           onClick={() => {
                             void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
-                              setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                              setFeedback(error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.');
                             });
                           }}
                           type="button"
@@ -931,7 +931,7 @@ export default function AdminAvaliacoes() {
                     </div>
 
                     <button className="btn btn-primary btn-sm" disabled={savingCorrectionId === entrega.id} onClick={() => handleSaveCorrection(entrega.id)} type="button">
-                      {savingCorrectionId === entrega.id ? 'Salvando...' : 'Salvar correcao'}
+                      {savingCorrectionId === entrega.id ? 'Salvando...' : 'Salvar correção'}
                     </button>
                   </article>
                 );
@@ -940,7 +940,7 @@ export default function AdminAvaliacoes() {
           ) : (
             <div className="empty-panel">
               <AppIcon name="quiz" size={20} />
-              <p>Nenhuma entrega recebida nesta avaliacao.</p>
+              <p>Nenhuma entrega recebida nesta avaliação.</p>
             </div>
           )}
         </div>

@@ -22,7 +22,7 @@ export default function AdminAlunos() {
     setLoadError('');
     apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
-      .catch(() => setLoadError('Nao foi possivel carregar a lista de alunos agora.'))
+      .catch(() => setLoadError('Não foi possível carregar a lista de alunos agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -50,7 +50,7 @@ export default function AdminAlunos() {
         aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno
       )));
     } catch {
-      setFeedback('Nao foi possivel atualizar o status do aluno.');
+      setFeedback('Não foi possível atualizar o status do aluno.');
     }
   };
 
@@ -61,7 +61,7 @@ export default function AdminAlunos() {
 
     try {
       const data = await apiPost<{ senhaTemporaria?: string; error?: string }>('/api/admin/aluno', { nome, email, telefone, senha });
-      setFeedback(`Aluno criado com sucesso. Senha temporaria: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
+      setFeedback(`Aluno criado com sucesso. Senha temporária: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
       setNome('');
       setEmail('');
       setTelefone('');
@@ -79,7 +79,7 @@ export default function AdminAlunos() {
     <>
         <div className="page-header page-header-split">
           <div>
-            <h1>Gestao de Alunos</h1>
+            <h1>Gestão de Alunos</h1>
             <p>{alunos.length} alunos cadastrados</p>
           </div>
           <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)} type="button">
@@ -148,9 +148,9 @@ export default function AdminAlunos() {
                     <th>Aluno</th>
                     <th>Email</th>
                     <th>Progresso</th>
-                    <th>Ultimo acesso</th>
+                    <th>Último acesso</th>
                     <th>Status</th>
-                    <th>Acoes</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -31,7 +31,7 @@ export default function StudentPerfil() {
         setEditNome(data.user?.nome || '');
         setEditTel(data.user?.telefone || '');
       })
-      .catch(() => setLoadError('Nao foi possivel carregar os dados do perfil agora.'))
+      .catch(() => setLoadError('Não foi possível carregar os dados do perfil agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -93,7 +93,7 @@ export default function StudentPerfil() {
     setPasswordFeedback('');
 
     if (novaSenha !== confirmacaoSenha) {
-      setPasswordFeedback('A nova senha e a confirmacao precisam ser iguais.');
+      setPasswordFeedback('A nova senha e a confirmação precisam ser iguais.');
       return;
     }
 
@@ -149,7 +149,7 @@ export default function StudentPerfil() {
         <section className="student-topbar">
           <div>
             <span className="section-kicker">Perfil</span>
-            <h1 className="student-page-title">Configuracoes da conta</h1>
+            <h1 className="student-page-title">Configurações da conta</h1>
             <p className="student-page-subtitle">
               Atualize seus dados e senha com facilidade.
             </p>
@@ -157,8 +157,8 @@ export default function StudentPerfil() {
         </section>
 
         <section className="print-report-header print-only">
-          <p>IBVN - Instituto Biblico Vinha Nova</p>
-          <h2>Boletim academico do aluno</h2>
+          <p>IBVN - Instituto Bíblico Vinha Nova</p>
+          <h2>Boletim acadêmico do aluno</h2>
           <span>{user?.nome} | {user?.email}</span>
         </section>
 
@@ -217,7 +217,7 @@ export default function StudentPerfil() {
 
             <button className="btn btn-primary" type="button" onClick={handleSave} disabled={saving}>
               <AppIcon name="check" size={14} />
-              <span>{saving ? 'Salvando...' : 'Salvar alteracoes'}</span>
+              <span>{saving ? 'Salvando...' : 'Salvar alterações'}</span>
             </button>
           </div>
 
@@ -225,9 +225,9 @@ export default function StudentPerfil() {
             <article className="profile-summary-card">
               <span className="section-kicker">Resumo</span>
               <div className="profile-summary-list">
-                <div><strong>{perfil?.progressos?.filter((item: any) => item.concluido).length || 0}</strong><span>Aulas concluidas</span></div>
-                <div><strong>{mediaQuiz}</strong><span>Media nos quizzes</span></div>
-                <div><strong>{mediaAtividades}</strong><span>Media nas avaliacoes</span></div>
+                <div><strong>{perfil?.progressos?.filter((item: any) => item.concluido).length || 0}</strong><span>Aulas concluídas</span></div>
+                <div><strong>{mediaQuiz}</strong><span>Média nos quizzes</span></div>
+                <div><strong>{mediaAtividades}</strong><span>Média nas avaliações</span></div>
                 <div><strong>{perfil?.relatorioAcademico?.entregasResumo?.corrigidas || 0}</strong><span>Atividades corrigidas</span></div>
                 <div><strong>{new Date(user?.criadoEm).toLocaleDateString('pt-BR')}</strong><span>Conta criada em</span></div>
               </div>
@@ -239,7 +239,7 @@ export default function StudentPerfil() {
           <div className="panel-card">
             <div className="student-section-header compact">
               <div>
-                <span className="section-kicker">Seguranca</span>
+                <span className="section-kicker">Segurança</span>
                 <h2>Alterar senha</h2>
               </div>
             </div>
@@ -275,8 +275,8 @@ export default function StudentPerfil() {
           <div className="panel-card">
             <div className="student-section-header compact">
               <div>
-                <span className="section-kicker">Academico</span>
-                <h2>Correcoes recentes</h2>
+                <span className="section-kicker">Acadêmico</span>
+                <h2>Correções recentes</h2>
               </div>
             </div>
 
@@ -295,15 +295,15 @@ export default function StudentPerfil() {
                       <strong>{entrega.avaliacao?.titulo}</strong>
                       <div className="lesson-list-meta">
                         <span>{esconderResultadoObjetivo ? entrega.status : typeof entrega.nota === 'number' ? `${entrega.nota}/${entrega.avaliacao?.notaMaxima}` : entrega.status}</span>
-                        <span>{entrega.avaliacao?.modulo?.titulo || entrega.avaliacao?.aula?.titulo || 'Sem vinculo'}</span>
+                        <span>{entrega.avaliacao?.modulo?.titulo || entrega.avaliacao?.aula?.titulo || 'Sem vínculo'}</span>
                       </div>
-                      <p>{esconderResultadoObjetivo ? 'Resultado detalhado sera liberado pela equipe academica.' : entrega.comentarioCorrecao || 'Aguardando comentario da equipe.'}</p>
+                      <p>{esconderResultadoObjetivo ? 'Resultado detalhado será liberado pela equipe acadêmica.' : entrega.comentarioCorrecao || 'Aguardando comentário da equipe.'}</p>
                       {entrega.arquivoUrl && (
                         <button
                           className="text-link-button"
                           onClick={() => {
                             void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
-                              setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                              setFeedback(error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.');
                             });
                           }}
                           type="button"
@@ -321,7 +321,7 @@ export default function StudentPerfil() {
               ) : (
                 <div className="empty-panel">
                   <AppIcon name="quiz" size={20} />
-                  <p>Nenhuma avaliacao enviada ainda.</p>
+                  <p>Nenhuma avaliação enviada ainda.</p>
                 </div>
               )}
             </div>
@@ -332,7 +332,7 @@ export default function StudentPerfil() {
           <div className="student-section-header compact">
             <div>
               <span className="section-kicker">Boletim</span>
-              <h2>Resumo academico por materia</h2>
+              <h2>Resumo acadêmico por matéria</h2>
             </div>
           </div>
 
@@ -341,11 +341,11 @@ export default function StudentPerfil() {
               <table>
                 <thead>
                   <tr>
-                    <th>Materia</th>
+                    <th>Matéria</th>
                     <th>Atividades</th>
                     <th>Corrigidas</th>
                     <th>Pendentes</th>
-                    <th>Media</th>
+                    <th>Média</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -364,7 +364,7 @@ export default function StudentPerfil() {
           ) : (
             <div className="empty-panel">
               <AppIcon name="reports" size={20} />
-              <p>Seu boletim academico sera montado conforme as correcoes forem sendo publicadas.</p>
+              <p>Seu boletim acadêmico será montado conforme as correções forem sendo publicadas.</p>
             </div>
           )}
         </section>
@@ -372,8 +372,8 @@ export default function StudentPerfil() {
         <section className="panel-card">
           <div className="student-section-header compact">
             <div>
-              <span className="section-kicker">Frequencia</span>
-              <h2>Frequencia por materia</h2>
+              <span className="section-kicker">Frequência</span>
+              <h2>Frequência por matéria</h2>
             </div>
           </div>
 
@@ -382,11 +382,11 @@ export default function StudentPerfil() {
               <table>
                 <thead>
                   <tr>
-                    <th>Materia</th>
-                    <th>Frequencia</th>
+                    <th>Matéria</th>
+                    <th>Frequência</th>
                     <th>Presentes</th>
                     <th>Parciais</th>
-                    <th>Ausencias</th>
+                    <th>Ausências</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -409,7 +409,7 @@ export default function StudentPerfil() {
           ) : (
             <div className="empty-panel">
               <AppIcon name="attendance" size={20} />
-              <p>Nenhum dado de frequencia consolidado ainda.</p>
+              <p>Nenhum dado de frequência consolidado ainda.</p>
             </div>
           )}
         </section>
@@ -418,7 +418,7 @@ export default function StudentPerfil() {
           <div className="student-section-header compact">
             <div>
               <span className="section-kicker">Progresso</span>
-              <h2>Historico de aulas</h2>
+              <h2>Histórico de aulas</h2>
             </div>
           </div>
 
@@ -433,7 +433,7 @@ export default function StudentPerfil() {
                     <div className="lesson-list-title-row">
                       <strong>{progresso.aula?.titulo}</strong>
                       <span className={`badge ${progresso.concluido ? 'badge-success' : 'badge-warning'}`}>
-                        {progresso.concluido ? 'Concluida' : 'Em andamento'}
+                        {progresso.concluido ? 'Concluída' : 'Em andamento'}
                       </span>
                     </div>
                     <p>{progresso.aula?.modulo?.titulo}</p>

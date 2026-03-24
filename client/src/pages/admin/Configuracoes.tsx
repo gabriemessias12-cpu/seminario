@@ -24,7 +24,7 @@ export default function AdminConfiguracoes() {
   useEffect(() => {
     apiGet<LeadershipSlide[]>('/api/admin/brand/lideranca')
       .then((data) => { if (Array.isArray(data)) setSlides(data); })
-      .catch(() => setFeedback('Nao foi possivel carregar as configuracoes.'))
+      .catch(() => setFeedback('Não foi possível carregar as configurações.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -94,17 +94,17 @@ export default function AdminConfiguracoes() {
 
       <div className="page-header page-header-split">
         <div>
-          <h1>Configuracoes</h1>
-          <p>Gerencie as fotos e nomes da lideranca exibidos na pagina inicial.</p>
+          <h1>Configurações</h1>
+          <p>Gerencie as fotos e nomes da liderança exibidos na página inicial.</p>
         </div>
       </div>
 
       {feedback && <div className={`inline-feedback ${feedbackTone}`}>{feedback}</div>}
 
       <div className="panel-card page-surface-narrow">
-        <h3 className="section-title">Fotos da Lideranca</h3>
+        <h3 className="section-title">Fotos da Liderança</h3>
         <p className="text-muted" style={{ marginBottom: '1.25rem' }}>
-          Estas fotos aparecem no carrossel da pagina inicial. Cada imagem sera recortada em proporcao 3:4.
+          Estas fotos aparecem no carrossel da página inicial. Cada imagem será recortada em proporção 3:4.
         </p>
 
         {loading ? (

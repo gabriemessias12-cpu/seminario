@@ -35,7 +35,7 @@ export default function StudentMateriais() {
             : [];
         setMateriais(lista);
       })
-      .catch(() => setError('Nao foi possivel carregar a biblioteca agora.'))
+      .catch(() => setError('Não foi possível carregar a biblioteca agora.'))
       .finally(() => setLoading(false));
   }, []);
 

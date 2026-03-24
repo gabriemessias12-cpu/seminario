@@ -50,7 +50,7 @@ export default function AdminAlunoDetalhes() {
   useEffect(() => {
     apiGet(`/api/admin/aluno/${id}`)
       .then(setAluno)
-      .catch(() => setLoadError('Nao foi possivel carregar o relatorio do aluno.'))
+      .catch(() => setLoadError('Não foi possível carregar o relatório do aluno.'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -70,7 +70,7 @@ export default function AdminAlunoDetalhes() {
       <>
         <div className="empty-panel">
           <AppIcon name="students" size={20} />
-          <p>Aluno nao encontrado.</p>
+          <p>Aluno não encontrado.</p>
         </div>
       </>
     );
@@ -97,14 +97,14 @@ export default function AdminAlunoDetalhes() {
           <div className="page-header-actions">
             <button className="btn btn-outline" onClick={handlePrint} type="button">
               <AppIcon name="reports" size={14} />
-              <span>Imprimir relatorio</span>
+              <span>Imprimir relatório</span>
             </button>
           </div>
         </div>
 
         <section className="print-report-header print-only">
-          <p>IBVN - Instituto Biblico Vinha Nova</p>
-          <h2>Relatorio academico do aluno</h2>
+          <p>IBVN - Instituto Bíblico Vinha Nova</p>
+          <h2>Relatório acadêmico do aluno</h2>
           <span>{aluno.nome} | {aluno.email}</span>
         </section>
 
@@ -149,10 +149,10 @@ export default function AdminAlunoDetalhes() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           {[
             { icon: 'reports' as const, className: 'purple', value: `${avgProgress}%`, label: 'Progresso geral' },
-            { icon: 'check' as const, className: 'green', value: aluno.progressos?.filter((item: any) => item.concluido).length || 0, label: 'Aulas concluidas' },
-            { icon: 'target' as const, className: 'orange', value: aluno.resultadosQuiz?.length ? `${Math.round(aluno.resultadosQuiz.reduce((sum: number, item: any) => sum + ((item.pontuacao / item.totalQuestoes) * 100), 0) / aluno.resultadosQuiz.length)}%` : 'N/A', label: 'Media quizzes' },
-            { icon: 'attendance' as const, className: 'blue', value: aluno.progressos?.reduce((sum: number, item: any) => sum + item.sessoes, 0) || 0, label: 'Total sessoes' },
-            { icon: 'quiz' as const, className: 'purple', value: avgAcademic, label: 'Media avaliacoes' }
+            { icon: 'check' as const, className: 'green', value: aluno.progressos?.filter((item: any) => item.concluido).length || 0, label: 'Aulas concluídas' },
+            { icon: 'target' as const, className: 'orange', value: aluno.resultadosQuiz?.length ? `${Math.round(aluno.resultadosQuiz.reduce((sum: number, item: any) => sum + ((item.pontuacao / item.totalQuestoes) * 100), 0) / aluno.resultadosQuiz.length)}%` : 'N/A', label: 'Média quizzes' },
+            { icon: 'attendance' as const, className: 'blue', value: aluno.progressos?.reduce((sum: number, item: any) => sum + item.sessoes, 0) || 0, label: 'Total sessões' },
+            { icon: 'quiz' as const, className: 'purple', value: avgAcademic, label: 'Média avaliações' }
           ].map((item) => (
             <div className="stat-card" key={item.label}>
               <div className={`stat-icon ${item.className}`}><AppIcon name={item.icon} size={18} /></div>
@@ -171,7 +171,7 @@ export default function AdminAlunoDetalhes() {
               <thead>
                 <tr>
                   <th>Aula</th>
-                  <th>Modulo</th>
+                  <th>Módulo</th>
                   <th>Progresso</th>
                   <th>Sessoes</th>
                   <th>Pausas</th>
@@ -195,7 +195,7 @@ export default function AdminAlunoDetalhes() {
                     <td>{progresso.vezesQueParou}</td>
                     <td>
                       <span className={`badge ${progresso.concluido ? 'badge-success' : progresso.percentualAssistido > 0 ? 'badge-warning' : 'badge-info'}`}>
-                        {progresso.concluido ? 'Concluida' : progresso.percentualAssistido > 0 ? 'Em progresso' : 'Nao iniciada'}
+                        {progresso.concluido ? 'Concluída' : progresso.percentualAssistido > 0 ? 'Em progresso' : 'Não iniciada'}
                       </span>
                     </td>
                   </tr>
@@ -234,16 +234,16 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 className="section-title">Frequencia por materia</h3>
+          <h3 className="section-title">Frequência por matéria</h3>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Materia</th>
-                  <th>Frequencia</th>
+                  <th>Matéria</th>
+                  <th>Frequência</th>
                   <th>Presentes</th>
                   <th>Parciais</th>
-                  <th>Ausencias</th>
+                  <th>Ausências</th>
                 </tr>
               </thead>
               <tbody>
@@ -270,12 +270,12 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 className="section-title">Boletim por materia</h3>
+          <h3 className="section-title">Boletim por matéria</h3>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Materia</th>
+                  <th>Matéria</th>
                   <th>Atividades</th>
                   <th>Corrigidas</th>
                   <th>Pendentes</th>
@@ -302,18 +302,18 @@ export default function AdminAlunoDetalhes() {
         </div>
 
         <div className="card mb-3">
-          <h3 className="section-title">Entregas e correcoes</h3>
+          <h3 className="section-title">Entregas e correções</h3>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Avaliacao</th>
+                  <th>Avaliação</th>
                   <th>Tipo</th>
                   <th>Formato</th>
                   <th>Status</th>
                   <th>Nota</th>
                   <th>Arquivo</th>
-                  <th>Comentario</th>
+                  <th>Comentário</th>
                 </tr>
               </thead>
               <tbody>
@@ -334,7 +334,7 @@ export default function AdminAlunoDetalhes() {
                           className="text-link-button"
                           onClick={() => {
                             void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
-                              setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                              setFeedback(error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.');
                             });
                           }}
                           type="button"
@@ -346,7 +346,7 @@ export default function AdminAlunoDetalhes() {
                         <span className="text-muted">Sem arquivo</span>
                       )}
                     </td>
-                    <td className="text-muted">{entrega.comentarioCorrecao || 'Sem comentario'}</td>
+                    <td className="text-muted">{entrega.comentarioCorrecao || 'Sem comentário'}</td>
                   </tr>
                 )) : (
                   <tr>
@@ -366,7 +366,7 @@ export default function AdminAlunoDetalhes() {
                 <thead>
                   <tr>
                     <th>Aula</th>
-                    <th>Pontuacao</th>
+                    <th>Pontuação</th>
                     <th>Data</th>
                   </tr>
                 </thead>
@@ -385,7 +385,7 @@ export default function AdminAlunoDetalhes() {
         )}
 
         <div className="card">
-          <h3 className="section-title">Historico de login</h3>
+          <h3 className="section-title">Histórico de login</h3>
           <div className="table-container">
             <table>
               <thead>

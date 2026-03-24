@@ -46,7 +46,7 @@ export default function AdminMateriais() {
             : [];
         setMateriais(lista);
       })
-      .catch(() => setFeedback('Nao foi possivel carregar os materiais agora.'))
+      .catch(() => setFeedback('Não foi possível carregar os materiais agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -54,7 +54,7 @@ export default function AdminMateriais() {
     loadMateriais();
     apiGet<unknown[]>('/api/admin/aulas')
       .then((data) => { if (Array.isArray(data)) setModulos(data); })
-      .catch(() => setFeedback('Nao foi possivel carregar a relacao de aulas.'));
+      .catch(() => setFeedback('Não foi possível carregar a relação de aulas.'));
   }, []);
 
   const handleUpload = async (event: { preventDefault(): void }) => {
@@ -76,7 +76,7 @@ export default function AdminMateriais() {
       const response = await apiFetch('/api/admin/material', { method: 'POST', body: formData });
 
       if (!response.ok) {
-        setFeedback('Nao foi possivel enviar o material.');
+        setFeedback('Não foi possível enviar o material.');
         return;
       }
 
@@ -96,7 +96,7 @@ export default function AdminMateriais() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Excluir este material? Esta acao nao pode ser desfeita.')) return;
+    if (!window.confirm('Excluir este material? Esta ação não pode ser desfeita.')) return;
     setDeletingId(id);
     try {
       await apiDelete(`/api/admin/material/${id}`);
@@ -163,21 +163,21 @@ export default function AdminMateriais() {
             <h3 className="section-title">Upload de material</h3>
             <form onSubmit={handleUpload}>
               <div className="form-group">
-                <label className="form-label" htmlFor="upload-titulo">Titulo</label>
+                <label className="form-label" htmlFor="upload-titulo">Título</label>
                 <input id="upload-titulo" className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} required />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="upload-descricao">Descricao</label>
+                <label className="form-label" htmlFor="upload-descricao">Descrição</label>
                 <textarea id="upload-descricao" className="form-textarea" value={descricao} onChange={(event) => setDescricao(event.target.value)} rows={3} />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="upload-categoria">Categoria</label>
                 <select id="upload-categoria" className="form-select" value={categoria} onChange={(event) => setCategoria(event.target.value)}>
                   <option value="geral">Geral</option>
-                  <option value="biblico">Biblico</option>
-                  <option value="teologico">Teologico</option>
+                  <option value="biblico">Bíblico</option>
+                  <option value="teologico">Teológico</option>
                   <option value="devocional">Devocional</option>
-                  <option value="historico">Historico</option>
+                  <option value="historico">Histórico</option>
                 </select>
               </div>
               <div className="form-group">
@@ -218,21 +218,21 @@ export default function AdminMateriais() {
             </div>
             <form onSubmit={handleSaveEdit}>
               <div className="form-group">
-                <label className="form-label" htmlFor="edit-titulo">Titulo</label>
+                <label className="form-label" htmlFor="edit-titulo">Título</label>
                 <input id="edit-titulo" className="form-input" value={editState.titulo} onChange={e => setEditState(s => s && ({ ...s, titulo: e.target.value }))} required />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="edit-descricao">Descricao</label>
+                <label className="form-label" htmlFor="edit-descricao">Descrição</label>
                 <textarea id="edit-descricao" className="form-textarea" value={editState.descricao} onChange={e => setEditState(s => s && ({ ...s, descricao: e.target.value }))} rows={3} />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-categoria">Categoria</label>
                 <select id="edit-categoria" className="form-select" value={editState.categoria} onChange={e => setEditState(s => s && ({ ...s, categoria: e.target.value }))}>
                   <option value="geral">Geral</option>
-                  <option value="biblico">Biblico</option>
-                  <option value="teologico">Teologico</option>
+                  <option value="biblico">Bíblico</option>
+                  <option value="teologico">Teológico</option>
                   <option value="devocional">Devocional</option>
-                  <option value="historico">Historico</option>
+                  <option value="historico">Histórico</option>
                 </select>
               </div>
               <div className="form-group">
@@ -251,7 +251,7 @@ export default function AdminMateriais() {
                 </label>
               </div>
               <button className="btn btn-primary" type="submit" disabled={savingEdit}>
-                {savingEdit ? 'Salvando...' : 'Salvar alteracoes'}
+                {savingEdit ? 'Salvando...' : 'Salvar alterações'}
               </button>
             </form>
           </div>
@@ -272,7 +272,7 @@ export default function AdminMateriais() {
                     <th>Download</th>
                     <th>Aulas</th>
                     <th>Data</th>
-                    <th>Acoes</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,7 +289,7 @@ export default function AdminMateriais() {
                       </td>
                       <td><span className="badge badge-purple">{material.categoria}</span></td>
                       <td className="text-muted">{material.tipo?.toUpperCase()}</td>
-                      <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">Nao</span>}</td>
+                      <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">Não</span>}</td>
                       <td className="text-muted">{material.materiaisAula?.map((item: any) => item.aula?.titulo).join(', ') || '-'}</td>
                       <td className="text-muted">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</td>
                       <td>
@@ -325,7 +325,7 @@ export default function AdminMateriais() {
                     <span className="text-muted text-sm">{material.tipo?.toUpperCase()}</span>
                     {material.permiteDownload
                       ? <span className="badge badge-success">Download: Sim</span>
-                      : <span className="badge badge-error">Download: Nao</span>}
+                      : <span className="badge badge-error">Download: Não</span>}
                   </div>
                   {material.materiaisAula?.length > 0 && (
                     <span className="text-muted text-sm">

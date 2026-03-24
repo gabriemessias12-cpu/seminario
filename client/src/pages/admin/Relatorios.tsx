@@ -13,7 +13,7 @@ export default function AdminRelatorios() {
   useEffect(() => {
     apiGet('/api/admin/relatorios')
       .then(setData)
-      .catch(() => setError('Nao foi possivel carregar os relatorios agora.'))
+      .catch(() => setError('Não foi possível carregar os relatórios agora.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -88,16 +88,16 @@ export default function AdminRelatorios() {
       <div className="pdf-header hidden print:flex items-center gap-4 mb-6 pb-4 border-b-2 border-primary">
         <BrandMark className="pdf-brand-logo w-12 h-12 rounded-lg bg-white p-1" />
         <div>
-          <div className="pdf-brand-name font-bold text-xl text-gray-900">Instituto Biblico Vinha Nova</div>
-          <div className="pdf-brand-sub text-xs text-gray-500 uppercase tracking-widest">Seminario Teologico — Relatorios Academicos</div>
+          <div className="pdf-brand-name font-bold text-xl text-gray-900">Instituto Bíblico Vinha Nova</div>
+          <div className="pdf-brand-sub text-xs text-gray-500 uppercase tracking-widest">Seminário Teológico — Relatórios Acadêmicos</div>
         </div>
         <div className="ml-auto text-xs text-gray-400">Emitido em {today}</div>
       </div>
 
       <div className="page-header page-header-split print-hide">
         <div>
-          <h1>Relatorios</h1>
-          <p>Metricas de engajamento, desempenho e acesso do seminario.</p>
+          <h1>Relatórios</h1>
+          <p>Métricas de engajamento, desempenho e acesso do seminário.</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-outline" onClick={handlePrintPDF} type="button">
@@ -115,10 +115,10 @@ export default function AdminRelatorios() {
         <>
           <div className="card mb-3">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio de engajamento por aula</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatório de engajamento por aula</h3>
               <button className="btn btn-outline btn-sm print-hide" onClick={() => {
                 const rows = [
-                  ['Aula', 'Visualizacoes', '% Medio Conclusao', 'Media Quiz', 'Total Quizzes'],
+                  ['Aula', 'Visualizações', '% Médio Conclusão', 'Média Quiz', 'Total Quizzes'],
                   ...(data.engajamento || []).map((aula: any) => [
                     aula.titulo,
                     String(aula.totalVisualizacoes),
@@ -147,9 +147,9 @@ export default function AdminRelatorios() {
                 <thead>
                   <tr>
                     <th>Aula</th>
-                    <th>Visualizacoes</th>
-                    <th>% Medio</th>
-                    <th>Media Quiz</th>
+                    <th>Visualizações</th>
+                    <th>% Médio</th>
+                    <th>Média Quiz</th>
                     <th>Quizzes feitos</th>
                   </tr>
                 </thead>
@@ -181,10 +181,10 @@ export default function AdminRelatorios() {
 
           <div className="card">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio de acesso</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatório de acesso</h3>
               <button className="btn btn-outline btn-sm print-hide" onClick={() => {
                 const rows = [
-                  ['Usuario', 'Email', 'Data/Hora', 'IP', 'Dispositivo'],
+                  ['Usuário', 'Email', 'Data/Hora', 'IP', 'Dispositivo'],
                   ...(data.logins || []).map((login: any) => [
                     login.usuario?.nome,
                     login.usuario?.email,
@@ -203,7 +203,7 @@ export default function AdminRelatorios() {
               <table>
                 <thead>
                   <tr>
-                    <th>Usuario</th>
+                    <th>Usuário</th>
                     <th>Email</th>
                     <th>Data/Hora</th>
                     <th>IP</th>
@@ -225,7 +225,7 @@ export default function AdminRelatorios() {
 
           <div className="card mt-3">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio academico por aluno</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatório acadêmico por aluno</h3>
               <div className="page-header-actions print-hide">
                 <div className="search-field compact">
                   <AppIcon name="search" size={16} />
@@ -234,7 +234,7 @@ export default function AdminRelatorios() {
               </div>
               <button className="btn btn-outline btn-sm print-hide" onClick={() => {
                 const rows = [
-                  ['Aluno', 'Email', 'Aulas concluidas', 'Frequencia geral', 'Entregas', 'Corrigidas', 'Media notas'],
+                  ['Aluno', 'Email', 'Aulas concluídas', 'Frequência geral', 'Entregas', 'Corrigidas', 'Média notas'],
                   ...academicByStudent.map((item: any) => [
                     item.nome,
                     item.email,
@@ -256,11 +256,11 @@ export default function AdminRelatorios() {
                 <thead>
                   <tr>
                     <th>Aluno</th>
-                    <th>Frequencia</th>
-                    <th>Aulas concluidas</th>
+                    <th>Frequência</th>
+                    <th>Aulas concluídas</th>
                     <th>Entregas</th>
                     <th>Corrigidas</th>
-                    <th>Media notas</th>
+                    <th>Média notas</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,10 +294,10 @@ export default function AdminRelatorios() {
 
           <div className="card mt-3">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Desempenho por avaliacao</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Desempenho por avaliação</h3>
               <button className="btn btn-outline btn-sm print-hide" onClick={() => {
                 const rows = [
-                  ['Avaliacao', 'Tipo', 'Formato', 'Vinculo', 'Entregas', 'Corrigidas', 'Media notas', 'Media acerto objetivo'],
+                  ['Avaliação', 'Tipo', 'Formato', 'Vínculo', 'Entregas', 'Corrigidas', 'Média notas', 'Média acerto objetivo'],
                   ...performanceByAssessment.map((item: any) => [
                     item.titulo,
                     item.tipo,
@@ -319,14 +319,14 @@ export default function AdminRelatorios() {
               <table>
                 <thead>
                   <tr>
-                    <th>Avaliacao</th>
+                    <th>Avaliação</th>
                     <th>Tipo</th>
                     <th>Formato</th>
-                    <th>Vinculo</th>
+                    <th>Vínculo</th>
                     <th>Entregas</th>
                     <th>Corrigidas</th>
-                    <th>Media notas</th>
-                    <th>Media acerto</th>
+                    <th>Média notas</th>
+                    <th>Média acerto</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -355,7 +355,7 @@ export default function AdminRelatorios() {
 
                   {!performanceByAssessment.length && (
                     <tr>
-                      <td className="text-muted" colSpan={8}>Nenhuma avaliacao publicada ainda.</td>
+                      <td className="text-muted" colSpan={8}>Nenhuma avaliação publicada ainda.</td>
                     </tr>
                   )}
                 </tbody>
@@ -365,13 +365,13 @@ export default function AdminRelatorios() {
 
           {/* Print footer */}
           <div className="hidden print:block mt-8 pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
-            Instituto Biblico Vinha Nova — Seminario Teologico | Documento gerado em {today} | Uso interno
+            Instituto Bíblico Vinha Nova — Seminário Teológico | Documento gerado em {today} | Uso interno
           </div>
         </>
       ) : (
         <div className="empty-panel">
           <AppIcon name="reports" size={20} />
-          <p>Nenhum relatorio consolidado ainda.</p>
+          <p>Nenhum relatório consolidado ainda.</p>
         </div>
       )}
     </div>

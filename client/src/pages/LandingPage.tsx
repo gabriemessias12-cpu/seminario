@@ -197,7 +197,7 @@ export default function LandingPage() {
                 </a>
                 <a
                   className="btn btn-outline btn-lg"
-                  href="https://wa.me/55"
+                  href="https://wa.me/5522998338425?text=Tenho%20interesse%20em%20me%20inscrever%20%C3%A0%20vaga%20do%20semin%C3%A1rio%20teol%C3%B3gico!"
                   rel="noreferrer"
                   target="_blank"
                 >
@@ -510,7 +510,7 @@ export default function LandingPage() {
             <strong>Garanta sua vaga no Seminário</strong>
             <span>Entre em contato com a Fábia para fazer sua inscrição</span>
           </div>
-          <a className="btn btn-primary btn-sm" href="https://wa.me/55" rel="noreferrer" target="_blank">
+          <a className="btn btn-primary btn-sm" href="https://wa.me/5522998338425?text=Tenho%20interesse%20em%20me%20inscrever%20%C3%A0%20vaga%20do%20semin%C3%A1rio%20teol%C3%B3gico!" rel="noreferrer" target="_blank">
             Fale com a Fábia
           </a>
         </div>

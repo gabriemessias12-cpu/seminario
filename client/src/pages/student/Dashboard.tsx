@@ -26,7 +26,7 @@ export default function StudentDashboard() {
         setData(dashboard);
         setModulos(aulas);
       })
-      .catch(() => setError('Nao foi possivel carregar o painel do aluno agora.'))
+      .catch(() => setError('Não foi possível carregar o painel do aluno agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -39,7 +39,7 @@ export default function StudentDashboard() {
       await apiPut(`/api/aluno/notificacao/${id}/lida`);
       loadData();
     } catch {
-      setError('Nao foi possivel atualizar a notificacao.');
+      setError('Não foi possível atualizar a notificação.');
     }
   };
 
@@ -49,7 +49,7 @@ export default function StudentDashboard() {
   const cards = useMemo(() => {
     return [
       {
-        label: 'Conteudos concluidos',
+        label: 'Conteúdos concluídos',
         value: data ? `${data.aulasConcluidas}/${data.totalAulas}` : '--',
         icon: 'library' as const
       },
@@ -59,7 +59,7 @@ export default function StudentDashboard() {
         icon: 'dashboard' as const
       },
       {
-        label: 'Media nos quizzes',
+        label: 'Média nos quizzes',
         value: data ? `${data.mediaQuiz}%` : '--',
         icon: 'target' as const
       }
@@ -87,18 +87,18 @@ export default function StudentDashboard() {
         {error && <div className="inline-feedback warning">{error}</div>}
         <section className="student-topbar">
           <div>
-            <span className="section-kicker">IBVN - Seminario Teologico</span>
-            <h1 className="student-page-title">Ola, {firstName}</h1>
+            <span className="section-kicker">IBVN - Seminário Teológico</span>
+            <h1 className="student-page-title">Olá, {firstName}</h1>
             <p className="student-page-subtitle">
-              Continue sua formacao com conteudo organizado por trilhas e materiais de apoio.
+              Continue sua formação com conteúdo organizado por trilhas e materiais de apoio.
             </p>
           </div>
 
           <div className="student-topbar-actions">
-            <button aria-label="Abrir conteudos" className="icon-button" type="button" onClick={() => navigate('/aulas')}>
+            <button aria-label="Abrir conteúdos" className="icon-button" type="button" onClick={() => navigate('/aulas')}>
               <AppIcon name="search" size={18} />
             </button>
-            <button aria-label="Abrir perfil e notificacoes" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
+            <button aria-label="Abrir perfil e notificações" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
               <AppIcon name="bell" size={18} />
             </button>
             <button aria-label="Abrir perfil" className="profile-chip" type="button" onClick={() => navigate('/perfil')}>
@@ -111,8 +111,8 @@ export default function StudentDashboard() {
           <div className="student-hero-copy">
             <h2>Ambiente de estudos com trilhas e materiais completos.</h2>
             <p>
-              A plataforma agora separa seus conteudos em uma estrutura mais profissional, com foco em continuidade e
-              revisao de conteudo por aula.
+              A plataforma agora separa seus conteúdos em uma estrutura mais profissional, com foco em continuidade e
+              revisão de conteúdo por aula.
             </p>
 
             <div className="hero-progress-panel">
@@ -124,7 +124,7 @@ export default function StudentDashboard() {
                 <div className="progress-bar-fill" style={{ width: `${data?.percentualCurso || 0}%` }} />
               </div>
               <div className="hero-progress-meta">
-                <span>{data?.aulasConcluidas || 0} aulas concluidas</span>
+                <span>{data?.aulasConcluidas || 0} aulas concluídas</span>
                 <span>{totalTrilhas} trilhas liberadas</span>
               </div>
             </div>
@@ -132,7 +132,7 @@ export default function StudentDashboard() {
             <div className="student-hero-actions">
               <button className="btn btn-primary btn-lg" type="button" onClick={() => navigate(data?.proximaAula ? `/aula/${data.proximaAula.id}` : '/aulas')}>
                 <AppIcon name="play" size={16} />
-                <span>{data?.proximaAula ? 'Continuar assistindo' : 'Explorar conteudos'}</span>
+                <span>{data?.proximaAula ? 'Continuar assistindo' : 'Explorar conteúdos'}</span>
               </button>
             </div>
           </div>
@@ -140,12 +140,12 @@ export default function StudentDashboard() {
           <div className="student-hero-side">
             <div className="hero-course-card">
               <div className="hero-course-card-header">
-                <span className="pill">Proxima aula</span>
-                <span className="pill subtle">{data?.proximaAula ? 'Liberada' : 'Concluida'}</span>
+                <span className="pill">Próxima aula</span>
+                <span className="pill subtle">{data?.proximaAula ? 'Liberada' : 'Concluída'}</span>
               </div>
-              <h3>{data?.proximaAula?.titulo || 'Curso concluido'}</h3>
+              <h3>{data?.proximaAula?.titulo || 'Curso concluído'}</h3>
               <p>
-                {data?.proximaAula?.descricao || 'Voce terminou todas as aulas publicadas. Revise materiais e resultados.'}
+                {data?.proximaAula?.descricao || 'Você terminou todas as aulas publicadas. Revise materiais e resultados.'}
               </p>
               {data?.proximaAula && (
                 <button className="btn btn-accent" type="button" onClick={() => navigate(`/aula/${data.proximaAula!.id}`)}>
@@ -178,7 +178,7 @@ export default function StudentDashboard() {
               <h2>Estrutura do curso</h2>
             </div>
             <button className="text-link-button" type="button" onClick={() => navigate('/aulas')}>
-              Ver todos os conteudos
+              Ver todos os conteúdos
               <AppIcon name="chevron-right" size={16} />
             </button>
           </div>
@@ -222,9 +222,9 @@ export default function StudentDashboard() {
                       <div className="progress-bar">
                         <div className="progress-bar-fill" style={{ width: `${progresso}%` }} />
                       </div>
-                      <span>{progresso}% concluido</span>
+                      <span>{progresso}% concluído</span>
                     </div>
-                    {destaque && <small>Proximo conteudo: {destaque.titulo}</small>}
+                    {destaque && <small>Próximo conteúdo: {destaque.titulo}</small>}
                   </div>
                 </article>
               );
@@ -280,7 +280,7 @@ export default function StudentDashboard() {
             <div className="student-section-header compact">
               <div>
                 <span className="section-kicker">Avisos</span>
-                <h2>Notificacoes recentes</h2>
+                <h2>Notificações recentes</h2>
               </div>
             </div>
 
@@ -309,7 +309,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="empty-panel">
                   <AppIcon name="check" size={20} />
-                  <p>Nao ha notificacoes novas no momento.</p>
+                  <p>Não há notificações novas no momento.</p>
                 </div>
               )}
             </div>

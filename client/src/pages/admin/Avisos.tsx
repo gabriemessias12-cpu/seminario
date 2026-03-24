@@ -17,7 +17,7 @@ export default function AdminAvisos() {
   useEffect(() => {
     apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
-      .catch(() => setFeedback('Nao foi possivel carregar a lista de alunos.'))
+      .catch(() => setFeedback('Não foi possível carregar a lista de alunos.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -45,7 +45,7 @@ export default function AdminAvisos() {
     <>
       <div className="page-header">
         <h1>Central de Avisos</h1>
-        <p>Envie comunicados importantes para todos os alunos ou para um especifico.</p>
+        <p>Envie comunicados importantes para todos os alunos ou para um específico.</p>
       </div>
 
       {feedback && (
@@ -57,7 +57,7 @@ export default function AdminAvisos() {
       <div className="panel-card page-surface-narrow">
         <form onSubmit={handleSend}>
           <div className="form-group">
-            <label className="form-label">Destinatario</label>
+            <label className="form-label">Destinatário</label>
             <select
               className="filter-select"
               value={alunoId}
@@ -72,10 +72,10 @@ export default function AdminAvisos() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Titulo do aviso</label>
+            <label className="form-label">Título do aviso</label>
             <div className="search-field">
               <input
-                placeholder="Ex: Mudanca no horario da aula de quarta"
+                placeholder="Ex: Mudança no horário da aula de quarta"
                 value={titulo}
                 onChange={(event) => setTitulo(event.target.value)}
                 required

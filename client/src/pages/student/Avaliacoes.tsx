@@ -87,7 +87,7 @@ export default function StudentAvaliacoes() {
           ])
         ));
       })
-      .catch(() => setPageError('Nao foi possivel carregar as avaliacoes agora.'))
+      .catch(() => setPageError('Não foi possível carregar as avaliações agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -197,7 +197,7 @@ export default function StudentAvaliacoes() {
       const data = await response.json();
 
       if (!response.ok) {
-        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Nao foi possivel enviar a atividade.' }));
+        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Não foi possível enviar a atividade.' }));
         return;
       }
 
@@ -274,9 +274,9 @@ export default function StudentAvaliacoes() {
         <section className="student-topbar">
           <div>
             <span className="section-kicker">Fase 3</span>
-            <h1 className="student-page-title">Avaliacoes e trabalhos</h1>
+            <h1 className="student-page-title">Avaliações e trabalhos</h1>
             <p className="student-page-subtitle">
-              Envie atividades, faca provas objetivas na plataforma e acompanhe correcao, nota e comentarios.
+              Envie atividades, faça provas objetivas na plataforma e acompanhe correção, nota e comentários.
             </p>
           </div>
         </section>
@@ -284,7 +284,7 @@ export default function StudentAvaliacoes() {
         <section className="student-stats-grid">
           <article className="student-stat-tile">
             <div className="student-stat-icon"><AppIcon name="quiz" size={18} /></div>
-            <div><strong>{resumo.total}</strong><span>Avaliacoes publicadas</span></div>
+            <div><strong>{resumo.total}</strong><span>Avaliações publicadas</span></div>
           </article>
           <article className="student-stat-tile">
             <div className="student-stat-icon"><AppIcon name="check" size={18} /></div>
@@ -292,14 +292,14 @@ export default function StudentAvaliacoes() {
           </article>
           <article className="student-stat-tile">
             <div className="student-stat-icon"><AppIcon name="target" size={18} /></div>
-            <div><strong>{resumo.media}</strong><span>Media das notas</span></div>
+            <div><strong>{resumo.media}</strong><span>Média das notas</span></div>
           </article>
         </section>
 
         <section className="student-section">
           <div className="student-section-header">
             <div>
-              <span className="section-kicker">Painel academico</span>
+              <span className="section-kicker">Painel acadêmico</span>
               <h2>Provas e trabalhos</h2>
             </div>
           </div>
@@ -307,15 +307,15 @@ export default function StudentAvaliacoes() {
           <div className="content-panel-toolbar admin-toolbar-compact mb-3">
             <div className="search-field">
               <AppIcon name="search" size={16} />
-              <input aria-label="Buscar avaliacao" placeholder="Buscar avaliacao" value={search} onChange={(event) => setSearch(event.target.value)} />
+              <input aria-label="Buscar avaliação" placeholder="Buscar avaliação" value={search} onChange={(event) => setSearch(event.target.value)} />
             </div>
             <div className="page-header-actions">
-              <select aria-label="Filtrar tipo de avaliacao" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
+              <select aria-label="Filtrar tipo de avaliação" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
                 <option value="todos">Todos os tipos</option>
                 <option value="trabalho">Trabalhos</option>
                 <option value="prova">Provas</option>
               </select>
-              <select aria-label="Filtrar status de avaliacao" className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+              <select aria-label="Filtrar status de avaliação" className="filter-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
                 <option value="todos">Todos os status</option>
                 <option value="pendente">Pendentes</option>
                 <option value="enviado">Enviadas</option>
@@ -351,7 +351,7 @@ export default function StudentAvaliacoes() {
                           <span className={`badge ${avaliacao.formato === 'objetiva' ? 'badge-purple' : 'badge-info'}`}>{avaliacao.formato}</span>
                         </div>
                         <h3>{avaliacao.titulo}</h3>
-                        <p>{avaliacao.descricao || 'Sem descricao cadastrada.'}</p>
+                        <p>{avaliacao.descricao || 'Sem descrição cadastrada.'}</p>
                       </div>
                       <span className={`badge ${status === 'corrigido' ? 'badge-success' : status === 'enviado' ? 'badge-warning' : 'badge-error'}`}>
                         {status}
@@ -359,13 +359,13 @@ export default function StudentAvaliacoes() {
                     </div>
 
                     <div className="assessment-meta">
-                      <span><strong>Modulo:</strong> {avaliacao.modulo?.titulo || 'Livre'}</span>
-                      <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Nao vinculada'}</span>
+                      <span><strong>Módulo:</strong> {avaliacao.modulo?.titulo || 'Livre'}</span>
+                      <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Não vinculada'}</span>
                       <span><strong>Prazo:</strong> {prazo}</span>
-                      <span><strong>Nota maxima:</strong> {avaliacao.notaMaxima}</span>
+                      <span><strong>Nota máxima:</strong> {avaliacao.notaMaxima}</span>
                       {avaliacao.formato === 'objetiva' && (
                         <>
-                          <span><strong>Questoes:</strong> {avaliacao.quantidadeQuestoes}</span>
+                          <span><strong>Questões:</strong> {avaliacao.quantidadeQuestoes}</span>
                           <span><strong>Tempo:</strong> {avaliacao.tempoLimiteMinutos ? `${avaliacao.tempoLimiteMinutos} min` : '90 min'}</span>
                         </>
                       )}
@@ -374,11 +374,11 @@ export default function StudentAvaliacoes() {
                     {avaliacao.entregaAtual && (
                       <div className="assessment-result-box">
                         <div>
-                          <strong>Situacao da entrega</strong>
+                          <strong>Situação da entrega</strong>
                           <p>
                             {avaliacao.entregaAtual.enviadoEm
                               ? `Enviado em ${new Date(avaliacao.entregaAtual.enviadoEm).toLocaleString('pt-BR')}`
-                              : 'Entrega ainda nao enviada.'}
+                              : 'Entrega ainda não enviada.'}
                           </p>
                         </div>
                         {mostrarResultadoObjetivo ? (
@@ -388,8 +388,8 @@ export default function StudentAvaliacoes() {
                               <strong>{typeof avaliacao.entregaAtual.nota === 'number' ? avaliacao.entregaAtual.nota : 'Pendente'}</strong>
                             </div>
                             <div>
-                              <span>Comentario</span>
-                              <strong>{avaliacao.entregaAtual.comentarioCorrecao || 'Aguardando correcao'}</strong>
+                              <span>Comentário</span>
+                              <strong>{avaliacao.entregaAtual.comentarioCorrecao || 'Aguardando correção'}</strong>
                             </div>
                             {avaliacao.formato === 'objetiva' && (
                               <div>
@@ -399,7 +399,7 @@ export default function StudentAvaliacoes() {
                             )}
                           </div>
                         ) : (
-                          <p>Prova enviada com sucesso. O resultado detalhado sera liberado pela equipe academica.</p>
+                          <p>Prova enviada com sucesso. O resultado detalhado será liberado pela equipe acadêmica.</p>
                         )}
                         {avaliacao.entregaAtual.arquivoUrl && (
                           <button
@@ -408,7 +408,7 @@ export default function StudentAvaliacoes() {
                               void downloadAuthenticatedFile(`/api/aluno/entrega-avaliacao/${avaliacao.entregaAtual?.id}/arquivo`).catch((error) => {
                                 setFeedback((current) => ({
                                   ...current,
-                                  [avaliacao.id]: error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.'
+                                  [avaliacao.id]: error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.'
                                 }));
                               });
                             }}
@@ -432,7 +432,7 @@ export default function StudentAvaliacoes() {
                                     </p>
                                     {item.explicacao && <p className="assessment-answer-explanation">{item.explicacao}</p>}
                                     <p className="inline-feedback neutral" style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>
-                                      Esta questao sera corrigida manualmente pelo professor.
+                                      Esta questão será corrigida manualmente pelo professor.
                                     </p>
                                   </div>
                                 ) : (
@@ -582,7 +582,7 @@ export default function StudentAvaliacoes() {
               {!filteredAvaliacoes.length && (
                 <div className="empty-panel">
                   <AppIcon name="quiz" size={20} />
-                  <p>{avaliacoes.length ? 'Nenhuma avaliacao corresponde aos filtros atuais.' : 'Nenhuma avaliacao publicada ainda.'}</p>
+                  <p>{avaliacoes.length ? 'Nenhuma avaliação corresponde aos filtros atuais.' : 'Nenhuma avaliação publicada ainda.'}</p>
                 </div>
               )}
             </div>

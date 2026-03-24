@@ -24,8 +24,8 @@ export default function AdminChamada() {
   };
 
   useEffect(() => {
-    apiGet<any[]>('/api/admin/modulos').then(setModulos).catch(() => setFeedback('Nao foi possivel carregar os modulos.'));
-    apiGet<any[]>('/api/admin/alunos').then(setAlunos).catch(() => setFeedback('Nao foi possivel carregar os alunos.'));
+    apiGet<any[]>('/api/admin/modulos').then(setModulos).catch(() => setFeedback('Não foi possível carregar os módulos.'));
+    apiGet<any[]>('/api/admin/alunos').then(setAlunos).catch(() => setFeedback('Não foi possível carregar os alunos.'));
     const params = new URLSearchParams(window.location.search);
     const aulaId = params.get('aulaId');
     if (aulaId) setSelectedAula(aulaId);
@@ -38,7 +38,7 @@ export default function AdminChamada() {
         const modulo = data.find((item: any) => item.id === selectedModulo);
         setAulas(modulo?.aulas || []);
       })
-      .catch(() => setFeedback('Nao foi possivel carregar as aulas.'));
+      .catch(() => setFeedback('Não foi possível carregar as aulas.'));
   }, [selectedModulo]);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function AdminChamada() {
     if (selectedAula) params.append('aulaId', selectedAula);
     apiGet<any[]>(`/api/admin/chamada?${params.toString()}`)
       .then(setPresencas)
-      .catch(() => setFeedback('Nao foi possivel carregar a chamada.'))
+      .catch(() => setFeedback('Não foi possível carregar a chamada.'))
       .finally(() => setLoading(false));
   }, [selectedModulo, selectedAula]);
 
@@ -68,7 +68,7 @@ export default function AdminChamada() {
       reloadChamada(selectedModulo, selectedAula);
       setFeedback('Chamada salva com sucesso.');
     } catch {
-      setFeedback('Nao foi possivel salvar a chamada.');
+      setFeedback('Não foi possível salvar a chamada.');
     } finally {
       setSaving(false);
     }
@@ -98,7 +98,7 @@ export default function AdminChamada() {
         <div className="page-header page-header-split">
           <div>
             <h1>Lista de Chamada</h1>
-            <p>Registre a presenca manual (Presencial/Meet) ou visualize o engajamento automatico.</p>
+            <p>Registre a presença manual (Presencial/Meet) ou visualize o engajamento automático.</p>
           </div>
           <div className="page-header-actions">
             {selectedAula && (
@@ -121,7 +121,7 @@ export default function AdminChamada() {
                 }}
                 type="button"
               >
-                {editMode ? 'Cancelar Edicao' : 'Registrar Presenca'}
+                {editMode ? 'Cancelar Edição' : 'Registrar Presença'}
               </button>
             )}
             {editMode && (
@@ -139,8 +139,8 @@ export default function AdminChamada() {
         )}
 
         <div className="filters">
-          <select aria-label="Selecionar modulo" className="filter-select" value={selectedModulo} onChange={(e) => { setSelectedModulo(e.target.value); setSelectedAula(''); }}>
-            <option value="">Selecione um modulo</option>
+          <select aria-label="Selecionar módulo" className="filter-select" value={selectedModulo} onChange={(e) => { setSelectedModulo(e.target.value); setSelectedAula(''); }}>
+            <option value="">Selecione um módulo</option>
             {modulos.map((modulo) => (
               <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
             ))}
@@ -158,7 +158,7 @@ export default function AdminChamada() {
           {!editMode && presencas.length > 0 && (
             <button className="btn btn-outline btn-sm" onClick={() => {
               // (Reusing old export logic internally if needed, or keeping it clean)
-              alert('Relatorio pronto para impressao via browser (Ctrl+P)');
+              alert('Relatório pronto para impressão via browser (Ctrl+P)');
               window.print();
             }} type="button">
               Exportar / Imprimir
@@ -186,8 +186,8 @@ export default function AdminChamada() {
         {!selectedModulo ? (
           <div className="empty-state">
             <div className="icon">C</div>
-            <h3>Selecione um modulo</h3>
-            <p>Escolha um modulo para visualizar a chamada.</p>
+            <h3>Selecione um módulo</h3>
+            <p>Escolha um módulo para visualizar a chamada.</p>
           </div>
         ) : loading ? (
           <div className="skeleton" style={{ height: 200 }} />
@@ -195,7 +195,7 @@ export default function AdminChamada() {
           <div className="empty-state">
             <div className="icon">0</div>
             <h3>Nenhum registro encontrado</h3>
-            <p>Ainda nao ha presencas registradas para esse filtro.</p>
+            <p>Ainda não há presenças registradas para esse filtro.</p>
           </div>
         ) : (
           <div className="table-container">
@@ -204,9 +204,9 @@ export default function AdminChamada() {
                 <tr>
                   <th>Aluno</th>
                   <th>Status</th>
-                  <th>Metodo/Tipo</th>
+                  <th>Método/Tipo</th>
                   {!editMode && <th>Percentual</th>}
-                  {editMode && <th>Marcacao Rapida</th>}
+                  {editMode && <th>Marcação Rápida</th>}
                 </tr>
               </thead>
               <tbody>

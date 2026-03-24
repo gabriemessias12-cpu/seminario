@@ -149,7 +149,7 @@ export default function StudentAulaPlayer() {
       })
       .catch((err) => {
         if (err instanceof Error && err.name === 'AbortError') return;
-        if (isMounted) setLoadError('Nao foi possivel carregar esta aula agora.');
+        if (isMounted) setLoadError('Não foi possível carregar esta aula agora.');
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -583,7 +583,7 @@ export default function StudentAulaPlayer() {
             }
           : item
       )));
-      setLessonFeedback('Aula concluida com base na presenca confirmada.');
+      setLessonFeedback('Aula concluída com base na presença confirmada.');
     } catch (err) {
       setLessonFeedback(err instanceof Error ? err.message : 'Erro ao comunicar com o servidor.');
     } finally {
@@ -639,7 +639,7 @@ export default function StudentAulaPlayer() {
         <main className="main-content student-main">
           <div className="empty-panel">
             <AppIcon name="lock" size={20} />
-            <p>Aula nao encontrada.</p>
+            <p>Aula não encontrada.</p>
           </div>
         </main>
       </div>
@@ -648,15 +648,15 @@ export default function StudentAulaPlayer() {
 
   const tabs: Array<{ key: string; label: string; icon: React.ComponentProps<typeof AppIcon>['name'] }> = [
     { key: 'resumo', label: 'Resumo', icon: 'book' as const },
-    { key: 'transcricao', label: 'Transcricao', icon: 'notes' as const },
+    { key: 'transcricao', label: 'Transcrição', icon: 'notes' as const },
     { key: 'pontos', label: 'Pontos-chave', icon: 'target' as const },
-    { key: 'versiculos', label: 'Versiculos', icon: 'shield' as const },
-    { key: 'glossario', label: 'Glossario', icon: 'library' as const },
+    { key: 'versiculos', label: 'Versículos', icon: 'shield' as const },
+    { key: 'glossario', label: 'Glossário', icon: 'library' as const },
     { key: 'materiais', label: 'Materiais', icon: 'folder' as const },
     { key: 'notas', label: 'Minhas notas', icon: 'notes' as const },
     { key: 'assistente', label: 'Assistente IA', icon: 'search' as const }
   ];
-  if (completed || maxWatched >= 95) tabs.push({ key: 'quiz', label: 'Questionario', icon: 'quiz' as const });
+  if (completed || maxWatched >= 95) tabs.push({ key: 'quiz', label: 'Questionário', icon: 'quiz' as const });
 
   return (
     <div className="layout student-layout">
@@ -668,17 +668,17 @@ export default function StudentAulaPlayer() {
             <div className="print-hide" style={{ marginBottom: '1rem' }}>
               <button className="text-link-button" type="button" onClick={() => navigate('/aulas')}>
                 <AppIcon name="arrow-left" size={16} />
-                <span>Voltar para conteudos</span>
+                <span>Voltar para conteúdos</span>
               </button>
             </div>
             <span className="section-kicker">{aula.modulo?.titulo ? `MÓDULO ${aula.modulo.ordem} — ${aula.modulo.titulo}` : 'AULA AVULSA'}</span>
             <h1 className="student-page-title">{aula.titulo}</h1>
-            <p className="student-page-subtitle">Player protegido com progresso salvo e quiz bloqueado ate 95%.</p>
+            <p className="student-page-subtitle">Player protegido com progresso salvo e quiz bloqueado até 95%.</p>
           </div>
         </section>
 
         {lessonFeedback && (
-          <div className={`inline-feedback ${lessonFeedback.includes('concluida') ? 'success' : 'warning'}`}>
+          <div className={`inline-feedback ${lessonFeedback.includes('concluída') ? 'success' : 'warning'}`}>
             {lessonFeedback}
           </div>
         )}
@@ -730,18 +730,18 @@ export default function StudentAulaPlayer() {
                 />
               ) : (
                 <div className="demo-player-state">
-                  <div className="demo-player-badge">modo demonstracao</div>
+                  <div className="demo-player-badge">modo demonstração</div>
                   <AppIcon name="play" size={44} />
                   <h3>{aula.titulo}</h3>
-                  <p>Mesmo sem video real, o fluxo de progresso, trava da barra e liberacao do questionario permanece ativo.</p>
+                  <p>Mesmo sem vídeo real, o fluxo de progresso, trava da barra e liberação do questionário permanece ativo.</p>
                 </div>
               )}
 
               <div className={`player-progress-badge ${completed || lessonControlsUnlocked ? 'completed' : ''}`}>
                 {completed
-                  ? 'Conteudo concluido'
+                  ? 'Conteúdo concluído'
                   : lessonControlsUnlocked
-                    ? 'Presenca confirmada: navegacao livre'
+                    ? 'Presença confirmada: navegação livre'
                     : `Assistido ate ${maxWatched < 1 && duration > 0 && playing ? '<1' : maxWatched}%`}
               </div>
 
@@ -798,20 +798,20 @@ export default function StudentAulaPlayer() {
 
             <div className="lesson-meta-band">
               <div className="lesson-meta-card">
-                <span className="section-kicker">Descricao</span>
-                <p>{aula.descricao || 'Sem descricao cadastrada para esta aula.'}</p>
+                <span className="section-kicker">Descrição</span>
+                <p>{aula.descricao || 'Sem descrição cadastrada para esta aula.'}</p>
               </div>
               <div className="lesson-meta-card">
                 <span className="section-kicker">Controle da aula</span>
                 <p>
                   {lessonControlsUnlocked
-                    ? 'Presenca em Meet ou Presencial confirmada. Voce pode avancar, voltar e concluir esta aula manualmente.'
-                    : 'Sem presenca confirmada nesta aula. O video segue protegido e sem liberacao de pulo.'}
+                    ? 'Presença em Meet ou Presencial confirmada. Você pode avançar, voltar e concluir esta aula manualmente.'
+                    : 'Sem presença confirmada nesta aula. O vídeo segue protegido e sem liberação de pulo.'}
                 </p>
                 {lessonControlsUnlocked && !completed && (
                   <button className="btn btn-accent" type="button" onClick={handleManualComplete} disabled={completionLoading}>
                     <AppIcon name="check" size={14} />
-                    <span>{completionLoading ? 'Concluindo...' : 'Marcar aula como concluida'}</span>
+                    <span>{completionLoading ? 'Concluindo...' : 'Marcar aula como concluída'}</span>
                   </button>
                 )}
               </div>
@@ -833,8 +833,8 @@ export default function StudentAulaPlayer() {
             </div>
 
             <div className="panel-card lesson-content-panel">
-              {activeTab === 'resumo' && <div className="rich-text-block"><h3>Resumo</h3><div className="player-rich-copy">{aula.resumo || 'Resumo nao disponivel.'}</div></div>}
-              {activeTab === 'transcricao' && <div className="rich-text-block"><h3>Transcricao</h3><div className="player-rich-copy">{aula.transcricao || 'Transcricao nao disponivel.'}</div></div>}
+              {activeTab === 'resumo' && <div className="rich-text-block"><h3>Resumo</h3><div className="player-rich-copy">{aula.resumo || 'Resumo não disponível.'}</div></div>}
+              {activeTab === 'transcricao' && <div className="rich-text-block"><h3>Transcrição</h3><div className="player-rich-copy">{aula.transcricao || 'Transcrição não disponível.'}</div></div>}
 
               {activeTab === 'pontos' && (
                 <div className="rich-list-block">
@@ -852,7 +852,7 @@ export default function StudentAulaPlayer() {
 
               {activeTab === 'versiculos' && (
                 <div className="rich-list-block">
-                  <h3>Versiculos</h3>
+                  <h3>Versículos</h3>
                   <div className="stack-list">
                     {versiculos.map((versiculo, index) => (
                       <article className="verse-card" key={index}>
@@ -866,7 +866,7 @@ export default function StudentAulaPlayer() {
 
               {activeTab === 'glossario' && (
                 <div className="rich-list-block">
-                  <h3>Glossario</h3>
+                  <h3>Glossário</h3>
                   <div className="stack-list">
                     {glossario.map((item, index) => (
                       <article className="glossary-card" key={index}>
@@ -916,7 +916,7 @@ export default function StudentAulaPlayer() {
                   <textarea className="form-textarea lesson-notes-field" value={notes} onChange={(event) => setNotes(event.target.value)} rows={9} />
                   <button className="btn btn-primary" type="button" onClick={saveNotes}>
                     <AppIcon name="notes" size={14} />
-                    <span>Salvar anotacoes</span>
+                    <span>Salvar anotações</span>
                   </button>
                 </div>
               )}
@@ -925,7 +925,7 @@ export default function StudentAulaPlayer() {
                 <div className="assistant-panel">
                   <div className="assistant-header">
                     <h3>Assistente da aula</h3>
-                    <p>Tire suas duvidas baseadas na transcricao desta aula.</p>
+                    <p>Tire suas dúvidas baseadas na transcrição desta aula.</p>
                   </div>
                   
                   <div className="assistant-ask-box assistant-surface">
@@ -954,7 +954,7 @@ export default function StudentAulaPlayer() {
                         <div>
                           <AppIcon name="notes" size={24} />
                         </div>
-                        <p>Voce ainda nao fez perguntas nesta aula.</p>
+                        <p>Você ainda não fez perguntas nesta aula.</p>
                       </div>
                     )}
                   </div>
@@ -963,7 +963,7 @@ export default function StudentAulaPlayer() {
 
               {activeTab === 'quiz' && (
                 <div className="rich-list-block">
-                  <h3>Questionario</h3>
+                  <h3>Questionário</h3>
                   {quizSubmitted && quizScore !== null && (
                     <div className={`inline-feedback ${quizScore >= 4 ? 'success' : quizScore >= 3 ? 'warning' : 'error'}`}>
                       Resultado: {quizScore}/{quizData.length} acertos
@@ -1009,7 +1009,7 @@ export default function StudentAulaPlayer() {
                       setQuizScore(null);
                     }}>
                       <AppIcon name="arrow-left" size={14} />
-                      <span>Refazer questionario</span>
+                      <span>Refazer questionário</span>
                     </button>
                   )}
                 </div>
@@ -1027,7 +1027,7 @@ export default function StudentAulaPlayer() {
             </div>
             <div className="search-field compact">
               <AppIcon name="search" size={16} />
-              <input placeholder="Buscar conteudo" readOnly value="" />
+              <input placeholder="Buscar conteúdo" readOnly value="" />
             </div>
             <div className="playlist-items">
               {playlist.map((item: any, index: number) => {

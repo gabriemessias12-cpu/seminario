@@ -16,18 +16,18 @@ export default function StudentAulas() {
   useEffect(() => {
     apiGet<any[]>('/api/aluno/aulas')
       .then(setModulos)
-      .catch(() => setError('Nao foi possivel carregar os conteudos agora.'))
+      .catch(() => setError('Não foi possível carregar os conteúdos agora.'))
       .finally(() => setLoading(false));
   }, []);
 
   const getStatus = (aula: any) => {
     const progresso = aula.progressos?.[0];
     if (!progresso) {
-      return { label: 'Nao iniciada', pct: 0, variant: 'badge-info' };
+      return { label: 'Não iniciada', pct: 0, variant: 'badge-info' };
     }
 
     if (progresso.concluido) {
-      return { label: 'Concluida', pct: 100, variant: 'badge-success' };
+      return { label: 'Concluída', pct: 100, variant: 'badge-success' };
     }
 
     return {
@@ -75,8 +75,8 @@ export default function StudentAulas() {
         {error && <div className="inline-feedback warning">{error}</div>}
         <section className="student-topbar">
           <div>
-            <span className="section-kicker">Catalogo</span>
-            <h1 className="student-page-title">Todos os conteudos</h1>
+            <span className="section-kicker">Catálogo</span>
+            <h1 className="student-page-title">Todos os conteúdos</h1>
             <p className="student-page-subtitle">
               Navegue pelas trilhas, filtre por status e abra qualquer aula com progresso salvo automaticamente.
             </p>
@@ -91,7 +91,7 @@ export default function StudentAulas() {
           <div className="catalog-highlight catalog-highlight-row">
             <div>
               <span className="section-kicker">Trilhas ativas</span>
-              <h2>{modulos.length} modulos organizados para estudo continuo</h2>
+              <h2>{modulos.length} módulos organizados para estudo contínuo</h2>
             </div>
             <button className="btn btn-primary" type="button" onClick={() => navigate('/materiais')}>
               Abrir biblioteca
@@ -120,18 +120,18 @@ export default function StudentAulas() {
             <div className="search-field">
               <AppIcon name="search" size={16} />
               <input
-                aria-label="Buscar conteudo"
+                aria-label="Buscar conteúdo"
                 value={busca}
                 onChange={(event) => setBusca(event.target.value)}
-                placeholder="Buscar conteudo, assunto ou descricao"
+                placeholder="Buscar conteúdo, assunto ou descrição"
               />
             </div>
 
             <select aria-label="Filtrar por status" className="filter-select" value={filtroStatus} onChange={(event) => setFiltroStatus(event.target.value)}>
               <option value="todos">Todos os status</option>
-              <option value="nao_iniciada">Nao iniciadas</option>
+              <option value="nao_iniciada">Não iniciadas</option>
               <option value="em_andamento">Em andamento</option>
-              <option value="concluida">Concluidas</option>
+              <option value="concluida">Concluídas</option>
             </select>
           </div>
 
@@ -192,7 +192,7 @@ export default function StudentAulas() {
               {!modulosFiltrados.length && (
                 <div className="empty-panel">
                   <AppIcon name="search" size={20} />
-                  <p>Nenhum conteudo corresponde aos filtros atuais.</p>
+                  <p>Nenhum conteúdo corresponde aos filtros atuais.</p>
                 </div>
               )}
             </div>

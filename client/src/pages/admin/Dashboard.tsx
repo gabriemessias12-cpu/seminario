@@ -20,13 +20,13 @@ export default function AdminDashboard() {
         if (dashResult.status === 'fulfilled') {
           setData(dashResult.value);
         } else {
-          setError('Nao foi possivel carregar o painel administrativo agora.');
+          setError('Não foi possível carregar o painel administrativo agora.');
         }
 
         if (alertasResult.status === 'fulfilled' && Array.isArray(alertasResult.value)) {
           setAlertas(alertasResult.value);
         } else if (dashResult.status === 'fulfilled') {
-          setError('Painel carregado, mas os alertas de seguranca estao indisponiveis no momento.');
+          setError('Painel carregado, mas os alertas de segurança estão indisponíveis no momento.');
         }
       })
       .finally(() => setLoading(false));
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
     <>
         <div className="page-header">
           <h1>Painel Administrativo</h1>
-          <p>Visao geral do IBVN e do Seminario Teologico.</p>
+          <p>Visão geral do IBVN e do Seminário Teológico.</p>
         </div>
 
         {error && <div className="inline-feedback warning">{error}</div>}
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <AppIcon name="alert-triangle" size={18} />
                   <h3 className="section-title" style={{ margin: 0, color: 'var(--color-error, #ef4444)' }}>
-                    Alertas de seguranca ({naoLidos.length})
+                    Alertas de segurança ({naoLidos.length})
                   </h3>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -84,9 +84,9 @@ export default function AdminDashboard() {
             <div className="stat-grid-auto mb-3">
               {[
                 { icon: 'students' as const, className: 'purple', value: data.totalAlunos, label: 'Total de alunos' },
-                { icon: 'check' as const, className: 'green', value: data.alunosAtivos, label: 'Ativos nos ultimos 7 dias' },
+                { icon: 'check' as const, className: 'green', value: data.alunosAtivos, label: 'Ativos nos últimos 7 dias' },
                 { icon: 'play' as const, className: 'orange', value: data.aulasPublicadas, label: 'Aulas publicadas' },
-                { icon: 'reports' as const, className: 'blue', value: `${data.taxaConclusao}%`, label: 'Taxa de conclusao' }
+                { icon: 'reports' as const, className: 'blue', value: `${data.taxaConclusao}%`, label: 'Taxa de conclusão' }
               ].map((item) => (
                 <div className="stat-card" key={item.label}>
                   <div className={`stat-icon ${item.className}`}><AppIcon name={item.icon} size={18} /></div>
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
 
             <div className="grid-2">
               <div className="card">
-                <h3 className="section-title">Percentual medio assistido por aula</h3>
+                <h3 className="section-title">Percentual médio assistido por aula</h3>
                 <div className="bar-chart">
                   {data.aulasStats?.map((aula, index) => (
                     <div key={aula.id} className="bar" style={{ height: `${Math.max(aula.mediaConclusao, 5)}%` }}>
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="card">
-                <h3 className="section-title">Alunos que precisam de atencao</h3>
+                <h3 className="section-title">Alunos que precisam de atenção</h3>
                 {data.alunosAtencao?.length ? (
                   <div className="attention-list">
                     {data.alunosAtencao.map((aluno) => (
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted text-sm">Todos os alunos estao com bom progresso.</p>
+                  <p className="text-muted text-sm">Todos os alunos estão com bom progresso.</p>
                 )}
               </div>
             </div>
@@ -155,8 +155,8 @@ export default function AdminDashboard() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Usuario</th>
-                      <th>Acao</th>
+                      <th>Usuário</th>
+                      <th>Ação</th>
                       <th>Data/Hora</th>
                       <th>Dispositivo</th>
                     </tr>
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
         ) : (
           <div className="empty-panel">
             <AppIcon name="reports" size={20} />
-            <p>Os dados do painel ainda nao estao disponiveis.</p>
+            <p>Os dados do painel ainda não estão disponíveis.</p>
           </div>
         )}
     </>

@@ -91,7 +91,7 @@ export default function AdminAulaEditar() {
           setYoutubeUrl(aulaData.youtubeUrl || '');
         }
       })
-      .catch(() => setFeedback('Nao foi possivel carregar os dados da aula.'))
+      .catch(() => setFeedback('Não foi possível carregar os dados da aula.'))
       .finally(() => {
         setLoading(false);
         setDraftReady(true);
@@ -158,15 +158,15 @@ export default function AdminAulaEditar() {
     try {
       const data = await apiPost<any>(`/api/admin/aula/${id}/gerar-transcricao`);
       if (data.partial) {
-        setTranscriptFeedback(data.error || 'Transcricao parcial salva.');
+        setTranscriptFeedback(data.error || 'Transcrição parcial salva.');
       } else {
         const provider = data.provider ? ` via ${data.provider}` : '';
-        setTranscriptFeedback(`Transcricao obtida com sucesso${provider} (${data.chars} caracteres). Revise abaixo e clique em "Salvar transcricao e gerar conteudo com IA".`);
+        setTranscriptFeedback(`Transcrição obtida com sucesso${provider} (${data.chars} caracteres). Revise abaixo e clique em "Salvar transcrição e gerar conteúdo com IA".`);
         const aulaData = await apiGet<any>(`/api/admin/aula/${id}`);
         setTranscricao(aulaData.transcricao || '');
       }
     } catch (error) {
-      setTranscriptFeedback(error instanceof Error ? error.message : 'Nao foi possivel gerar a transcricao.');
+      setTranscriptFeedback(error instanceof Error ? error.message : 'Não foi possível gerar a transcrição.');
     } finally {
       setGeneratingTranscript(false);
     }
@@ -179,9 +179,9 @@ export default function AdminAulaEditar() {
     try {
       const data = await apiPost<any>(`/api/admin/aula/${id}/processar-ia`, { transcricao: transcricao.trim() });
       if (!data) throw new Error('Erro ao processar IA');
-      setIaFeedback(`Conteudo gerado com sucesso via ${data.provider}. Versiculos, pontos-chave, glossario e quiz atualizados.`);
+      setIaFeedback(`Conteúdo gerado com sucesso via ${data.provider}. Versículos, pontos-chave, glossário e quiz atualizados.`);
     } catch (error) {
-      setIaFeedback(error instanceof Error ? error.message : 'Erro ao gerar conteudo com IA.');
+      setIaFeedback(error instanceof Error ? error.message : 'Erro ao gerar conteúdo com IA.');
     } finally {
       setProcessingIA(false);
     }
@@ -217,7 +217,7 @@ export default function AdminAulaEditar() {
       const response = await apiFetch(`/api/admin/aula/${id}`, { method: 'PUT', body: formData });
       const data = await response.json();
       if (!response.ok) {
-        setFeedback(data.error || 'Nao foi possivel salvar a aula.');
+        setFeedback(data.error || 'Não foi possível salvar a aula.');
         return;
       }
 
@@ -249,7 +249,7 @@ export default function AdminAulaEditar() {
 
       <div className="page-header">
         <h1>Editar Aula</h1>
-        <p>Atualize o conteudo, a origem do video e o comportamento de publicacao.</p>
+        <p>Atualize o conteúdo, a origem do vídeo e o comportamento de publicação.</p>
       </div>
 
       <div className="card content-form-card">
@@ -258,7 +258,7 @@ export default function AdminAulaEditar() {
             <div>
               <h3 className="section-title">Ajustes da aula</h3>
               <p className="text-muted">
-                O rascunho desta edicao e salvo automaticamente para nao se perder em refresh.
+                O rascunho desta edição é salvo automaticamente para não se perder em refresh.
               </p>
             </div>
             <button className="btn btn-outline btn-sm" onClick={clearEditDraft} type="button">
@@ -267,18 +267,18 @@ export default function AdminAulaEditar() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Titulo</label>
+            <label className="form-label">Título</label>
             <input className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Descricao</label>
+            <label className="form-label">Descrição</label>
             <textarea className="form-textarea" rows={4} value={descricao} onChange={(event) => setDescricao(event.target.value)} />
           </div>
 
           <div className="form-row form-row-compact">
             <div className="form-group">
-              <label className="form-label">Modulo</label>
+              <label className="form-label">Módulo</label>
               <select className="form-select" value={moduloId} onChange={(event) => setModuloId(event.target.value)}>
                 {modulos.map((modulo) => (
                   <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
@@ -289,7 +289,7 @@ export default function AdminAulaEditar() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Origem do video</label>
+            <label className="form-label">Origem do vídeo</label>
             <div className="media-source-grid">
               <button
                 className={`media-source-card ${sourceType === 'youtube' ? 'active' : ''}`}
@@ -322,7 +322,7 @@ export default function AdminAulaEditar() {
                 </span>
                 <div>
                   <strong>Arquivo local</strong>
-                  <p>Troque o video hospedado no proprio servidor quando precisar.</p>
+                  <p>Troque o vídeo hospedado no próprio servidor quando precisar.</p>
                 </div>
               </button>
             </div>
@@ -341,7 +341,7 @@ export default function AdminAulaEditar() {
                   setClearVideo(false);
                 }}
               />
-              <p className="form-helper-text">Se este campo for preenchido, o aluno assistira a aula por um player incorporado.</p>
+              <p className="form-helper-text">Se este campo for preenchido, o aluno assistirá à aula por um player incorporado.</p>
             </div>
           ) : (
             <div className="form-group">
@@ -390,27 +390,27 @@ export default function AdminAulaEditar() {
           <div className="inline-feedback neutral">
             {draftSavedAt
               ? `Rascunho salvo automaticamente em ${dateTimeFormatter.format(draftSavedAt)}.`
-              : 'Alteracoes locais desta aula ficam guardadas automaticamente ate o envio.'}
+              : 'Alterações locais desta aula ficam guardadas automaticamente até o envio.'}
           </div>
 
           {feedback && <div className="inline-feedback warning">{feedback}</div>}
 
           <div className="surface-stack">
             <div className="form-group">
-              <label className="form-label">Transcricao da aula</label>
+              <label className="form-label">Transcrição da aula</label>
               <p className="form-helper-text">
-                Cole aqui a transcricao da aula. Sem transcricao, o assistente de IA e o quiz ficam indisponiveis para os alunos.
+                Cole aqui a transcrição da aula. Sem transcrição, o assistente de IA e o quiz ficam indisponíveis para os alunos.
               </p>
               <textarea
                 className="form-textarea"
                 rows={10}
-                placeholder="Cole ou digite a transcricao da aula aqui..."
+                placeholder="Cole ou digite a transcrição da aula aqui..."
                 value={transcricao}
                 onChange={(e) => setTranscricao(e.target.value)}
               />
             </div>
             {iaFeedback && (
-              <div className={`inline-feedback ${iaFeedback.startsWith('Conteudo gerado') ? 'success' : 'warning'}`}>
+              <div className={`inline-feedback ${iaFeedback.startsWith('Conteúdo gerado') ? 'success' : 'warning'}`}>
                 {iaFeedback}
               </div>
             )}
@@ -420,26 +420,26 @@ export default function AdminAulaEditar() {
               onClick={handleProcessIA}
               type="button"
             >
-              {processingIA ? 'Gerando versiculos, pontos-chave, glossario e quiz...' : 'Salvar transcricao e gerar conteudo com IA'}
+              {processingIA ? 'Gerando versículos, pontos-chave, glossário e quiz...' : 'Salvar transcrição e gerar conteúdo com IA'}
             </button>
           </div>
 
           {aula?.videoTipo === 'youtube' && (
             <div className="surface-stack">
               {transcriptFeedback && (
-                <div className={`inline-feedback ${transcriptFeedback.startsWith('Transcricao gerada') ? 'success' : 'warning'}`}>
+                <div className={`inline-feedback ${transcriptFeedback.startsWith('Transcrição gerada') ? 'success' : 'warning'}`}>
                   {transcriptFeedback}
                 </div>
               )}
               <button className="btn btn-outline" disabled={generatingTranscript} onClick={handleGenerateTranscript} type="button">
-                {generatingTranscript ? 'Buscando transcricao automatica...' : 'Buscar transcricao automatica do YouTube'}
+                {generatingTranscript ? 'Buscando transcrição automática...' : 'Buscar transcrição automática do YouTube'}
               </button>
             </div>
           )}
 
           <div className="content-form-actions">
             <button className="btn btn-primary" disabled={saving} onClick={handleSave} type="button">
-              {saving ? 'Salvando...' : 'Salvar alteracoes'}
+              {saving ? 'Salvando...' : 'Salvar alterações'}
             </button>
             <button className="btn btn-outline" onClick={() => navigate('/admin/aulas')} type="button">
               Cancelar
