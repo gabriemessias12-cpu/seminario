@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3,
@@ -44,7 +44,6 @@ interface SidebarProps {
 export default function Sidebar({ type }: SidebarProps) {
   const { user } = useAuth();
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
-  const popupRef = useRef<HTMLDivElement>(null);
 
   const items = type === 'admin' ? ADMIN_LINKS : STUDENT_LINKS;
 
@@ -71,27 +70,13 @@ export default function Sidebar({ type }: SidebarProps) {
     window.location.href = type === 'admin' ? '/admin' : '/login';
   };
 
-  // Close popup on outside click
-  useEffect(() => {
-    if (!showLogoutPopup) return;
-    const handler = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
-        setShowLogoutPopup(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showLogoutPopup]);
-
   // Ensure popup is closed on unmount
   useEffect(() => {
-    return () => {
-      setShowLogoutPopup(false);
-    };
+    return () => { setShowLogoutPopup(false); };
   }, []);
 
   const ProfileButton = (
-    <div className="relative" ref={popupRef}>
+    <div className="relative">
       <button
         aria-label="Perfil e opções de conta"
         className="nav-user-chip flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-white transition-colors hover:bg-white/10 cursor-pointer"
@@ -108,6 +93,11 @@ export default function Sidebar({ type }: SidebarProps) {
           </span>
         </div>
       </button>
+
+      {/* Overlay to close popup on outside click */}
+      {showLogoutPopup && (
+        <div aria-hidden className="fixed inset-0 z-[190]" onClick={() => setShowLogoutPopup(false)} />
+      )}
 
       {/* Logout Popup */}
       {showLogoutPopup && (
