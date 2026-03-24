@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPut, apiPost } from '../../lib/apiClient';
+import { apiGet, apiPut, apiPost, apiDelete } from '../../lib/apiClient';
 import type { AlunoListItem } from '../../types/models';
 
 export default function AdminAlunos() {
@@ -15,6 +15,7 @@ export default function AdminAlunos() {
   const [telefone, setTelefone] = useState('');
   const [senha, setSenha] = useState('123456');
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
 
@@ -51,6 +52,24 @@ export default function AdminAlunos() {
       )));
     } catch {
       setFeedback('Não foi possível atualizar o status do aluno.');
+    }
+  };
+
+  const deleteAluno = async (id: string) => {
+    if (!window.confirm('Excluir aluno permanentemente? Esta acao remove o acesso e os dados do aluno.')) {
+      return;
+    }
+
+    setDeletingId(id);
+    setFeedback('');
+    try {
+      await apiDelete(`/api/admin/aluno/${id}`);
+      setAlunos((current) => current.filter((aluno) => aluno.id !== id));
+      setFeedback('Aluno excluido com sucesso.');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel excluir o aluno.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -191,6 +210,15 @@ export default function AdminAlunos() {
                           <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
                             {aluno.ativo ? 'Desativar' : 'Ativar'}
                           </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--color-error, #ef4444)' }}
+                            onClick={() => deleteAluno(aluno.id)}
+                            disabled={deletingId === aluno.id}
+                            type="button"
+                          >
+                            {deletingId === aluno.id ? 'Excluindo...' : 'Excluir'}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -232,6 +260,15 @@ export default function AdminAlunos() {
                     <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">Ver detalhes</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
                       {aluno.ativo ? 'Desativar' : 'Ativar'}
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: 'var(--color-error, #ef4444)' }}
+                      onClick={() => deleteAluno(aluno.id)}
+                      disabled={deletingId === aluno.id}
+                      type="button"
+                    >
+                      {deletingId === aluno.id ? 'Excluindo...' : 'Excluir'}
                     </button>
                   </div>
                 </div>

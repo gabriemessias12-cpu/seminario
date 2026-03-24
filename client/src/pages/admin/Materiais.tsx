@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 
 import AppIcon from '../../components/AppIcon';
 import { apiGet, apiPut, apiDelete, apiFetch } from '../../lib/apiClient';
@@ -9,6 +9,7 @@ interface EditState {
   descricao: string;
   categoria: string;
   permiteDownload: boolean;
+  moduloId: string;
   aulaId: string;
 }
 
@@ -30,6 +31,7 @@ export default function AdminMateriais() {
   const [permiteDownload, setPermiteDownload] = useState(false);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [modulos, setModulos] = useState<any[]>([]);
+  const [moduloSelecionado, setModuloSelecionado] = useState<string>('');
   const [aulaSelecionada, setAulaSelecionada] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -46,7 +48,7 @@ export default function AdminMateriais() {
             : [];
         setMateriais(lista);
       })
-      .catch(() => setFeedback('Não foi possível carregar os materiais agora.'))
+      .catch(() => setFeedback('NÃ£o foi possÃ­vel carregar os materiais agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -54,7 +56,7 @@ export default function AdminMateriais() {
     loadMateriais();
     apiGet<unknown[]>('/api/admin/aulas')
       .then((data) => { if (Array.isArray(data)) setModulos(data); })
-      .catch(() => setFeedback('Não foi possível carregar a relação de aulas.'));
+      .catch(() => setFeedback('NÃ£o foi possÃ­vel carregar a relaÃ§Ã£o de aulas.'));
   }, []);
 
   const handleUpload = async (event: { preventDefault(): void }) => {
@@ -67,6 +69,9 @@ export default function AdminMateriais() {
     formData.append('descricao', descricao);
     formData.append('categoria', categoria);
     formData.append('permiteDownload', String(permiteDownload));
+    if (moduloSelecionado) {
+      formData.append('moduloId', moduloSelecionado);
+    }
     if (aulaSelecionada) {
       formData.append('aulasRelacionadas', JSON.stringify([aulaSelecionada]));
     }
@@ -76,13 +81,14 @@ export default function AdminMateriais() {
       const response = await apiFetch('/api/admin/material', { method: 'POST', body: formData });
 
       if (!response.ok) {
-        setFeedback('Não foi possível enviar o material.');
+        setFeedback('NÃ£o foi possÃ­vel enviar o material.');
         return;
       }
 
       setTitulo('');
       setDescricao('');
       setCategoria('geral');
+      setModuloSelecionado('');
       setAulaSelecionada('');
       setArquivo(null);
       setShowForm(false);
@@ -96,7 +102,7 @@ export default function AdminMateriais() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Excluir este material? Esta ação não pode ser desfeita.')) return;
+    if (!window.confirm('Excluir este material? Esta aÃ§Ã£o nÃ£o pode ser desfeita.')) return;
     setDeletingId(id);
     try {
       await apiDelete(`/api/admin/material/${id}`);
@@ -116,6 +122,7 @@ export default function AdminMateriais() {
       descricao: material.descricao || '',
       categoria: material.categoria || 'geral',
       permiteDownload: material.permiteDownload,
+      moduloId: material.materiaisAula?.[0]?.aula?.modulo?.id || '',
       aulaId: material.materiaisAula?.[0]?.aula?.id || ''
     });
   };
@@ -130,6 +137,7 @@ export default function AdminMateriais() {
         descricao: editState.descricao,
         categoria: editState.categoria,
         permiteDownload: editState.permiteDownload,
+        moduloId: editState.moduloId || null,
         aulaId: editState.aulaId || null
       });
       setFeedback('Material atualizado com sucesso.');
@@ -142,7 +150,30 @@ export default function AdminMateriais() {
     }
   };
 
-  const allAulas = modulos.flatMap((m: any) => m.aulas?.map((a: any) => ({ id: a.id, titulo: a.titulo, modulo: m.titulo })) || []);
+  const allAulas = modulos.flatMap((m: any) =>
+    m.aulas?.map((a: any) => ({
+      id: a.id,
+      titulo: a.titulo,
+      modulo: m.titulo,
+      moduloId: m.id
+    })) || []
+  );
+  const aulasFiltradasCriacao = moduloSelecionado
+    ? allAulas.filter((aula: any) => aula.moduloId === moduloSelecionado)
+    : allAulas;
+  const aulasFiltradasEdicao = editState?.moduloId
+    ? allAulas.filter((aula: any) => aula.moduloId === editState.moduloId)
+    : allAulas;
+  const getModuleNames = (material: any) => Array.from(new Set(
+    (material.materiaisAula || [])
+      .map((item: any) => item.aula?.modulo?.titulo)
+      .filter((value: string | undefined) => Boolean(value))
+  ));
+  const getLessonNames = (material: any) => (
+    (material.materiaisAula || [])
+      .map((item: any) => item.aula?.titulo)
+      .filter((value: string | undefined) => Boolean(value))
+  );
 
   return (
     <>
@@ -163,33 +194,46 @@ export default function AdminMateriais() {
             <h3 className="section-title">Upload de material</h3>
             <form onSubmit={handleUpload}>
               <div className="form-group">
-                <label className="form-label" htmlFor="upload-titulo">Título</label>
+                <label className="form-label" htmlFor="upload-titulo">TÃ­tulo</label>
                 <input id="upload-titulo" className="form-input" value={titulo} onChange={(event) => setTitulo(event.target.value)} required />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="upload-descricao">Descrição</label>
+                <label className="form-label" htmlFor="upload-descricao">DescriÃ§Ã£o</label>
                 <textarea id="upload-descricao" className="form-textarea" value={descricao} onChange={(event) => setDescricao(event.target.value)} rows={3} />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="upload-categoria">Categoria</label>
                 <select id="upload-categoria" className="form-select" value={categoria} onChange={(event) => setCategoria(event.target.value)}>
                   <option value="geral">Geral</option>
-                  <option value="biblico">Bíblico</option>
-                  <option value="teologico">Teológico</option>
+                  <option value="biblico">BÃ­blico</option>
+                  <option value="teologico">TeolÃ³gico</option>
                   <option value="devocional">Devocional</option>
-                  <option value="historico">Histórico</option>
+                  <option value="historico">HistÃ³rico</option>
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="upload-aula">Aula Relacionada (Opcional)</label>
+                <label className="form-label" htmlFor="upload-modulo">Modulo relacionado (Opcional)</label>
+                <select
+                  id="upload-modulo"
+                  className="form-select"
+                  value={moduloSelecionado}
+                  onChange={(event) => {
+                    setModuloSelecionado(event.target.value);
+                    setAulaSelecionada('');
+                  }}
+                >
+                  <option value="">Nenhum modulo vinculado</option>
+                  {modulos.map((modulo: any) => (
+                    <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="upload-aula">Aula especifica (Opcional)</label>
                 <select id="upload-aula" className="form-select" value={aulaSelecionada} onChange={(event) => setAulaSelecionada(event.target.value)}>
-                  <option value="">Nenhuma aula vinculada</option>
-                  {modulos.map(modulo => (
-                    <optgroup key={modulo.id} label={modulo.titulo}>
-                      {modulo.aulas?.map((aula: any) => (
-                        <option key={aula.id} value={aula.id}>{aula.titulo}</option>
-                      ))}
-                    </optgroup>
+                  <option value="">Sem aula especifica</option>
+                  {aulasFiltradasCriacao.map((aula: any) => (
+                    <option key={aula.id} value={aula.id}>{aula.modulo} - {aula.titulo}</option>
                   ))}
                 </select>
               </div>
@@ -218,29 +262,43 @@ export default function AdminMateriais() {
             </div>
             <form onSubmit={handleSaveEdit}>
               <div className="form-group">
-                <label className="form-label" htmlFor="edit-titulo">Título</label>
+                <label className="form-label" htmlFor="edit-titulo">TÃ­tulo</label>
                 <input id="edit-titulo" className="form-input" value={editState.titulo} onChange={e => setEditState(s => s && ({ ...s, titulo: e.target.value }))} required />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="edit-descricao">Descrição</label>
+                <label className="form-label" htmlFor="edit-descricao">DescriÃ§Ã£o</label>
                 <textarea id="edit-descricao" className="form-textarea" value={editState.descricao} onChange={e => setEditState(s => s && ({ ...s, descricao: e.target.value }))} rows={3} />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-categoria">Categoria</label>
                 <select id="edit-categoria" className="form-select" value={editState.categoria} onChange={e => setEditState(s => s && ({ ...s, categoria: e.target.value }))}>
                   <option value="geral">Geral</option>
-                  <option value="biblico">Bíblico</option>
-                  <option value="teologico">Teológico</option>
+                  <option value="biblico">BÃ­blico</option>
+                  <option value="teologico">TeolÃ³gico</option>
                   <option value="devocional">Devocional</option>
-                  <option value="historico">Histórico</option>
+                  <option value="historico">HistÃ³rico</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="edit-modulo">Modulo relacionado</label>
+                <select
+                  id="edit-modulo"
+                  className="form-select"
+                  value={editState.moduloId}
+                  onChange={e => setEditState(s => s && ({ ...s, moduloId: e.target.value, aulaId: '' }))}
+                >
+                  <option value="">Nenhum modulo vinculado</option>
+                  {modulos.map((modulo: any) => (
+                    <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
+                  ))}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="edit-aula">Aula Relacionada</label>
                 <select id="edit-aula" className="form-select" value={editState.aulaId} onChange={e => setEditState(s => s && ({ ...s, aulaId: e.target.value }))}>
-                  <option value="">Nenhuma aula vinculada</option>
-                  {allAulas.map(a => (
-                    <option key={a.id} value={a.id}>{a.modulo} — {a.titulo}</option>
+                  <option value="">Sem aula especifica</option>
+                  {aulasFiltradasEdicao.map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.modulo} - {a.titulo}</option>
                   ))}
                 </select>
               </div>
@@ -251,7 +309,7 @@ export default function AdminMateriais() {
                 </label>
               </div>
               <button className="btn btn-primary" type="submit" disabled={savingEdit}>
-                {savingEdit ? 'Salvando...' : 'Salvar alterações'}
+                {savingEdit ? 'Salvando...' : 'Salvar alteraÃ§Ãµes'}
               </button>
             </form>
           </div>
@@ -272,7 +330,7 @@ export default function AdminMateriais() {
                     <th>Download</th>
                     <th>Aulas</th>
                     <th>Data</th>
-                    <th>Ações</th>
+                    <th>AÃ§Ãµes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,8 +347,18 @@ export default function AdminMateriais() {
                       </td>
                       <td><span className="badge badge-purple">{material.categoria}</span></td>
                       <td className="text-muted">{material.tipo?.toUpperCase()}</td>
-                      <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">Não</span>}</td>
-                      <td className="text-muted">{material.materiaisAula?.map((item: any) => item.aula?.titulo).join(', ') || '-'}</td>
+                      <td>{material.permiteDownload ? <span className="badge badge-success">Sim</span> : <span className="badge badge-error">NÃ£o</span>}</td>
+                      <td className="text-muted">
+                        {(() => {
+                          const modules = getModuleNames(material);
+                          const lessons = getLessonNames(material);
+                          if (!modules.length && !lessons.length) return '-';
+                          return [
+                            modules.length ? `Modulo: ${modules.join(', ')}` : null,
+                            lessons.length ? `Aulas: ${lessons.join(', ')}` : null
+                          ].filter(Boolean).join(' | ');
+                        })()}
+                      </td>
                       <td className="text-muted">{new Date(material.criadoEm).toLocaleDateString('pt-BR')}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -325,11 +393,18 @@ export default function AdminMateriais() {
                     <span className="text-muted text-sm">{material.tipo?.toUpperCase()}</span>
                     {material.permiteDownload
                       ? <span className="badge badge-success">Download: Sim</span>
-                      : <span className="badge badge-error">Download: Não</span>}
+                      : <span className="badge badge-error">Download: NÃ£o</span>}
                   </div>
                   {material.materiaisAula?.length > 0 && (
                     <span className="text-muted text-sm">
-                      Aula: {material.materiaisAula.map((item: any) => item.aula?.titulo).join(', ')}
+                      {(() => {
+                        const modules = getModuleNames(material);
+                        const lessons = getLessonNames(material);
+                        return [
+                          modules.length ? `Modulo: ${modules.join(', ')}` : null,
+                          lessons.length ? `Aulas: ${lessons.join(', ')}` : null
+                        ].filter(Boolean).join(' | ');
+                      })()}
                     </span>
                   )}
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>

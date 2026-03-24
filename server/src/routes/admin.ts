@@ -150,6 +150,38 @@ function parseStoredDetails(value: string | null): Record<string, unknown> | nul
   }
 }
 
+function parseStringArray(value: unknown): string[] {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item : String(item)))
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === 'string' ? item : String(item)))
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      }
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    }
+  }
+
+  return [];
+}
+
 // Multer setup for video uploads
 const videoStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, path.resolve('uploads/videos')),
@@ -604,6 +636,43 @@ router.put('/aluno/:id/toggle', async (req: AuthRequest, res: Response): Promise
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro' });
+  }
+});
+
+// DELETE /api/admin/aluno/:id
+router.delete('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const alunoId = readString(req.params.id);
+    if (!alunoId) {
+      res.status(400).json({ error: 'Aluno invalido' });
+      return;
+    }
+
+    const aluno = await prisma.user.findUnique({
+      where: { id: alunoId },
+      select: { id: true, papel: true, foto: true, nome: true }
+    });
+
+    if (!aluno) {
+      res.status(404).json({ error: 'Aluno nao encontrado' });
+      return;
+    }
+
+    if (aluno.papel !== 'aluno') {
+      res.status(400).json({ error: 'Somente usuarios do tipo aluno podem ser excluidos por esta rota.' });
+      return;
+    }
+
+    if (aluno.foto) {
+      const oldPath = path.resolve(aluno.foto.replace(/^\//, ''));
+      fs.unlink(oldPath, () => {});
+    }
+
+    await prisma.user.delete({ where: { id: alunoId } });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: 'Erro ao excluir aluno' });
   }
 });
 
@@ -1143,7 +1212,8 @@ router.get('/conteudo-historico', async (req: AuthRequest, res: Response): Promi
 // POST /api/admin/material
 router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { titulo, descricao, categoria, permiteDownload, aulasRelacionadas } = req.body;
+    const { titulo, descricao, categoria, permiteDownload, aulasRelacionadas, moduloId } = req.body;
+    const moduloIdValue = readString(moduloId as string | string[] | undefined);
     const file = req.file;
 
     if (!file) {
@@ -1162,14 +1232,24 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
       }
     });
 
-    // Link to lessons if provided
-    if (aulasRelacionadas) {
-      const aulaIds = JSON.parse(Array.isArray(aulasRelacionadas) ? aulasRelacionadas[0] : aulasRelacionadas);
-      if (aulaIds.length > 0) {
-        await prisma.materialAula.createMany({
-          data: aulaIds.map((aulaId: string) => ({ materialId: material.id, aulaId }))
-        });
-      }
+    // Link to lessons explicitly and/or by selected module.
+    const aulaIdsDiretos = parseStringArray(aulasRelacionadas);
+    const aulasDoModulo = moduloIdValue
+      ? await prisma.aula.findMany({
+        where: { moduloId: moduloIdValue },
+        select: { id: true }
+      })
+      : [];
+    const aulaIds = Array.from(new Set([
+      ...aulaIdsDiretos,
+      ...aulasDoModulo.map((aula) => aula.id)
+    ]));
+
+    if (aulaIds.length > 0) {
+      await prisma.materialAula.createMany({
+        data: aulaIds.map((aulaId) => ({ materialId: material.id, aulaId })),
+        skipDuplicates: true
+      });
     }
 
     res.json(material);
@@ -1200,7 +1280,8 @@ router.delete('/material/:id', async (req: AuthRequest, res: Response): Promise<
 // PUT /api/admin/material/:id
 router.put('/material/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { titulo, descricao, categoria, permiteDownload, aulaId } = req.body;
+    const { titulo, descricao, categoria, permiteDownload, aulaId, moduloId } = req.body;
+    const moduloIdValue = readString(moduloId as string | string[] | undefined);
     await prisma.material.update({
       where: { id: String(req.params.id) },
       data: {
@@ -1212,8 +1293,24 @@ router.put('/material/:id', async (req: AuthRequest, res: Response): Promise<voi
     });
     // Update aula link: remove all then re-add if provided
     await prisma.materialAula.deleteMany({ where: { materialId: String(req.params.id) } });
-    if (aulaId) {
-      await prisma.materialAula.create({ data: { materialId: String(req.params.id), aulaId } });
+
+    const aulaIdsDiretos = parseStringArray(aulaId);
+    const aulasDoModulo = moduloIdValue
+      ? await prisma.aula.findMany({
+        where: { moduloId: moduloIdValue },
+        select: { id: true }
+      })
+      : [];
+    const aulaIds = Array.from(new Set([
+      ...aulaIdsDiretos,
+      ...aulasDoModulo.map((aula) => aula.id)
+    ]));
+
+    if (aulaIds.length > 0) {
+      await prisma.materialAula.createMany({
+        data: aulaIds.map((currentAulaId) => ({ materialId: String(req.params.id), aulaId: currentAulaId })),
+        skipDuplicates: true
+      });
     }
     res.json({ ok: true });
   } catch (error) {
@@ -1231,7 +1328,19 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
 
     const [materiais, total] = await Promise.all([
       prisma.material.findMany({
-        include: { materiaisAula: { include: { aula: { select: { titulo: true } } } } },
+        include: {
+          materiaisAula: {
+            include: {
+              aula: {
+                select: {
+                  id: true,
+                  titulo: true,
+                  modulo: { select: { id: true, titulo: true } }
+                }
+              }
+            }
+          }
+        },
         orderBy: { criadoEm: 'desc' },
         take: pageSize,
         skip
