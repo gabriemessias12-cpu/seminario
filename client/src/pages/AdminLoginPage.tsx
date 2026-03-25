@@ -1,7 +1,9 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AppIcon from '../components/AppIcon';
 import BrandMark from '../components/BrandMark';
+import { VINHA_NOVA_HOME_URL } from '../lib/external-links';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -49,6 +51,16 @@ export default function AdminLoginPage() {
             {loading ? 'Verificando...' : 'Acessar painel'}
           </button>
         </form>
+
+        <div className="print-hide" style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          <button className="text-link-button" type="button" onClick={() => navigate('/')}>
+            <AppIcon name="arrow-left" size={14} />
+            <span>Voltar ao site</span>
+          </button>
+          <a className="text-link-button" href={VINHA_NOVA_HOME_URL} rel="noreferrer" style={{ marginLeft: '0.75rem' }}>
+            <span>Ir para Vinha Nova</span>
+          </a>
+        </div>
       </div>
     </div>
   );

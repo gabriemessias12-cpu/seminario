@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { VINHA_NOVA_HOME_URL } from '../lib/external-links';
 import BrandMark from './BrandMark';
 import { NavBar } from './ui/tubelight-navbar';
 
@@ -131,6 +132,14 @@ export default function Sidebar({ type }: SidebarProps) {
 
           {/* Actions */}
           <div className="border-t border-white/10 p-3">
+            <a
+              className="mb-2 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/8 hover:text-white"
+              href={VINHA_NOVA_HOME_URL}
+              rel="noreferrer"
+            >
+              <Home size={16} />
+              <span>Ir para Vinha Nova</span>
+            </a>
             <button
               className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
               onClick={handleLogout}
@@ -159,6 +168,14 @@ export default function Sidebar({ type }: SidebarProps) {
           </span>
         </div>
       </div>
+      <a
+        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/8 hover:text-white"
+        href={VINHA_NOVA_HOME_URL}
+        rel="noreferrer"
+      >
+        <Home size={16} />
+        <span>Ir para Vinha Nova</span>
+      </a>
       <button
         className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
         onClick={handleLogout}
@@ -168,6 +185,19 @@ export default function Sidebar({ type }: SidebarProps) {
         <span>Encerrar sessão</span>
       </button>
     </div>
+  );
+
+  const DesktopActions = (
+    <>
+      <a
+        className="btn btn-outline btn-sm hidden xl:inline-flex"
+        href={VINHA_NOVA_HOME_URL}
+        rel="noreferrer"
+      >
+        Vinha Nova
+      </a>
+      {ProfileButton}
+    </>
   );
 
   return (
@@ -187,7 +217,7 @@ export default function Sidebar({ type }: SidebarProps) {
           </div>
         </Link>
       )}
-      actions={ProfileButton}
+      actions={DesktopActions}
       mobileActions={MobileActions}
     />
   );

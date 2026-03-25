@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppIcon from '../components/AppIcon';
 import BrandMark from '../components/BrandMark';
+import { VINHA_NOVA_HOME_URL } from '../lib/external-links';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -77,6 +78,9 @@ export default function LoginPage() {
             <AppIcon name="arrow-left" size={14} />
             <span>Voltar ao site</span>
           </button>
+          <a className="text-link-button" href={VINHA_NOVA_HOME_URL} rel="noreferrer" style={{ marginLeft: '0.75rem' }}>
+            <span>Ir para Vinha Nova</span>
+          </a>
         </div>
       </div>
     </div>
