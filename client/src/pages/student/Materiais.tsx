@@ -57,11 +57,12 @@ export default function StudentMateriais() {
     () =>
       Array.from(
         new Map(
-          materiais
-            .flatMap((material) => material.materiaisAula || [])
-            .map((item) => item.aula?.modulo)
-            .filter((modulo): modulo is { id: string; titulo: string } => Boolean(modulo))
-            .map((modulo) => [modulo.id, modulo] as const)
+          materiais.flatMap((material) => [
+            ...(material.modulo ? [material.modulo] : []),
+            ...(material.materiaisAula || [])
+              .map((item) => item.aula?.modulo)
+              .filter((modulo): modulo is { id: string; titulo: string } => Boolean(modulo))
+          ]).map((modulo) => [modulo.id, modulo] as const)
         ).values()
       ),
     [materiais]
@@ -71,8 +72,11 @@ export default function StudentMateriais() {
     return materiais.filter((material) => {
       const atendeCategoria = filtroCategoria === 'todos' || material.categoria === filtroCategoria;
       const materialModulos = new Set(
-        (material.materiaisAula || [])
+        [
+          material.modulo?.id,
+          ...(material.materiaisAula || [])
           .map((item) => item.aula?.modulo?.id)
+        ]
           .filter((moduloId): moduloId is string => Boolean(moduloId))
       );
       const atendeModulo =
@@ -180,8 +184,11 @@ export default function StudentMateriais() {
                       const fileUrl = getFileUrl(material.urlArquivo);
                       const moduleNames = Array.from(
                         new Set(
-                          (material.materiaisAula || [])
+                          [
+                            material.modulo?.titulo,
+                            ...(material.materiaisAula || [])
                             .map((item) => item.aula?.modulo?.titulo)
+                          ]
                             .filter((name): name is string => Boolean(name))
                         )
                       );

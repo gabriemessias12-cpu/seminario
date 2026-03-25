@@ -188,9 +188,25 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
     const userId = req.user!.userId;
     const iaStatus = formatAIStatus(await syncDailyAICredits(prisma, userId));
 
-    const totalAulas = await prisma.aula.count({ where: { publicado: true } });
-    const progressos = await prisma.progressoAluno.findMany({ where: { alunoId: userId } });
-    const aulasConc = progressos.filter((p: { concluido: boolean }) => p.concluido).length;
+    const [totalAulas, progressosObrigatorios, progressosGerais] = await Promise.all([
+      prisma.aula.count({
+        where: {
+          publicado: true,
+          modulo: { obrigatorio: true }
+        }
+      }),
+      prisma.progressoAluno.findMany({
+        where: {
+          alunoId: userId,
+          aula: { modulo: { obrigatorio: true } }
+        },
+        select: {
+          concluido: true
+        }
+      }),
+      prisma.progressoAluno.findMany({ where: { alunoId: userId } })
+    ]);
+    const aulasConc = progressosObrigatorios.filter((p: { concluido: boolean }) => p.concluido).length;
     const resultados = await prisma.resultadoQuiz.findMany({ where: { alunoId: userId } });
     const mediaQuiz = resultados.length > 0
       ? Math.round(resultados.reduce((s: number, r: { pontuacao: number; totalQuestoes: number }) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / resultados.length)
@@ -203,7 +219,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
     });
 
     // Next lesson: first published lesson not completed
-    const completedIds = progressos
+    const completedIds = progressosGerais
       .filter((p: { concluido: boolean }) => p.concluido)
       .map((p: { aulaId: string }) => p.aulaId);
     const proximaAula = await prisma.aula.findFirst({
@@ -320,6 +336,21 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    const materiaisDoModulo = await prisma.material.findMany({
+      where: { moduloId: aula.moduloId },
+      orderBy: { criadoEm: 'desc' }
+    });
+    const materialIdsVinculados = new Set(aula.materiaisAula.map((item) => item.material.id));
+    const materiaisSomenteDoModulo = materiaisDoModulo
+      .filter((material) => !materialIdsVinculados.has(material.id))
+      .map((material) => ({
+        id: `modulo-${material.id}`,
+        materialId: material.id,
+        aulaId: aula.id,
+        material
+      }));
+    const materiaisCompletos = [...aula.materiaisAula, ...materiaisSomenteDoModulo];
+
     // Get quiz result if exists
     const melhorResultado = await prisma.resultadoQuiz.findFirst({
       where: { alunoId: userId, aulaId },
@@ -340,6 +371,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
       : null;
     res.json({
       ...aula,
+      materiaisAula: materiaisCompletos,
       urlVideo: null,
       videoTipo,
       videoStreamUrl,
@@ -735,11 +767,16 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
     const moduloId = readString(req.query.moduloId as string | string[] | undefined);
     const where = moduloId
       ? {
-        materiaisAula: {
-          some: {
-            aula: { moduloId }
+        OR: [
+          { moduloId },
+          {
+            materiaisAula: {
+              some: {
+                aula: { moduloId }
+              }
+            }
           }
-        }
+        ]
       }
       : undefined;
 
@@ -747,6 +784,12 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
       prisma.material.findMany({
         where,
         include: {
+          modulo: {
+            select: {
+              id: true,
+              titulo: true
+            }
+          },
           materiaisAula: {
             include: {
               aula: {
@@ -782,11 +825,30 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
 router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
+    const moduloId = readString(req.query.moduloId as string | string[] | undefined);
+    const where = {
+      publicado: true,
+      ...(moduloId
+        ? {
+          OR: [
+            { moduloId },
+            { aula: { moduloId } }
+          ]
+        }
+        : {})
+    };
+
     const avaliacoes = await prisma.avaliacao.findMany({
-      where: { publicado: true },
+      where,
       include: {
         modulo: { select: { id: true, titulo: true } },
-        aula: { select: { id: true, titulo: true } },
+        aula: {
+          select: {
+            id: true,
+            titulo: true,
+            modulo: { select: { id: true, titulo: true } }
+          }
+        },
         entregas: {
           where: { alunoId: userId },
           take: 1
@@ -1258,6 +1320,28 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    const materiaisDoModulo = await prisma.material.findMany({
+      where: { moduloId: aula.moduloId },
+      select: { id: true, titulo: true, descricao: true }
+    });
+
+    const materiaisContexto: Array<{ titulo: string; descricao: string | null }> = Array.from(new Map([
+      ...aula.materiaisAula.map((item: { material: { id: string; titulo: string; descricao: string | null } }) => [
+        item.material.id,
+        {
+          titulo: item.material.titulo,
+          descricao: item.material.descricao
+        }
+      ] as const),
+      ...materiaisDoModulo.map((material) => [
+        material.id,
+        {
+          titulo: material.titulo,
+          descricao: material.descricao
+        }
+      ] as const)
+    ]).values());
+
     if (!aula.transcricao) {
       res.status(400).json({ error: 'O assistente esta disponivel apenas para aulas com transcricao. Aguarde o administrador adicionar a transcricao desta aula.' });
       return;
@@ -1289,10 +1373,7 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
       pontosChave: parseJSONArray<string>(aula.pontosChave),
       versiculos: parseJSONArray<{ referencia: string; texto: string }>(aula.versiculos),
       glossario: parseJSONArray<{ termo: string; definicao: string }>(aula.glossario),
-      materiais: aula.materiaisAula.map((item: { material: { titulo: string; descricao: string | null } }) => ({
-        titulo: item.material.titulo,
-        descricao: item.material.descricao
-      }))
+      materiais: materiaisContexto
     });
 
     const registro = await prisma.interacaoIA.create({

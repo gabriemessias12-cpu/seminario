@@ -19,8 +19,12 @@ type Avaliacao = {
   resultadoImediato: boolean;
   quantidadeQuestoes: number;
   tempoLimiteMinutos?: number | null;
-  modulo?: { titulo: string } | null;
-  aula?: { titulo: string } | null;
+  modulo?: { id: string; titulo: string } | null;
+  aula?: {
+    id: string;
+    titulo: string;
+    modulo?: { id: string; titulo: string } | null;
+  } | null;
   questoesObjetivas?: StudentObjectiveQuestion[] | null;
   resultadoObjetivo?: {
     totalQuestoes: number;
@@ -62,6 +66,7 @@ export default function StudentAvaliacoes() {
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterModulo, setFilterModulo] = useState('todos');
   const [pageError, setPageError] = useState('');
 
   // Timer state: maps avaliacaoId -> remaining seconds (null = not started)
@@ -262,9 +267,25 @@ export default function StudentAvaliacoes() {
       const matchesSearch = !search.trim() || `${avaliacao.titulo} ${avaliacao.descricao || ''}`.toLowerCase().includes(search.trim().toLowerCase());
       const matchesTipo = filterTipo === 'todos' || avaliacao.tipo === filterTipo;
       const matchesStatus = filterStatus === 'todos' || currentStatus === filterStatus;
-      return matchesSearch && matchesTipo && matchesStatus;
+      const moduloAvaliacaoId = avaliacao.modulo?.id || avaliacao.aula?.modulo?.id || null;
+      const matchesModulo = filterModulo === 'todos'
+        || (filterModulo === 'sem-modulo' ? !moduloAvaliacaoId : moduloAvaliacaoId === filterModulo);
+      return matchesSearch && matchesTipo && matchesStatus && matchesModulo;
     });
-  }, [avaliacoes, filterStatus, filterTipo, search]);
+  }, [avaliacoes, filterModulo, filterStatus, filterTipo, search]);
+
+  const modulosDisponiveis = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          avaliacoes
+            .flatMap((avaliacao) => [avaliacao.modulo, avaliacao.aula?.modulo])
+            .filter((modulo): modulo is { id: string; titulo: string } => Boolean(modulo))
+            .map((modulo) => [modulo.id, modulo] as const)
+        ).values()
+      ),
+    [avaliacoes]
+  );
 
   return (
     <div className="layout student-layout">
@@ -310,6 +331,15 @@ export default function StudentAvaliacoes() {
               <input aria-label="Buscar avaliação" placeholder="Buscar avaliação" value={search} onChange={(event) => setSearch(event.target.value)} />
             </div>
             <div className="page-header-actions">
+              <select aria-label="Filtrar módulo de avaliação" className="filter-select" value={filterModulo} onChange={(event) => setFilterModulo(event.target.value)}>
+                <option value="todos">Todos os módulos</option>
+                <option value="sem-modulo">Sem módulo</option>
+                {modulosDisponiveis.map((modulo) => (
+                  <option key={modulo.id} value={modulo.id}>
+                    {modulo.titulo}
+                  </option>
+                ))}
+              </select>
               <select aria-label="Filtrar tipo de avaliação" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
                 <option value="todos">Todos os tipos</option>
                 <option value="trabalho">Trabalhos</option>
@@ -359,7 +389,7 @@ export default function StudentAvaliacoes() {
                     </div>
 
                     <div className="assessment-meta">
-                      <span><strong>Módulo:</strong> {avaliacao.modulo?.titulo || 'Livre'}</span>
+                      <span><strong>Módulo:</strong> {avaliacao.modulo?.titulo || avaliacao.aula?.modulo?.titulo || 'Livre'}</span>
                       <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Não vinculada'}</span>
                       <span><strong>Prazo:</strong> {prazo}</span>
                       <span><strong>Nota máxima:</strong> {avaliacao.notaMaxima}</span>

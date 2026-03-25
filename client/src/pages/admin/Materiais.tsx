@@ -20,6 +20,11 @@ interface MaterialItem {
   categoria: string;
   tipo: string;
   permiteDownload: boolean;
+  moduloId?: string | null;
+  modulo?: {
+    id: string;
+    titulo: string;
+  } | null;
   criadoEm: string;
   materiaisAula?: Array<{
     aula?: {
@@ -111,14 +116,13 @@ export default function AdminMateriais() {
   );
 
   const getModuleEntries = (material: MaterialItem) =>
-    Array.from(
-      new Map(
-        (material.materiaisAula || [])
-          .map((item) => item.aula?.modulo)
-          .filter((modulo): modulo is { id: string; titulo: string } => Boolean(modulo))
-          .map((modulo) => [modulo.id, modulo] as const)
-      ).values()
-    );
+    Array.from(new Map([
+      ...(material.modulo ? [[material.modulo.id, material.modulo] as const] : []),
+      ...(material.materiaisAula || [])
+        .map((item) => item.aula?.modulo)
+        .filter((modulo): modulo is { id: string; titulo: string } => Boolean(modulo))
+        .map((modulo) => [modulo.id, modulo] as const)
+    ]).values());
 
   const getModuleNames = (material: MaterialItem) => getModuleEntries(material).map((modulo) => modulo.titulo);
 
@@ -198,14 +202,15 @@ export default function AdminMateriais() {
   };
 
   const openEdit = (material: MaterialItem) => {
+    const primeiraAula = material.materiaisAula?.[0]?.aula || null;
     setEditState({
       id: material.id,
       titulo: material.titulo,
       descricao: material.descricao || '',
       categoria: material.categoria || 'geral',
       permiteDownload: material.permiteDownload,
-      moduloId: material.materiaisAula?.[0]?.aula?.modulo?.id || '',
-      aulaId: material.materiaisAula?.[0]?.aula?.id || ''
+      moduloId: material.modulo?.id || primeiraAula?.modulo?.id || '',
+      aulaId: primeiraAula?.id || ''
     });
   };
 
@@ -326,7 +331,7 @@ export default function AdminMateriais() {
                 ))}
               </select>
               <p className="text-muted text-sm" style={{ marginTop: '0.4rem' }}>
-                Se selecionar um módulo e não escolher aula específica, o material será vinculado às aulas já existentes desse módulo.
+                Se selecionar apenas o módulo, o material ficará vinculado ao módulo inteiro.
               </p>
             </div>
             <div className="form-group">
@@ -485,7 +490,7 @@ export default function AdminMateriais() {
                   <th>Categoria</th>
                   <th>Tipo</th>
                   <th>Download</th>
-                  <th>Aulas</th>
+                  <th>Vínculos</th>
                   <th>Data</th>
                   <th>Ações</th>
                 </tr>
@@ -578,7 +583,7 @@ export default function AdminMateriais() {
                       <span className="badge badge-error">Download: Não</span>
                     )}
                   </div>
-                  {(material.materiaisAula?.length || 0) > 0 && (
+                  {((material.materiaisAula?.length || 0) > 0 || Boolean(material.modulo?.id)) && (
                     <span className="text-muted text-sm">
                       {(() => {
                         const modules = getModuleNames(material);

@@ -1037,12 +1037,14 @@ router.delete('/aula/:id', async (req: AuthRequest, res: Response): Promise<void
 router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { titulo, descricao, capaUrl, ordem } = req.body;
+    const obrigatorio = readBoolean(req.body.obrigatorio, true);
     const modulo = await prisma.modulo.create({
       data: {
         titulo,
         descricao,
         capaUrl,
-        ordem: parseInt(ordem || '0')
+        ordem: parseInt(ordem || '0'),
+        obrigatorio
       }
     });
 
@@ -1055,6 +1057,7 @@ router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> =>
         descricao: modulo.descricao,
         capaUrl: modulo.capaUrl,
         ordem: modulo.ordem,
+        obrigatorio: modulo.obrigatorio
       },
     });
 
@@ -1070,6 +1073,9 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
   try {
     const moduloId = readString(req.params.id);
     const { titulo, descricao, capaUrl, ordem } = req.body;
+    const obrigatorio = typeof req.body.obrigatorio === 'undefined'
+      ? undefined
+      : readBoolean(req.body.obrigatorio, true);
     if (!moduloId) {
       res.status(400).json({ error: 'Modulo invalido' });
       return;
@@ -1082,6 +1088,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
         descricao: true,
         capaUrl: true,
         ordem: true,
+        obrigatorio: true
       },
     });
 
@@ -1096,7 +1103,8 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
         titulo,
         descricao,
         capaUrl,
-        ordem: ordem ? parseInt(ordem) : undefined
+        ordem: ordem ? parseInt(ordem) : undefined,
+        obrigatorio
       }
     });
 
@@ -1112,6 +1120,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
           descricao: modulo.descricao,
           capaUrl: modulo.capaUrl,
           ordem: modulo.ordem,
+          obrigatorio: modulo.obrigatorio
         },
       },
     });
@@ -1237,6 +1246,47 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
       return;
     }
 
+    const aulaIdsDiretos = parseStringArray(aulasRelacionadas);
+    const aulasSelecionadas = aulaIdsDiretos.length
+      ? await prisma.aula.findMany({
+        where: { id: { in: aulaIdsDiretos } },
+        select: { id: true, moduloId: true }
+      })
+      : [];
+
+    if (aulaIdsDiretos.length !== aulasSelecionadas.length) {
+      res.status(400).json({ error: 'Uma ou mais aulas selecionadas não foram encontradas.' });
+      return;
+    }
+
+    let moduloFinalId: string | null = null;
+    if (moduloIdValue) {
+      const modulo = await prisma.modulo.findUnique({
+        where: { id: moduloIdValue },
+        select: { id: true }
+      });
+      if (!modulo) {
+        res.status(400).json({ error: 'Módulo inválido.' });
+        return;
+      }
+      moduloFinalId = modulo.id;
+    }
+
+    if (aulasSelecionadas.length > 0) {
+      const moduloDasAulas = new Set(aulasSelecionadas.map((aula) => aula.moduloId));
+      if (moduloDasAulas.size > 1) {
+        res.status(400).json({ error: 'Selecione aulas de um único módulo por material.' });
+        return;
+      }
+
+      const moduloDaAula = aulasSelecionadas[0]?.moduloId ?? null;
+      if (moduloFinalId && moduloDaAula && moduloFinalId !== moduloDaAula) {
+        res.status(400).json({ error: 'A aula selecionada não pertence ao módulo informado.' });
+        return;
+      }
+      moduloFinalId = moduloFinalId || moduloDaAula;
+    }
+
     const material = await prisma.material.create({
       data: {
         titulo,
@@ -1244,26 +1294,12 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
         urlArquivo: `/uploads/materials/${file.filename}`,
         tipo: path.extname(file.originalname).slice(1),
         categoria: categoria || 'geral',
-        permiteDownload: permiteDownload === 'true'
+        permiteDownload: permiteDownload === 'true',
+        moduloId: moduloFinalId
       }
     });
 
-    // Link to lessons explicitly and/or by selected module.
-    const aulaIdsDiretos = parseStringArray(aulasRelacionadas);
-    const aulasDoModulo = moduloIdValue
-      ? await prisma.aula.findMany({
-        where: { moduloId: moduloIdValue },
-        select: { id: true }
-      })
-      : [];
-    if (moduloIdValue && aulasDoModulo.length === 0) {
-      res.status(400).json({ error: 'O módulo selecionado não possui aulas para vincular o material.' });
-      return;
-    }
-    const aulaIds = Array.from(new Set([
-      ...aulaIdsDiretos,
-      ...aulasDoModulo.map((aula) => aula.id)
-    ]));
+    const aulaIds = Array.from(new Set(aulasSelecionadas.map((aula) => aula.id)));
 
     if (aulaIds.length > 0) {
       await prisma.materialAula.createMany({
@@ -1302,33 +1338,60 @@ router.put('/material/:id', async (req: AuthRequest, res: Response): Promise<voi
   try {
     const { titulo, descricao, categoria, permiteDownload, aulaId, moduloId } = req.body;
     const moduloIdValue = readString(moduloId as string | string[] | undefined);
+    const aulaIdsDiretos = parseStringArray(aulaId);
+    const aulasSelecionadas = aulaIdsDiretos.length
+      ? await prisma.aula.findMany({
+        where: { id: { in: aulaIdsDiretos } },
+        select: { id: true, moduloId: true }
+      })
+      : [];
+
+    if (aulaIdsDiretos.length !== aulasSelecionadas.length) {
+      res.status(400).json({ error: 'Uma ou mais aulas selecionadas não foram encontradas.' });
+      return;
+    }
+
+    let moduloFinalId: string | null = null;
+    if (moduloIdValue) {
+      const modulo = await prisma.modulo.findUnique({
+        where: { id: moduloIdValue },
+        select: { id: true }
+      });
+      if (!modulo) {
+        res.status(400).json({ error: 'Módulo inválido.' });
+        return;
+      }
+      moduloFinalId = modulo.id;
+    }
+
+    if (aulasSelecionadas.length > 0) {
+      const moduloDasAulas = new Set(aulasSelecionadas.map((aula) => aula.moduloId));
+      if (moduloDasAulas.size > 1) {
+        res.status(400).json({ error: 'Selecione aulas de um único módulo por material.' });
+        return;
+      }
+      const moduloDaAula = aulasSelecionadas[0]?.moduloId ?? null;
+      if (moduloFinalId && moduloDaAula && moduloFinalId !== moduloDaAula) {
+        res.status(400).json({ error: 'A aula selecionada não pertence ao módulo informado.' });
+        return;
+      }
+      moduloFinalId = moduloFinalId || moduloDaAula;
+    }
+
     await prisma.material.update({
       where: { id: String(req.params.id) },
       data: {
         titulo,
         descricao,
         categoria,
-        permiteDownload: permiteDownload === true || permiteDownload === 'true'
+        permiteDownload: permiteDownload === true || permiteDownload === 'true',
+        moduloId: moduloFinalId
       }
     });
-    // Update aula link: remove all then re-add if provided
-    await prisma.materialAula.deleteMany({ where: { materialId: String(req.params.id) } });
 
-    const aulaIdsDiretos = parseStringArray(aulaId);
-    const aulasDoModulo = moduloIdValue
-      ? await prisma.aula.findMany({
-        where: { moduloId: moduloIdValue },
-        select: { id: true }
-      })
-      : [];
-    if (moduloIdValue && aulasDoModulo.length === 0) {
-      res.status(400).json({ error: 'O módulo selecionado não possui aulas para vincular o material.' });
-      return;
-    }
-    const aulaIds = Array.from(new Set([
-      ...aulaIdsDiretos,
-      ...aulasDoModulo.map((aula) => aula.id)
-    ]));
+    // Update linked lessons: remove all then re-add explicit selections
+    await prisma.materialAula.deleteMany({ where: { materialId: String(req.params.id) } });
+    const aulaIds = Array.from(new Set(aulasSelecionadas.map((aula) => aula.id)));
 
     if (aulaIds.length > 0) {
       await prisma.materialAula.createMany({
@@ -1352,11 +1415,16 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
     const moduloId = readString(req.query.moduloId as string | string[] | undefined);
     const where = moduloId
       ? {
-        materiaisAula: {
-          some: {
-            aula: { moduloId }
+        OR: [
+          { moduloId },
+          {
+            materiaisAula: {
+              some: {
+                aula: { moduloId }
+              }
+            }
           }
-        }
+        ]
       }
       : undefined;
 
@@ -1364,6 +1432,12 @@ router.get('/materiais', async (req: AuthRequest, res: Response): Promise<void> 
       prisma.material.findMany({
         where,
         include: {
+          modulo: {
+            select: {
+              id: true,
+              titulo: true
+            }
+          },
           materiaisAula: {
             include: {
               aula: {
@@ -1395,19 +1469,35 @@ router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void>
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 50, 100);
     const skip = (page - 1) * pageSize;
+    const moduloId = readString(req.query.moduloId as string | string[] | undefined);
+    const where = moduloId
+      ? {
+        OR: [
+          { moduloId },
+          { aula: { moduloId } }
+        ]
+      }
+      : undefined;
 
     const [avaliacoes, total] = await Promise.all([
       prisma.avaliacao.findMany({
+        where,
         include: {
           modulo: { select: { id: true, titulo: true } },
-          aula: { select: { id: true, titulo: true } },
+          aula: {
+            select: {
+              id: true,
+              titulo: true,
+              modulo: { select: { id: true, titulo: true } }
+            }
+          },
           entregas: { select: { id: true, status: true, nota: true } }
         },
         orderBy: [{ dataLimite: 'asc' }, { criadoEm: 'desc' }],
         take: pageSize,
         skip
       }),
-      prisma.avaliacao.count()
+      prisma.avaliacao.count({ where })
     ]);
 
     const mapped = avaliacoes.map((avaliacao) => ({
@@ -1467,13 +1557,32 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const aulaSelecionada = aulaId
+      ? await prisma.aula.findUnique({
+        where: { id: aulaId },
+        select: { id: true, moduloId: true }
+      })
+      : null;
+
+    if (aulaId && !aulaSelecionada) {
+      res.status(400).json({ error: 'A aula selecionada não foi encontrada.' });
+      return;
+    }
+
+    if (moduloId && aulaSelecionada && aulaSelecionada.moduloId !== moduloId) {
+      res.status(400).json({ error: 'A aula selecionada não pertence ao módulo informado.' });
+      return;
+    }
+
+    const moduloFinalId = moduloId || aulaSelecionada?.moduloId || null;
+
     const avaliacao = await prisma.avaliacao.create({
       data: {
         titulo,
         descricao,
         tipo,
         formato,
-        moduloId,
+        moduloId: moduloFinalId,
         aulaId,
         dataLimite: dataLimite ? new Date(dataLimite) : null,
         notaMaxima: Number.isFinite(notaMaxima) && notaMaxima > 0 ? notaMaxima : 10,
@@ -1534,6 +1643,25 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    const aulaSelecionada = aulaId
+      ? await prisma.aula.findUnique({
+        where: { id: aulaId },
+        select: { id: true, moduloId: true }
+      })
+      : null;
+
+    if (aulaId && !aulaSelecionada) {
+      res.status(400).json({ error: 'A aula selecionada não foi encontrada.' });
+      return;
+    }
+
+    if (moduloId && aulaSelecionada && aulaSelecionada.moduloId !== moduloId) {
+      res.status(400).json({ error: 'A aula selecionada não pertence ao módulo informado.' });
+      return;
+    }
+
+    const moduloFinalId = moduloId || aulaSelecionada?.moduloId || null;
+
     const avaliacao = await prisma.avaliacao.update({
       where: { id: avaliacaoId },
       data: {
@@ -1541,7 +1669,7 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
         descricao,
         tipo,
         formato,
-        moduloId,
+        moduloId: moduloFinalId,
         aulaId,
         dataLimite: dataLimite ? new Date(dataLimite) : null,
         notaMaxima: Number.isFinite(notaMaxima) && notaMaxima > 0 ? notaMaxima : 10,
@@ -1612,7 +1740,13 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
       where: { id: avaliacaoId },
       include: {
         modulo: { select: { id: true, titulo: true } },
-        aula: { select: { id: true, titulo: true } },
+        aula: {
+          select: {
+            id: true,
+            titulo: true,
+            modulo: { select: { id: true, titulo: true } }
+          }
+        },
         entregas: {
           include: {
             aluno: {

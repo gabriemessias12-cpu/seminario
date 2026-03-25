@@ -68,6 +68,11 @@ export default function StudentAulas() {
       .filter((modulo) => modulo.aulas.length > 0);
   }, [busca, filtroStatus, modulos]);
 
+  const resumoModulos = useMemo(() => ({
+    obrigatorios: modulos.filter((modulo: any) => modulo.obrigatorio !== false).length,
+    opcionais: modulos.filter((modulo: any) => modulo.obrigatorio === false).length
+  }), [modulos]);
+
   return (
     <div className="layout student-layout">
       <Sidebar type="student" />
@@ -92,6 +97,9 @@ export default function StudentAulas() {
             <div>
               <span className="section-kicker">Trilhas ativas</span>
               <h2>{modulos.length} módulos organizados para estudo contínuo</h2>
+              <p className="text-muted text-sm" style={{ marginTop: '0.35rem' }}>
+                {resumoModulos.obrigatorios} obrigatórios • {resumoModulos.opcionais} opcionais
+              </p>
             </div>
             <button className="btn btn-primary" type="button" onClick={() => navigate('/materiais')}>
               Abrir biblioteca
@@ -108,6 +116,9 @@ export default function StudentAulas() {
                     : <span>{String(index + 1).padStart(2, '0')}</span>}
                 </div>
                 <strong>{modulo.titulo}</strong>
+                <span className={`badge ${modulo.obrigatorio === false ? 'badge-info' : 'badge-success'}`}>
+                  {modulo.obrigatorio === false ? 'Opcional' : 'Obrigatório'}
+                </span>
                 <p>{modulo.descricao}</p>
                 <small>{modulo.aulas.length} aulas</small>
               </article>
@@ -147,6 +158,9 @@ export default function StudentAulas() {
                     <div className="lesson-group-number">{String(moduloIndex + 1).padStart(2, '0')}</div>
                     <div>
                       <h2>{modulo.titulo}</h2>
+                      <span className={`badge ${modulo.obrigatorio === false ? 'badge-info' : 'badge-success'}`} style={{ marginBottom: '0.35rem', display: 'inline-flex' }}>
+                        {modulo.obrigatorio === false ? 'Opcional' : 'Obrigatório'}
+                      </span>
                       <p>{modulo.descricao}</p>
                     </div>
                   </div>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import AppIcon from '../../components/AppIcon';
 import AvatarCropModal from '../../components/AvatarCropModal';
-import { apiGet, apiPost, apiDelete, apiFetch } from '../../lib/apiClient';
+import { apiGet, apiPost, apiDelete, apiFetch, apiPut } from '../../lib/apiClient';
 import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 
 type FeedbackTone = 'success' | 'warning';
@@ -12,6 +12,7 @@ interface ModuleDraft {
   title: string;
   description: string;
   coverUrl: string;
+  obrigatorio: boolean;
   open: boolean;
   savedAt: number;
 }
@@ -46,10 +47,12 @@ export default function AdminAulas() {
   const [showNewModule, setShowNewModule] = useState(false);
   const [newModTitle, setNewModTitle] = useState('');
   const [newModDesc, setNewModDesc] = useState('');
+  const [newModObrigatorio, setNewModObrigatorio] = useState(true);
   const [newModCapaFile, setNewModCapaFile] = useState<File | null>(null);
   const [cropCapaFile, setCropCapaFile] = useState<File | null>(null);
   const [cropCapaTarget, setCropCapaTarget] = useState<'new' | string>('new'); // 'new' or moduloId
   const [uploadingCapaId, setUploadingCapaId] = useState<string | null>(null);
+  const [savingObrigatorioId, setSavingObrigatorioId] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const newModCapaRef = useRef<HTMLInputElement>(null);
@@ -93,6 +96,7 @@ export default function AdminAulas() {
       setShowNewModule(draft.open || Boolean(draft.title || draft.description));
       setNewModTitle(draft.title || '');
       setNewModDesc(draft.description || '');
+      setNewModObrigatorio(typeof draft.obrigatorio === 'boolean' ? draft.obrigatorio : true);
       setDraftSavedAt(draft.savedAt || null);
     }
     setDraftReady(true);
@@ -115,16 +119,18 @@ export default function AdminAulas() {
       title: newModTitle,
       description: newModDesc,
       coverUrl: '',
+      obrigatorio: newModObrigatorio,
       open: showNewModule,
       savedAt: nextSavedAt,
     });
     setDraftSavedAt(nextSavedAt);
-  }, [draftReady, newModDesc, newModTitle, showNewModule]);
+  }, [draftReady, newModDesc, newModObrigatorio, newModTitle, showNewModule]);
 
   const clearModuleDraft = () => {
     clearDraft(MODULE_DRAFT_KEY);
     setNewModTitle('');
     setNewModDesc('');
+    setNewModObrigatorio(true);
     setNewModCapaFile(null);
     if (newModCapaRef.current) newModCapaRef.current.value = '';
     setShowNewModule(false);
@@ -137,7 +143,8 @@ export default function AdminAulas() {
     try {
       const created = await apiPost<{ id: string }>('/api/admin/modulo', {
         titulo: newModTitle.trim(),
-        descricao: newModDesc.trim()
+        descricao: newModDesc.trim(),
+        obrigatorio: newModObrigatorio
       });
       if (newModCapaFile && created.id) {
         const fd = new FormData();
@@ -151,6 +158,27 @@ export default function AdminAulas() {
     } catch (error) {
       setFeedbackTone('warning');
       setFeedback(error instanceof Error ? error.message : 'Não foi possível criar o módulo.');
+    }
+  };
+
+  const handleToggleObrigatorio = async (modulo: any) => {
+    setSavingObrigatorioId(modulo.id);
+    try {
+      await apiPut(`/api/admin/modulo/${modulo.id}`, {
+        titulo: modulo.titulo,
+        descricao: modulo.descricao,
+        capaUrl: modulo.capaUrl,
+        ordem: modulo.ordem,
+        obrigatorio: !modulo.obrigatorio
+      });
+      setFeedbackTone('success');
+      setFeedback(`Módulo "${modulo.titulo}" atualizado para ${modulo.obrigatorio ? 'opcional' : 'obrigatório'}.`);
+      loadData();
+    } catch (error) {
+      setFeedbackTone('warning');
+      setFeedback(error instanceof Error ? error.message : 'Não foi possível atualizar o tipo do módulo.');
+    } finally {
+      setSavingObrigatorioId(null);
     }
   };
 
@@ -283,6 +311,15 @@ export default function AdminAulas() {
             onChange={(event) => setNewModDesc(event.target.value)}
           />
 
+          <label className="checkbox-row mb-3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input
+              checked={newModObrigatorio}
+              onChange={(event) => setNewModObrigatorio(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Módulo obrigatório para o progresso principal do aluno</span>
+          </label>
+
           <div className="surface-stack">
             <div className="inline-feedback neutral">
               {draftSavedAt
@@ -334,17 +371,34 @@ export default function AdminAulas() {
         modulos.map((modulo) => (
           <div className="module-section" key={modulo.id}>
             <div className="page-header-split" style={{ marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {modulo.capaUrl && (
-                  <img
-                    alt=""
-                    src={modulo.capaUrl}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {modulo.capaUrl && (
+                    <img
+                      alt=""
+                      src={modulo.capaUrl}
                     style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', flexShrink: 0 }}
-                  />
-                )}
-                <h2>{modulo.titulo}</h2>
-              </div>
+                    />
+                  )}
+                  <div>
+                    <h2>{modulo.titulo}</h2>
+                    <span className={`badge ${modulo.obrigatorio ? 'badge-success' : 'badge-info'}`}>
+                      {modulo.obrigatorio ? 'Obrigatório' : 'Opcional'}
+                    </span>
+                  </div>
+                </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={savingObrigatorioId === modulo.id}
+                  type="button"
+                  onClick={() => handleToggleObrigatorio(modulo)}
+                >
+                  {savingObrigatorioId === modulo.id
+                    ? 'Salvando...'
+                    : modulo.obrigatorio
+                      ? 'Marcar como opcional'
+                      : 'Marcar como obrigatório'}
+                </button>
                 <button
                   className="btn btn-outline btn-sm"
                   disabled={uploadingCapaId === modulo.id}

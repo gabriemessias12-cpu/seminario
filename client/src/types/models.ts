@@ -27,6 +27,7 @@ export interface Modulo {
   descricao?: string | null;
   capaUrl?: string | null;
   ordem: number;
+  obrigatorio: boolean;
   ativo: boolean;
   criadoEm: string;
   aulas?: Aula[];
@@ -74,6 +75,8 @@ export interface Material {
   tipo: string;
   categoria: string;
   permiteDownload: boolean;
+  moduloId?: string | null;
+  modulo?: Pick<Modulo, 'id' | 'titulo'> | null;
   criadoEm: string;
 }
 

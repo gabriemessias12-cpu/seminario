@@ -91,11 +91,13 @@ model Modulo {
   descricao String?
   capaUrl   String?
   ordem     Int      @default(0)
+  obrigatorio Boolean @default(true)
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
 
   aulas     Aula[]
   avaliacoes Avaliacao[]
+  materiais Material[]
 
   @@index([ativo])
   @@index([ordem])
@@ -249,11 +251,14 @@ model Material {
   tipo            String   @default("pdf")
   categoria       String   @default("geral")
   permiteDownload Boolean  @default(false)
+  moduloId        String?
   criadoEm        DateTime @default(now())
 
+  modulo       Modulo?        @relation(fields: [moduloId], references: [id], onDelete: SetNull)
   materiaisAula MaterialAula[]
 
   @@index([categoria])
+  @@index([moduloId])
   @@index([criadoEm(sort: Desc)])
 }
 

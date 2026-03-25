@@ -27,7 +27,11 @@ type Avaliacao = {
   quantidadeQuestoes: number;
   questoesObjetivas?: ObjectiveQuestion[] | null;
   modulo?: { id: string; titulo: string } | null;
-  aula?: { id: string; titulo: string } | null;
+  aula?: {
+    id: string;
+    titulo: string;
+    modulo?: { id: string; titulo: string } | null;
+  } | null;
   resumoEntregas?: {
     totalAtividades: number;
     entregues: number;
@@ -85,6 +89,7 @@ export default function AdminAvaliacoes() {
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterModulo, setFilterModulo] = useState('todos');
   const [pageError, setPageError] = useState('');
 
   const [titulo, setTitulo] = useState('');
@@ -144,14 +149,34 @@ export default function AdminAvaliacoes() {
       : aulasDisponiveis
   ), [aulasDisponiveis, moduloId]);
 
+  const moduloPorAulaId = useMemo(() => (
+    new Map(aulasDisponiveis.map((aula: any) => [aula.id, { id: aula.moduloId, titulo: aula.moduloTitulo }]))
+  ), [aulasDisponiveis]);
+
+  const getAvaliacaoModulo = (avaliacao: Avaliacao): { id: string; titulo: string } | null => {
+    if (avaliacao.modulo?.id) {
+      return { id: avaliacao.modulo.id, titulo: avaliacao.modulo.titulo };
+    }
+    if (avaliacao.aula?.modulo?.id) {
+      return { id: avaliacao.aula.modulo.id, titulo: avaliacao.aula.modulo.titulo };
+    }
+    if (avaliacao.aula?.id) {
+      return moduloPorAulaId.get(avaliacao.aula.id) || null;
+    }
+    return null;
+  };
+
   const filteredAvaliacoes = useMemo(() => {
     return avaliacoes.filter((avaliacao) => {
       const matchesSearch = !search.trim() || `${avaliacao.titulo} ${avaliacao.descricao || ''}`.toLowerCase().includes(search.trim().toLowerCase());
       const matchesTipo = filterTipo === 'todos' || avaliacao.tipo === filterTipo;
       const matchesStatus = filterStatus === 'todos' || (filterStatus === 'publicado' ? avaliacao.publicado : !avaliacao.publicado);
-      return matchesSearch && matchesTipo && matchesStatus;
+      const moduloAvaliacao = getAvaliacaoModulo(avaliacao);
+      const matchesModulo = filterModulo === 'todos'
+        || (filterModulo === 'sem-modulo' ? !moduloAvaliacao?.id : moduloAvaliacao?.id === filterModulo);
+      return matchesSearch && matchesTipo && matchesStatus && matchesModulo;
     });
-  }, [avaliacoes, filterStatus, filterTipo, search]);
+  }, [avaliacoes, filterModulo, filterStatus, filterTipo, search]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -210,7 +235,7 @@ export default function AdminAvaliacoes() {
       setDescricao(detail.descricao || '');
       setTipo(detail.tipo);
       setFormato(detail.formato);
-      setModuloId(detail.modulo?.id || '');
+      setModuloId(detail.modulo?.id || detail.aula?.modulo?.id || '');
       setAulaId(detail.aula?.id || '');
       setDataLimite(detail.dataLimite ? new Date(detail.dataLimite).toISOString().slice(0, 16) : '');
       setNotaMaxima(String(detail.notaMaxima));
@@ -681,6 +706,15 @@ export default function AdminAvaliacoes() {
           <input aria-label="Buscar avaliação" placeholder="Buscar avaliação" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
         <div className="page-header-actions">
+          <select aria-label="Filtrar módulo da avaliação" className="filter-select" value={filterModulo} onChange={(event) => setFilterModulo(event.target.value)}>
+            <option value="todos">Todos os módulos</option>
+            <option value="sem-modulo">Sem módulo</option>
+            {modulos.map((modulo: any) => (
+              <option key={modulo.id} value={modulo.id}>
+                {modulo.titulo}
+              </option>
+            ))}
+          </select>
           <select aria-label="Filtrar tipo de avaliação" className="filter-select" value={filterTipo} onChange={(event) => setFilterTipo(event.target.value)}>
             <option value="todos">Todos os tipos</option>
             <option value="trabalho">Trabalhos</option>
@@ -717,7 +751,7 @@ export default function AdminAvaliacoes() {
               </div>
 
               <div className="assessment-meta">
-                <span><strong>Modulo:</strong> {avaliacao.modulo?.titulo || 'Livre'}</span>
+                <span><strong>Módulo:</strong> {getAvaliacaoModulo(avaliacao)?.titulo || 'Livre'}</span>
                 <span><strong>Aula:</strong> {avaliacao.aula?.titulo || 'Não vinculada'}</span>
                 <span><strong>Prazo:</strong> {avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toLocaleString('pt-BR') : 'Sem prazo'}</span>
                 <span><strong>Nota máxima:</strong> {avaliacao.notaMaxima}</span>
