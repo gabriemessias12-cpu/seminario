@@ -49,7 +49,7 @@ export default function StudentDashboard() {
   const aulasEmFalta = useMemo(() => {
     const faltas: any[] = [];
     modulos.forEach(modulo => {
-      modulo.aulas.forEach((aula: any) => {
+      (modulo.aulas ?? []).forEach((aula: any) => {
         const presenca = aula.presencas?.[0];
         const progresso = aula.progressos?.[0];
         if (presenca?.status === 'ausente' && !progresso?.concluido) {
@@ -228,10 +228,11 @@ export default function StudentDashboard() {
 
           <div className="track-grid">
             {modulos.length ? modulos.map((modulo: any, index: number) => {
-              const totalAulas = modulo.aulas.length;
-              const concluidas = modulo.aulas.filter((aula: any) => aula.progressos?.[0]?.concluido).length;
+              const aulasModulo = modulo.aulas ?? [];
+              const totalAulas = aulasModulo.length;
+              const concluidas = aulasModulo.filter((aula: any) => aula.progressos?.[0]?.concluido).length;
               const progresso = totalAulas > 0 ? Math.round((concluidas / totalAulas) * 100) : 0;
-              const destaque = modulo.aulas.find((aula: any) => !aula.progressos?.[0]?.concluido) || modulo.aulas[0];
+              const destaque = aulasModulo.find((aula: any) => !aula.progressos?.[0]?.concluido) || aulasModulo[0];
 
               return (
                 <article
