@@ -37,6 +37,15 @@ export default function StudentAulas() {
     };
   };
 
+  const getPresencaInfo = (aula: any) => {
+    const presenca = aula.presencas?.[0];
+    if (!presenca) return null;
+    if (presenca.status === 'presente') return { label: 'Presente', variant: 'badge-success', icon: '✓' };
+    if (presenca.status === 'parcial') return { label: 'Parcial', variant: 'badge-warning', icon: '!' };
+    if (presenca.status === 'ausente') return { label: 'Falta', variant: 'badge-error', icon: '✗' };
+    return null;
+  };
+
   const modulosFiltrados = useMemo(() => {
     return modulos
       .map((modulo) => ({
@@ -182,6 +191,14 @@ export default function StudentAulas() {
                             <div className="lesson-list-title-row">
                               <strong>{aula.titulo}</strong>
                               <span className={`badge ${status.variant}`}>{status.label}</span>
+                              {(() => {
+                                const presencaInfo = getPresencaInfo(aula);
+                                return presencaInfo ? (
+                                  <span className={`badge ${presencaInfo.variant}`} style={{ marginLeft: '0.25rem' }}>
+                                    {presencaInfo.icon} {presencaInfo.label}
+                                  </span>
+                                ) : null;
+                              })()}
                             </div>
                             <p>{aula.descricao}</p>
                             <div className="lesson-list-meta">

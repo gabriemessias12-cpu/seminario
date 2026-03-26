@@ -3,10 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AppIcon from '../../components/AppIcon';
 import AvatarCropModal from '../../components/AvatarCropModal';
 import Sidebar from '../../components/Sidebar';
+import { useAuth } from '../../contexts/AuthContext';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
 import { apiGet, apiPut, apiFetch } from '../../lib/apiClient';
 
 export default function StudentPerfil() {
+  const { isAdmin } = useAuth();
   const [perfil, setPerfil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editNome, setEditNome] = useState('');
@@ -129,11 +131,12 @@ export default function StudentPerfil() {
     () => perfil?.relatorioAcademico?.boletimPorModulo || [],
     [perfil?.relatorioAcademico?.boletimPorModulo]
   );
+  const sidebarType = isAdmin ? 'admin' : 'student';
 
   if (loading) {
     return (
       <div className="layout student-layout">
-        <Sidebar type="student" />
+        <Sidebar type={sidebarType} />
         <main className="main-content student-main">
           <div className="skeleton" style={{ height: 320 }} />
         </main>
@@ -143,7 +146,7 @@ export default function StudentPerfil() {
 
   return (
     <div className="layout student-layout">
-      <Sidebar type="student" />
+      <Sidebar type={sidebarType} />
       <main className="main-content student-main">
         {loadError && <div className="inline-feedback warning">{loadError}</div>}
         <section className="student-topbar">

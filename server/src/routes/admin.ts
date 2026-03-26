@@ -577,6 +577,21 @@ const createAlunoSchema = z.object({
   telefone: z.string().max(30).optional()
 });
 
+const updateAlunoSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(255).trim().optional(),
+  email: z.string().email('Email invalido').max(255).optional(),
+  senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128).optional(),
+  telefone: z.string().max(30).nullable().optional()
+}).refine(
+  (payload) => (
+    payload.nome !== undefined ||
+    payload.email !== undefined ||
+    payload.senha !== undefined ||
+    payload.telefone !== undefined
+  ),
+  { message: 'Informe ao menos um campo para atualizar' }
+);
+
 // POST /api/admin/aluno - create student
 router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -614,6 +629,90 @@ router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => 
   } catch (error) {
     logger.error(error);
     res.status(500).json({ error: 'Erro ao criar aluno' });
+  }
+});
+
+// PUT /api/admin/aluno/:id - update student profile (name/email/phone/password)
+router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const alunoId = readString(req.params.id);
+    if (!alunoId) {
+      res.status(400).json({ error: 'Aluno invalido' });
+      return;
+    }
+
+    const parsed = updateAlunoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
+    }
+
+    const aluno = await prisma.user.findUnique({
+      where: { id: alunoId },
+      select: { id: true, papel: true, email: true }
+    });
+
+    if (!aluno) {
+      res.status(404).json({ error: 'Aluno nao encontrado' });
+      return;
+    }
+
+    if (aluno.papel !== 'aluno') {
+      res.status(400).json({ error: 'Somente usuarios do tipo aluno podem ser atualizados por esta rota.' });
+      return;
+    }
+
+    const { nome, email, senha, telefone } = parsed.data;
+    const updateData: {
+      nome?: string;
+      email?: string;
+      telefone?: string | null;
+      senhaHash?: string;
+    } = {};
+
+    if (nome !== undefined) {
+      updateData.nome = nome.trim();
+    }
+
+    if (email !== undefined) {
+      const emailNormalizado = email.trim().toLowerCase();
+      if (emailNormalizado !== aluno.email) {
+        const existente = await prisma.user.findUnique({ where: { email: emailNormalizado }, select: { id: true } });
+        if (existente && existente.id !== aluno.id) {
+          res.status(409).json({ error: 'Ja existe um usuario com esse email' });
+          return;
+        }
+      }
+      updateData.email = emailNormalizado;
+    }
+
+    if (telefone !== undefined) {
+      const telefoneNormalizado = telefone?.trim() ?? '';
+      updateData.telefone = telefoneNormalizado || null;
+    }
+
+    if (senha !== undefined) {
+      updateData.senhaHash = await bcrypt.hash(senha, 10);
+    }
+
+    const atualizado = await prisma.user.update({
+      where: { id: alunoId },
+      data: updateData,
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        foto: true,
+        telefone: true,
+        papel: true,
+        ativo: true
+      }
+    });
+
+    res.json(atualizado);
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: 'Erro ao atualizar aluno' });
   }
 });
 
@@ -1922,12 +2021,19 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    // Fetch lesson duration once (same aulaId for all entries)
+    const aulaData = await prisma.aula.findUnique({
+      where: { id: aulaId },
+      select: { duracaoSegundos: true }
+    });
+
     for (const item of presencas) {
       await prisma.presenca.upsert({
         where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId: aulaId } },
         update: {
           status: item.status,
           metodo: item.metodo,
+          percentual: item.status === 'presente' ? 100 : item.status === 'parcial' ? 50 : 0,
           registradoEm: new Date()
         },
         create: {
@@ -1938,6 +2044,29 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
           percentual: item.status === 'presente' ? 100 : 0
         }
       });
+
+      // When marked as present → auto-complete the lesson in ProgressoAluno
+      if (item.status === 'presente') {
+        await prisma.progressoAluno.upsert({
+          where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId } },
+          update: {
+            percentualAssistido: 100,
+            concluido: true,
+            dataConclusao: new Date(),
+            posicaoAtualSegundos: aulaData?.duracaoSegundos || 0
+          },
+          create: {
+            alunoId: item.alunoId,
+            aulaId,
+            percentualAssistido: 100,
+            posicaoAtualSegundos: aulaData?.duracaoSegundos || 0,
+            tempoTotalSegundos: 0,
+            concluido: true,
+            dataConclusao: new Date(),
+            sessoes: 0
+          }
+        });
+      }
     }
 
     logger.info('chamada registrada', {

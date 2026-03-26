@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import AppIcon from '../../components/AppIcon';
 import AvatarCropModal from '../../components/AvatarCropModal';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
-import { apiGet, apiFetch } from '../../lib/apiClient';
+import { apiGet, apiFetch, apiPut } from '../../lib/apiClient';
 
 export default function AdminAlunoDetalhes() {
   const { id } = useParams();
@@ -14,6 +14,12 @@ export default function AdminAlunoDetalhes() {
   const [feedback, setFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [editNome, setEditNome] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editTelefone, setEditTelefone] = useState('');
+  const [novaSenhaAdmin, setNovaSenhaAdmin] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,13 +49,62 @@ export default function AdminAlunoDetalhes() {
     }
   };
 
+  const handleSaveStudentProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!id) return;
+    setSavingProfile(true);
+    setFeedback('');
+    try {
+      const atualizado = await apiPut<any>(`/api/admin/aluno/${id}`, {
+        nome: editNome,
+        email: editEmail,
+        telefone: editTelefone
+      });
+      setAluno((current: any) => ({ ...current, ...atualizado }));
+      setEditNome(atualizado.nome || '');
+      setEditEmail(atualizado.email || '');
+      setEditTelefone(atualizado.telefone || '');
+      setFeedback('Dados do aluno atualizados com sucesso.');
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao atualizar dados do aluno.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleUpdateStudentPassword = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!id) return;
+    if (novaSenhaAdmin.trim().length < 6) {
+      setFeedback('A nova senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    setSavingPassword(true);
+    setFeedback('');
+    try {
+      await apiPut(`/api/admin/aluno/${id}`, { senha: novaSenhaAdmin });
+      setNovaSenhaAdmin('');
+      setFeedback('Senha do aluno atualizada com sucesso.');
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao atualizar senha do aluno.');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   useEffect(() => {
     apiGet(`/api/admin/aluno/${id}`)
-      .then(setAluno)
+      .then((data: any) => {
+        setAluno(data);
+        setEditNome(data.nome || '');
+        setEditEmail(data.email || '');
+        setEditTelefone(data.telefone || '');
+      })
       .catch(() => setLoadError('Não foi possível carregar o relatório do aluno.'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -144,6 +199,48 @@ export default function AdminAlunoDetalhes() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="card mb-3">
+          <h3 className="section-title">Gerenciar cadastro</h3>
+          <form onSubmit={handleSaveStudentProfile}>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Nome</label>
+                <input className="form-input" onChange={(event) => setEditNome(event.target.value)} required value={editNome} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Telefone</label>
+                <input className="form-input" onChange={(event) => setEditTelefone(event.target.value)} value={editTelefone} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input className="form-input" onChange={(event) => setEditEmail(event.target.value)} required type="email" value={editEmail} />
+            </div>
+            <button className="btn btn-primary" disabled={savingProfile} type="submit">
+              <AppIcon name="check" size={14} />
+              <span>{savingProfile ? 'Salvando...' : 'Salvar dados do aluno'}</span>
+            </button>
+          </form>
+
+          <form className="mt-3" onSubmit={handleUpdateStudentPassword}>
+            <div className="form-group">
+              <label className="form-label">Redefinir senha do aluno</label>
+              <input
+                className="form-input"
+                minLength={6}
+                onChange={(event) => setNovaSenhaAdmin(event.target.value)}
+                placeholder="Informe a nova senha"
+                type="password"
+                value={novaSenhaAdmin}
+              />
+            </div>
+            <button className="btn btn-outline" disabled={savingPassword} type="submit">
+              <AppIcon name="shield" size={14} />
+              <span>{savingPassword ? 'Atualizando...' : 'Atualizar senha do aluno'}</span>
+            </button>
+          </form>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>

@@ -15,7 +15,26 @@
       "Bash(node --input-type=module:*)",
       "Bash(npm uninstall:*)",
       "Read(//c/Users/Windows/**)",
-      "Bash(grep -n \"case ''map-pin''\\\\|default:\\\\|return null\" /c/Users/Windows/seminario/client/src/components/AppIcon.tsx)"
+      "Bash(grep -n \"case ''map-pin''\\\\|default:\\\\|return null\" /c/Users/Windows/seminario/client/src/components/AppIcon.tsx)",
+      "Bash(git -C \"c:\\\\Users\\\\Windows\\\\seminario\" diff --name-only)",
+      "Bash(git -C \"c:\\\\Users\\\\Windows\\\\seminario\" status --short)",
+      "Bash(git reset:*)",
+      "Bash(find /c/Users/Windows/seminario -type f -name .env*)",
+      "Bash(grep -rn \"query\\\\|Query\\\\|sql\\\\|SQL\\\\|exec\\\\|execute\" /c/Users/Windows/seminario/server/src/routes/*.ts)",
+      "Bash(grep -n \"$\\\\|template\\\\|interpolat\")",
+      "Bash(node -e \"const {z} = require\\(''zod''\\); const r = z.string\\(\\).safeParse\\(1\\); console.log\\(Object.keys\\(r.error\\)\\)\")",
+      "Bash(node -e \"const {z} = require\\(''zod''\\); const r = z.string\\(\\).safeParse\\(1\\); const err = r.error; console.log\\(JSON.stringify\\(err?.flatten\\(\\)\\)\\)\")",
+      "Bash(wc -l /c/Users/Windows/seminario/client/src/**/*.tsx /c/Users/Windows/seminario/client/src/**/*.ts)",
+      "Bash(find /c/Users/Windows/seminario/client/src/pages -name \"*.tsx\" -type f -exec wc -l {} +)",
+      "Bash(find /c/Users/Windows/seminario/server/src -name \"*.ts\" -type f -exec wc -l {} +)",
+      "Bash(xargs grep:*)",
+      "Bash(xargs wc:*)",
+      "Bash(wc -l /c/Users/Windows/seminario/server/src/routes/*.ts)",
+      "Bash(npm test:*)",
+      "Bash(find /c/Users/Windows/seminario -maxdepth 2 -type f -name *.yml -o -name *.yaml)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''''devDependencies'''',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(grep -v \"//\\\\|moduloId\\\\|modulos\\\\.\\\\|modulo\\\\.\\\\|modulo?\\\\|modulo,\\\\|modulo\\)\\\\|modulo:\\\\|modulo =\\\\|modulo &&\\\\|moduloId\\\\|selectedModulo\\\\|setModulo\\\\|newModulo\\\\|editingCapaId\\\\|uploadingCapaId\\\\|module\\\\|Module\\\\|MODULE\\\\|videoTipo\\\\|moduloTitulo\\\\|modulosData\\\\|newModTitle\\\\|newModDesc\\\\|newModCapa\\\\|moduloId\\\\|modulo\\\\.id\\\\|modulo\\\\.titulo\\\\|modulo\\\\.aulas\\\\|modulo\\\\.descricao\\\\|m\\\\.id\\\\|const modulo\\\\|setModulos\\\\|modulos\\\\.map\\\\|modulos\\\\.\\\\|Array\\\\.isArray\\\\|setModuloId\\\\|moduloId\\\\|draftModuleExists\\\\|moduleList\\\\|moduleItem\\\\|MODULE_DRAFT\\\\|LESSON_DRAFT\\\\|clearModuleDraft\\\\|clearEditDraft\\\\|videoLabel\\\\|videoBadge\\\\|urlVideo\\\\|apiGet\\\\|apiPost\\\\|apiDelete\\\\|apiFetch\\\\|apiPut\\\\|route\\\\|import\\\\|interface\\\\|type \\\\|const \\\\|let \\\\|var \\\\|function\\\\|useState\\\\|useEffect\\\\|useRef\\\\|useMemo\\\\|\\\\.tsx\\\\|className\\\\|onClick\\\\|onChange\\\\|value=\\\\|key=\\\\|style=\\\\|disabled=\\\\|type=\\\\|ref=\\\\|accept=\\\\|htmlFor\\\\|placeholder.*={\")",
+      "Bash(grep -v \"^\\\\s*//\")"
     ]
   }
 }

@@ -46,6 +46,20 @@ export default function StudentDashboard() {
   const firstName = user?.nome?.split(' ')[0] || 'Aluno';
   const totalTrilhas = modulos.length;
 
+  const aulasEmFalta = useMemo(() => {
+    const faltas: any[] = [];
+    modulos.forEach(modulo => {
+      modulo.aulas.forEach((aula: any) => {
+        const presenca = aula.presencas?.[0];
+        const progresso = aula.progressos?.[0];
+        if (presenca?.status === 'ausente' && !progresso?.concluido) {
+          faltas.push({ ...aula, moduloTitulo: modulo.titulo });
+        }
+      });
+    });
+    return faltas;
+  }, [modulos]);
+
   const cards = useMemo(() => {
     return [
       {
@@ -156,6 +170,35 @@ export default function StudentDashboard() {
             </div>
           </div>
         </section>
+
+        {aulasEmFalta.length > 0 && (
+          <section className="student-section" style={{ marginTop: '2rem' }}>
+            <div className="student-section-header">
+              <div>
+                <span className="section-kicker" style={{ color: 'var(--color-error)' }}>Atenção</span>
+                <h2>Aulas em falta</h2>
+                <p className="text-muted text-sm">Você possui faltas registradas nestas aulas. Assista para revisar o conteúdo.</p>
+              </div>
+            </div>
+            <div className="card-grid">
+              {aulasEmFalta.map(aula => (
+                <article key={aula.id} className="panel-card" style={{ borderLeft: '4px solid var(--color-error)' }}>
+                  <div style={{ padding: '1.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                      <span className="pill subtle" style={{ fontSize: '0.7rem' }}>{aula.moduloTitulo}</span>
+                      <span className="badge badge-error">Falta registrada</span>
+                    </div>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>{aula.titulo}</h3>
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/aula/${aula.id}`)}>
+                      Assistir aula
+                      <AppIcon name="chevron-right" size={14} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="student-stats-grid">
           {cards.map((card) => (

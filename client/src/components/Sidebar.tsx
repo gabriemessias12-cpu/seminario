@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3,
@@ -20,22 +20,23 @@ import BrandMark from './BrandMark';
 import { NavBar } from './ui/tubelight-navbar';
 
 const STUDENT_LINKS = [
-  { name: 'Início', url: '/dashboard', icon: Home },
-  { name: 'Conteúdos', url: '/aulas', icon: Play },
-  { name: 'Avaliações', url: '/avaliacoes', icon: ScrollText },
+  { name: 'InÃ­cio', url: '/dashboard', icon: Home },
+  { name: 'ConteÃºdos', url: '/aulas', icon: Play },
+  { name: 'AvaliaÃ§Ãµes', url: '/avaliacoes', icon: ScrollText },
   { name: 'Biblioteca', url: '/materiais', icon: BookOpen },
   { name: 'Perfil', url: '/perfil', icon: UserRound }
 ];
 
 const ADMIN_LINKS = [
-  { name: 'Início', url: '/admin/dashboard', icon: LayoutDashboard },
+  { name: 'InÃ­cio', url: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Alunos', url: '/admin/alunos', icon: Users },
-  { name: 'Avaliações', url: '/admin/avaliacoes', icon: ScrollText },
+  { name: 'AvaliaÃ§Ãµes', url: '/admin/avaliacoes', icon: ScrollText },
   { name: 'Aulas', url: '/admin/aulas', icon: Play },
   { name: 'Materiais', url: '/admin/materiais', icon: BookOpen },
   { name: 'Chamada', url: '/admin/chamada', icon: ClipboardCheck },
   { name: 'Avisos', url: '/admin/avisos', icon: BellRing },
-  { name: 'Relatórios', url: '/admin/relatorios', icon: BarChart3 }
+  { name: 'Perfil', url: '/perfil', icon: UserRound },
+  { name: 'RelatÃ³rios', url: '/admin/relatorios', icon: BarChart3 }
 ];
 
 interface SidebarProps {
@@ -67,7 +68,7 @@ export default function Sidebar({ type }: SidebarProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken })
     }).catch(() => undefined);
-    // Hard navigate to login — bypasses React Router and any re-render race conditions
+    // Hard navigate to login â€” bypasses React Router and any re-render race conditions
     window.location.href = type === 'admin' ? '/admin' : '/login';
   };
 
@@ -79,7 +80,7 @@ export default function Sidebar({ type }: SidebarProps) {
   const ProfileButton = (
     <div className="relative">
       <button
-        aria-label="Perfil e opções de conta"
+        aria-label="Perfil e opÃ§Ãµes de conta"
         className="nav-user-chip flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-white transition-colors hover:bg-white/10 cursor-pointer"
         onClick={handleToggleLogoutPopup}
         type="button"
@@ -146,7 +147,7 @@ export default function Sidebar({ type }: SidebarProps) {
               type="button"
             >
               <LogOut size={16} />
-              <span>Encerrar sessão</span>
+              <span>Encerrar sessÃ£o</span>
             </button>
           </div>
         </div>
@@ -182,7 +183,7 @@ export default function Sidebar({ type }: SidebarProps) {
         type="button"
       >
         <LogOut size={16} />
-        <span>Encerrar sessão</span>
+        <span>Encerrar sessÃ£o</span>
       </button>
     </div>
   );
@@ -209,10 +210,10 @@ export default function Sidebar({ type }: SidebarProps) {
           <BrandMark className="nav-brand-mark h-11 w-11 rounded-xl bg-white p-1 object-contain shadow-[0_12px_24px_rgba(255,255,255,0.12)]" />
           <div className="nav-brand-copy min-w-0">
             <strong className="nav-brand-title block truncate text-base font-semibold leading-none text-white">
-              {type === 'admin' ? 'IBVN Admin' : 'Área do Aluno'}
+              {type === 'admin' ? 'IBVN Admin' : 'Ãrea do Aluno'}
             </strong>
             <span className="nav-brand-subtitle block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
-              {type === 'admin' ? 'Instituto Bíblico Vinha Nova' : 'Seminário Teológico IBVN'}
+              {type === 'admin' ? 'Instituto BÃ­blico Vinha Nova' : 'SeminÃ¡rio TeolÃ³gico IBVN'}
             </span>
           </div>
         </Link>
@@ -222,3 +223,4 @@ export default function Sidebar({ type }: SidebarProps) {
     />
   );
 }
+

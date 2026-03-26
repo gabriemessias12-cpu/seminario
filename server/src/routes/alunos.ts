@@ -648,72 +648,9 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
   }
 });
 
-// POST /api/aluno/aula/:id/concluir
-router.post('/aula/:id/concluir', async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const userId = req.user!.userId;
-    const aulaId = readString(req.params.id);
-
-    if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida' });
-      return;
-    }
-
-    const aula = await prisma.aula.findUnique({
-      where: { id: aulaId },
-      select: { id: true, duracaoSegundos: true }
-    });
-
-    if (!aula) {
-      res.status(404).json({ error: 'Aula nao encontrada' });
-      return;
-    }
-
-    const presenca = await prisma.presenca.findUnique({
-      where: { alunoId_aulaId: { alunoId: userId, aulaId } }
-    });
-
-    if (!hasAttendanceUnlock(presenca)) {
-      res.status(403).json({ error: 'A conclusao manual desta aula exige presenca confirmada em Meet ou Presencial.' });
-      return;
-    }
-
-    const progresso = await prisma.progressoAluno.upsert({
-      where: { alunoId_aulaId: { alunoId: userId, aulaId } },
-      update: {
-        percentualAssistido: 100,
-        posicaoAtualSegundos: aula.duracaoSegundos || 0,
-        concluido: true,
-        dataConclusao: new Date()
-      },
-      create: {
-        alunoId: userId,
-        aulaId,
-        percentualAssistido: 100,
-        posicaoAtualSegundos: aula.duracaoSegundos || 0,
-        tempoTotalSegundos: 0,
-        concluido: true,
-        dataConclusao: new Date(),
-        sessoes: 1
-      }
-    });
-
-    await prisma.presenca.update({
-      where: { alunoId_aulaId: { alunoId: userId, aulaId } },
-      data: {
-        percentual: 100,
-        registradoEm: new Date()
-      }
-    });
-
-    res.json({
-      ok: true,
-      progresso
-    });
-  } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: 'Erro ao concluir aula' });
-  }
+// POST /api/aluno/aula/:id/concluir — DISABLED: only admin can mark lessons as completed via attendance
+router.post('/aula/:id/concluir', async (_req: AuthRequest, res: Response): Promise<void> => {
+  res.status(403).json({ error: 'A conclusão de aulas é controlada exclusivamente pela chamada do administrador.' });
 });
 
 // POST /api/aluno/quiz

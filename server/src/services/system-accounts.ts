@@ -1,4 +1,4 @@
-import { PrismaClient, PapelUsuario } from '@prisma/client';
+﻿import { PrismaClient, PapelUsuario } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -12,9 +12,9 @@ const systemAccounts = [
     telefone: '(22) 99999-0001'
   },
   {
-    nome: 'Fábia',
-    email: 'fabia@vinhanova.com',
-    senha: 'fabia123',
+    nome: 'F\u00e1bia Vieira',
+    email: 'fabiavieiradossantos@gmail.com',
+    senha: 'admin 123',
     papel: 'admin',
     telefone: '(22) 99999-0002'
   }
@@ -43,3 +43,4 @@ export async function ensureSystemAccounts(): Promise<void> {
     });
   }
 }
+

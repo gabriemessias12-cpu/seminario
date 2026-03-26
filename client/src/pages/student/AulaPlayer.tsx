@@ -80,7 +80,7 @@ export default function StudentAulaPlayer() {
   const [assistantQuestion, setAssistantQuestion] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantError, setAssistantError] = useState('');
-  const [completionLoading, setCompletionLoading] = useState(false);
+  // completionLoading removed — manual completion disabled
   const [lessonFeedback, setLessonFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
   const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
@@ -544,53 +544,6 @@ export default function StudentAulaPlayer() {
       .catch(() => {});
   };
 
-  const handleManualComplete = async () => {
-    if (!id) return;
-
-    setCompletionLoading(true);
-    setLessonFeedback('');
-
-    try {
-      await apiPost(`/api/aluno/aula/${id}/concluir`);
-
-      setCompleted(true);
-      setMaxWatched(100);
-      if (durationRef.current) {
-        setCurrentTime(durationRef.current);
-      }
-      setAula((current: any) => current ? ({
-        ...current,
-        progressos: [
-          {
-            ...(current.progressos?.[0] || {}),
-            percentualAssistido: 100,
-            concluido: true,
-            posicaoAtualSegundos: durationRef.current || duration
-          }
-        ]
-      }) : current);
-      setPlaylist((current) => current.map((item: any) => (
-        item.id === id
-          ? {
-              ...item,
-              progressos: [
-                {
-                  ...(item.progressos?.[0] || {}),
-                  percentualAssistido: 100,
-                  concluido: true
-                }
-              ]
-            }
-          : item
-      )));
-      setLessonFeedback('Aula concluída com base na presença confirmada.');
-    } catch (err) {
-      setLessonFeedback(err instanceof Error ? err.message : 'Erro ao comunicar com o servidor.');
-    } finally {
-      setCompletionLoading(false);
-    }
-  };
-
   const handleAssistantAsk = async () => {
     if (!assistantQuestion.trim()) return;
     setAssistantLoading(true);
@@ -804,16 +757,12 @@ export default function StudentAulaPlayer() {
               <div className="lesson-meta-card">
                 <span className="section-kicker">Controle da aula</span>
                 <p>
-                  {lessonControlsUnlocked
-                    ? 'Presença em Meet ou Presencial confirmada. Você pode avançar, voltar e concluir esta aula manualmente.'
-                    : 'Sem presença confirmada nesta aula. O vídeo segue protegido e sem liberação de pulo.'}
+                  {completed
+                    ? 'Presença confirmada e aula concluída. Você pode reassistir ao conteúdo livremente.'
+                    : lessonControlsUnlocked
+                      ? 'Presença confirmada. Navegação livre habilitada.'
+                      : 'O progresso desta aula é controlado pela chamada do administrador.'}
                 </p>
-                {lessonControlsUnlocked && !completed && (
-                  <button className="btn btn-accent" type="button" onClick={handleManualComplete} disabled={completionLoading}>
-                    <AppIcon name="check" size={14} />
-                    <span>{completionLoading ? 'Concluindo...' : 'Marcar aula como concluída'}</span>
-                  </button>
-                )}
               </div>
             </div>
 
