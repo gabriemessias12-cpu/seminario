@@ -1128,9 +1128,10 @@ tbody tr:hover {
 }
 
 .landing-section {
-  padding: 5rem 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 5rem 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 .landing-section h2 {
@@ -3240,9 +3241,10 @@ body {
 }
 
 .landing-shell {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 2rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   position: relative;
   z-index: 1;
 }
@@ -3750,11 +3752,9 @@ body {
 }
 
 .landing-section-marquee .landing-shell {
-  max-width: 1280px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 2rem;
-  padding-right: 2rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .landing-marquee {
@@ -4077,6 +4077,73 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.landing-about-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 0.72rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(174, 137, 255, 0.26);
+  background: rgba(20, 12, 33, 0.68);
+  color: rgba(227, 214, 255, 0.88);
+}
+
+.landing-about-meta span {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.landing-about-meta strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.landing-inauguracao-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.95rem;
+  margin-bottom: 0.95rem;
+}
+
+.landing-inauguracao-card {
+  border-radius: 24px;
+  border: 1px solid rgba(171, 128, 255, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(149, 108, 235, 0.14), transparent 32%),
+    rgba(13, 8, 24, 0.74);
+  padding: 0.95rem;
+}
+
+.landing-inauguracao-head h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.landing-inauguracao-head p {
+  margin: 0.28rem 0 0;
+  color: rgba(208, 187, 249, 0.74);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.landing-inauguracao-player {
+  margin-top: 0.78rem;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(160, 117, 245, 0.16);
+}
+
+.landing-inauguracao-player video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  object-fit: cover;
+}
+
 .landing-info-card,
 .landing-track-card,
 .landing-feature-card {
@@ -4229,6 +4296,7 @@ body {
   .landing-info-grid,
   .landing-track-grid,
   .landing-feature-grid,
+  .landing-inauguracao-grid,
   .landing-root .footer-content {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4265,7 +4333,7 @@ body {
 
 @media (max-width: 820px) {
   .landing-shell {
-    padding: 0 1rem;
+    padding: 0;
   }
 
   .landing-nav-inner {
@@ -4329,6 +4397,7 @@ body {
   .landing-info-grid,
   .landing-track-grid,
   .landing-feature-grid,
+  .landing-inauguracao-grid,
   .landing-root .footer-content {
     grid-template-columns: 1fr;
   }
@@ -5853,8 +5922,8 @@ input[type="file"] { min-height: 44px; }
   }
 
   .landing-shell {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .landing-mini-stats {
