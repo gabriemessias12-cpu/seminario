@@ -31,19 +31,6 @@ const DEFAULT_SLIDES: LeadershipSlide[] = [
   { slot: 3, url: '/brand/3.jpg', name: 'Pr. Ralfer Fernandes', objectPosition: 'center 40%' }
 ];
 
-const INAUGURACAO_VIDEOS = [
-  {
-    title: 'Inauguracao 1',
-    src: '/brand/inauguracao1.mp4',
-    helperText: 'Arquivo esperado: /public/brand/inauguracao1.mp4'
-  },
-  {
-    title: 'Inauguracao 2',
-    src: '/brand/inauguracao2.mp4',
-    helperText: 'Arquivo esperado: /public/brand/inauguracao2.mp4'
-  }
-];
-
 export default function LandingPage() {
   const navigate = useNavigate();
   const [activeSlide, setActiveSlide] = useState(0);
@@ -403,28 +390,6 @@ export default function LandingPage() {
             Resgatando o fervor espiritual e o amor pelas Escrituras! Acreditamos em uma teologia completa que tem
             caráter devocional, cultual e acadêmico.
           </p>
-        </div>
-
-        <div className="landing-about-meta">
-          <span>Pastor Titular:</span>
-          <strong>Pr. Marcondes</strong>
-        </div>
-
-        <div className="landing-inauguracao-grid">
-          {INAUGURACAO_VIDEOS.map((video) => (
-            <article className="landing-inauguracao-card" key={video.src}>
-              <div className="landing-inauguracao-head">
-                <h3>{video.title}</h3>
-                <p>{video.helperText}</p>
-              </div>
-              <div className="landing-inauguracao-player">
-                <video controls playsInline poster="/brand/logo.jpg" preload="metadata">
-                  <source src={video.src} type="video/mp4" />
-                  Seu navegador nao suporta reproducao de video.
-                </video>
-              </div>
-            </article>
-          ))}
         </div>
 
         <div className="landing-info-grid">
