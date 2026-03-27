@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BookOpen, Home, Info, MessageSquare, Radio } from 'lucide-react';
@@ -18,10 +18,10 @@ const posterImages = [
   '/brand/1.jpg',
   '/brand/2.jpg',
   '/brand/3.jpg',
-  '/brand/DSC07336.jpg',
-  '/brand/DSC07339.jpg',
-  '/brand/DSC07349.jpg',
-  '/brand/DSC07355.jpg',
+  '/brand/carrossel.jpg',
+  '/brand/carrossel1.jpg',
+  '/brand/carrossel2.jpg',
+  '/brand/carrossel3.jpg',
   '/brand/DSC07325.jpg',
   '/brand/DSC07326.jpg',
   '/brand/DSC07327.jpg',
@@ -90,14 +90,14 @@ export default function LandingPage() {
       icon: 'youtube' as const,
       label: 'YouTube',
       value: '@igrejavinhanova',
-      description: 'Cultos, mensagens e aulas em vÃ­deo para acompanhamento.',
+      description: 'Cultos, mensagens e aulas em vídeo para acompanhamento.',
       href: 'https://www.youtube.com/@igrejavinhanova'
     },
     {
       icon: 'spotify' as const,
       label: 'Spotify',
       value: 'Podcast oficial',
-      description: 'Mensagens em Ã¡udio para escutar ao longo da semana.',
+      description: 'Mensagens em áudio para escutar ao longo da semana.',
       href: 'https://open.spotify.com/show/3eZVoELHjFGm0OG6lVjWSu'
     }
   ];
@@ -105,18 +105,18 @@ export default function LandingPage() {
   const modules = [
     {
       icon: 'book' as const,
-      title: 'Fundamentos da fÃ©',
-      description: 'Panorama bÃ­blico, doutrinas centrais e base segura para amadurecimento ministerial.'
+      title: 'Fundamentos da fé',
+      description: 'Panorama bíblico, doutrinas centrais e base segura para amadurecimento ministerial.'
     },
     {
       icon: 'search' as const,
-      title: 'HermenÃªutica bÃ­blica',
-      description: 'Leitura fiel das Escrituras com contexto, interpretaÃ§Ã£o e aplicaÃ§Ã£o responsÃ¡vel e balizada no que hÃ¡ de melhor em histÃ³ria e teologia.'
+      title: 'Hermenêutica bíblica',
+      description: 'Leitura fiel das Escrituras com contexto, interpretação e aplicação responsável e balizada no que há de melhor em história e teologia.'
     },
     {
       icon: 'shield' as const,
       title: 'Teologia pastoral',
-      description: 'Cuidado, lideranÃ§a servidora e prÃ¡tica ministerial para a igreja local e para todos os Ã¢mbitos da sociedade.'
+      description: 'Cuidado, liderança servidora e prática ministerial para a igreja local e para todos os âmbitos da sociedade.'
     }
   ];
 
@@ -128,18 +128,18 @@ export default function LandingPage() {
     },
     {
       icon: 'materials' as const,
-      title: 'Materiais e revisÃ£o em um sÃ³ lugar',
-      description: 'PDFs, resumos, notas, quiz e trilhas organizadas por aula e por mÃ³dulo, alÃ©m de IA generativa de auxÃ­lio ao aluno.'
+      title: 'Materiais e revisão em um só lugar',
+      description: 'PDFs, resumos, notas, quiz e trilhas organizadas por aula e por módulo, além de IA generativa de auxílio ao aluno.'
     },
     {
       icon: 'target' as const,
       title: 'Acompanhamento real de aprendizado',
-      description: 'O aluno realmente acessa o conteÃºdo e faz parte de um ecossistema de avaliaÃ§Ãµes e desenvolvimento pessoal.'
+      description: 'O aluno realmente acessa o conteúdo e faz parte de um ecossistema de avaliações e desenvolvimento pessoal.'
     }
   ];
 
   const navItems = [
-    { name: 'InÃ­cio', url: '#inicio', icon: Home },
+    { name: 'Início', url: '#inicio', icon: Home },
     { name: 'Sobre', url: '#sobre', icon: Info },
     { name: 'Canais', url: '#canais', icon: Radio },
     { name: 'Trilhas', url: '#trilhas', icon: BookOpen },
@@ -166,7 +166,7 @@ export default function LandingPage() {
               onClick={() => navigate('/login')}
               type="button"
             >
-              Ãrea do Aluno
+              Área do Aluno
             </button>
             <button
               className="btn btn-outline btn-sm whitespace-nowrap"
@@ -184,7 +184,7 @@ export default function LandingPage() {
             <div className="nav-brand-copy min-w-0">
               <strong className="nav-brand-title block truncate text-lg font-semibold leading-none text-white">IBVN</strong>
               <span className="nav-brand-subtitle block truncate pt-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
-                Instituto BÃ­blico Vinha Nova
+                Instituto Bíblico Vinha Nova
               </span>
             </div>
           </div>
@@ -197,25 +197,25 @@ export default function LandingPage() {
           <div className="landing-hero-copy">
             <div className="landing-hero-copy-head">
               <span className="section-kicker">Curso livre e confessional</span>
-              <h1>O SeminÃ¡rio TeolÃ³gico do IBVN nasceu para formar coraÃ§Ãµes incendiados, mentes bÃ­blicas e servos fiÃ©is ao Senhor.</h1>
+              <h1>O Seminário Teológico do IBVN nasceu para formar corações incendiados, mentes bíblicas e servos fiéis ao Senhor.</h1>
             </div>
 
             <div className="landing-hero-copy-body">
               <p className="landing-lead">
-                O IBVN, Instituto BÃ­blico Vinha Nova, oferece o SeminÃ¡rio TeolÃ³gico como um curso livre em teologia,
-                confessional, prÃ³prio da Vinha, mas aberto a todos que desejam crescimento e conhecimento bÃ­blico sÃ©rio,
-                genuÃ­no e fervoroso.
+                O IBVN, Instituto Bíblico Vinha Nova, oferece o Seminário Teológico como um curso livre em teologia,
+                confessional, próprio da Vinha, mas aberto a todos que desejam crescimento e conhecimento bíblico sério,
+                genuíno e fervoroso.
               </p>
 
               <div className="landing-hero-badges">
                 <span className="landing-inline-pill">Nova Friburgo, RJ</span>
-                <span className="landing-inline-pill">O SeminÃ¡rio da Vinha Ã© aberto a todos!</span>
+                <span className="landing-inline-pill">O Seminário da Vinha é aberto a todos!</span>
                 <span className="landing-inline-pill">Aulas presenciais e online com materiais complementares e progresso salvo</span>
               </div>
 
               <div className="landing-hero-actions">
                 <button className="btn btn-primary btn-lg" onClick={() => navigate('/login')} type="button">
-                  Entrar no seminÃ¡rio
+                  Entrar no seminário
                 </button>
                 <a className="btn btn-outline btn-lg" href="#trilhas">
                   Ver trilhas
@@ -226,13 +226,13 @@ export default function LandingPage() {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  Fale com a FÃ¡bia
+                  Fale com a Fábia
                 </a>
               </div>
             </div>
 
             <div className="landing-hero-quote-card">
-              <blockquote>"Teologia de verdade incendeia o coraÃ§Ã£o"</blockquote>
+              <blockquote>"Teologia de verdade incendeia o coração"</blockquote>
               <p>Pr. Ralfer Fernandes</p>
             </div>
 
@@ -240,7 +240,7 @@ export default function LandingPage() {
               <div className="landing-panel-head landing-panel-head-compact">
                 <div>
                   <span className="section-kicker">Canais oficiais</span>
-                  <h3>PresenÃ§a digital da igreja</h3>
+                  <h3>Presença digital da igreja</h3>
                 </div>
                 <a href={instagramHref} rel="noreferrer" target="_blank">
                   <AppIcon name="external" size={16} />
@@ -316,7 +316,7 @@ export default function LandingPage() {
 
               <div className="landing-carousel-controls">
                 <button
-                  aria-label="Foto anterior da lideranÃ§a"
+                  aria-label="Foto anterior da liderança"
                   className="player-circle-button"
                   onClick={() => setActiveSlide((current) => (current - 1 + leadershipSlides.length) % leadershipSlides.length)}
                   type="button"
@@ -337,7 +337,7 @@ export default function LandingPage() {
                 </div>
 
                 <button
-                  aria-label="PrÃ³xima foto da lideranÃ§a"
+                  aria-label="Próxima foto da liderança"
                   className="player-circle-button"
                   onClick={() => setActiveSlide((current) => (current + 1) % leadershipSlides.length)}
                   type="button"
@@ -349,10 +349,10 @@ export default function LandingPage() {
               <div className="landing-mini-stats">
                 <div className="landing-mini-stat">
                   <strong>IBVN</strong>
-                  <span>Instituto BÃ­blico Vinha Nova</span>
+                  <span>Instituto Bíblico Vinha Nova</span>
                 </div>
                 <div className="landing-mini-stat">
-                  <strong>SeminÃ¡rio</strong>
+                  <strong>Seminário</strong>
                   <span>Curso oferecido pela Vinha</span>
                 </div>
                 <div className="landing-mini-stat">
@@ -369,8 +369,8 @@ export default function LandingPage() {
         <div className="landing-shell">
           <div className="landing-section-heading">
             <div>
-              <span className="section-kicker">ComunicaÃ§Ã£o oficial</span>
-              <h2>Momentos do seminario</h2>
+              <span className="section-kicker">Comunicação oficial</span>
+              <h2>Momentos do Seminário</h2>
             </div>
           </div>
         </div>
@@ -386,7 +386,7 @@ export default function LandingPage() {
                 target="_blank"
               >
                 <img
-                  alt={`Momento do seminario ${index + 1}`}
+                  alt={`Momento do Seminário ${index + 1}`}
                   className="landing-poster-image"
                   loading="lazy"
                   src={posterSrc}
@@ -401,11 +401,11 @@ export default function LandingPage() {
         <div className="landing-section-heading">
           <div>
             <span className="section-kicker">Sobre o instituto</span>
-            <h2>Instituto BÃ­blico Vinha Nova: estudos teolÃ³gicos abrangentes, bÃ­blicos e apaixonantes</h2>
+            <h2>Instituto Bíblico Vinha Nova: estudos teológicos abrangentes, bíblicos e apaixonantes</h2>
           </div>
           <p>
             Resgatando o fervor espiritual e o amor pelas Escrituras! Acreditamos em uma teologia completa que tem
-            carÃ¡ter devocional, cultual e acadÃªmico.
+            caráter devocional, cultual e acadêmico.
           </p>
         </div>
 
@@ -436,8 +436,8 @@ export default function LandingPage() {
             <span className="landing-info-icon">
               <AppIcon name="target" size={22} />
             </span>
-            <h3>FormaÃ§Ã£o com identidade</h3>
-            <p>Estrutura pensada para servir a todos: irmÃ£os em Cristo, membros, obreiros e lÃ­deres que desejam crescer em serviÃ§o e entendimento bÃ­blico, se apaixonando ainda mais pelas Escrituras.</p>
+            <h3>Formação com identidade</h3>
+            <p>Estrutura pensada para servir a todos: irmãos em Cristo, membros, obreiros e líderes que desejam crescer em serviço e entendimento bíblico, se apaixonando ainda mais pelas Escrituras.</p>
           </div>
 
           <div className="landing-info-card">
@@ -445,7 +445,7 @@ export default function LandingPage() {
               <AppIcon name="shield" size={22} />
             </span>
             <h3>Confessional e pastoral</h3>
-            <p>O curso nasce da prÃ³pria Vinha, com curadoria ministerial e acompanhamento prÃ³ximo da lideranÃ§a local. Ambiente acolhedor, solÃ­cito e comprometido com o crescimento de cada aluno.</p>
+            <p>O curso nasce da própria Vinha, com curadoria ministerial e acompanhamento próximo da liderança local. Ambiente acolhedor, solícito e comprometido com o crescimento de cada aluno.</p>
           </div>
 
           <div className="landing-info-card">
@@ -453,7 +453,7 @@ export default function LandingPage() {
               <AppIcon name="library" size={22} />
             </span>
             <h3>Organizado para aprender</h3>
-            <p>ConteÃºdos e materiais abrangentes e profundos, resumos, notas e acompanhamento de progresso dentro de uma plataforma completa para o aluno.</p>
+            <p>Conteúdos e materiais abrangentes e profundos, resumos, notas e acompanhamento de progresso dentro de uma plataforma completa para o aluno.</p>
           </div>
         </div>
       </section>
@@ -462,9 +462,9 @@ export default function LandingPage() {
         <div className="landing-section-heading">
           <div>
             <span className="section-kicker">Trilhas do curso</span>
-            <h2>FormaÃ§Ã£o teolÃ³gica com progressÃ£o clara e objetiva</h2>
+            <h2>Formação teológica com progressão clara e objetiva</h2>
           </div>
-          <p>O percurso do aluno parte dos fundamentos e avanÃ§a para a leitura bÃ­blica fiel e a vivÃªncia ministerial e pessoal.</p>
+          <p>O percurso do aluno parte dos fundamentos e avança para a leitura bíblica fiel e a vivência ministerial e pessoal.</p>
         </div>
 
         <div className="landing-track-grid">
@@ -478,7 +478,7 @@ export default function LandingPage() {
               </div>
               <h3>{module.title}</h3>
               <p>{module.description}</p>
-              <span className="landing-track-foot">Trilha central do seminÃ¡rio</span>
+              <span className="landing-track-foot">Trilha central do seminário</span>
             </article>
           ))}
         </div>
@@ -487,12 +487,12 @@ export default function LandingPage() {
       <section className="landing-section landing-shell">
         <div className="landing-section-heading">
           <div>
-            <span className="section-kicker">ExperiÃªncia da plataforma</span>
+            <span className="section-kicker">Experiência da plataforma</span>
             <h2>Estrutura profissional para estudo com acompanhamento de progresso</h2>
           </div>
           <p>
-            A plataforma tem navegaÃ§Ã£o clara e adaptaÃ§Ã£o para telas pequenas e grandes sem perder leitura nem proporÃ§Ã£o,
-            facilitando o uso em computadores, tablets, celulares e atÃ© televisores.
+            A plataforma tem navegação clara e adaptação para telas pequenas e grandes sem perder leitura nem proporção,
+            facilitando o uso em computadores, tablets, celulares e até televisores.
           </p>
         </div>
 
@@ -514,7 +514,7 @@ export default function LandingPage() {
           <div className="footer-col">
             <h4>IBVN</h4>
             <p>
-              Instituto BÃ­blico Vinha Nova oferece um seminÃ¡rio teolÃ³gico de formaÃ§Ã£o livre, abrangente, bÃ­blico e
+              Instituto Bíblico Vinha Nova oferece um seminário teológico de formação livre, abrangente, bíblico e
               apaixonante! Resgatando o fervor espiritual e o amor pelas Escrituras.
             </p>
           </div>
@@ -528,7 +528,7 @@ export default function LandingPage() {
           </div>
 
           <div className="footer-col">
-            <h4>LocalizaÃ§Ã£o</h4>
+            <h4>Localização</h4>
             <p>Igreja Vinha Nova</p>
             <p>Av. Conselheiro Julius Arp, 14</p>
             <p>Olaria, Nova Friburgo - RJ</p>
@@ -536,10 +536,10 @@ export default function LandingPage() {
           </div>
 
           <div className="footer-col">
-            <h4>Acesso rÃ¡pido</h4>
+            <h4>Acesso rápido</h4>
             <p>
               <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>
-                Ãrea do aluno
+                Área do aluno
               </a>
             </p>
             <p>
@@ -549,19 +549,19 @@ export default function LandingPage() {
             </p>
             <p><a href="#sobre">Sobre o IBVN</a></p>
             <p><a href="#trilhas">Trilhas do curso</a></p>
-            <p><a href="#canais">InscriÃ§Ãµes e programaÃ§Ã£o</a></p>
+            <p><a href="#canais">Inscrições e programação</a></p>
           </div>
         </div>
         <div className="footer-cta">
           <div>
-            <strong>Garanta sua vaga no SeminÃ¡rio</strong>
-            <span>Entre em contato com a FÃ¡bia para fazer sua inscriÃ§Ã£o</span>
+            <strong>Garanta sua vaga no Seminário</strong>
+            <span>Entre em contato com a Fábia para fazer sua inscrição</span>
           </div>
           <a className="btn btn-primary btn-sm" href="https://wa.me/5522998338425?text=Tenho%20interesse%20em%20me%20inscrever%20%C3%A0%20vaga%20do%20semin%C3%A1rio%20teol%C3%B3gico!" rel="noreferrer" target="_blank">
-            Fale com a FÃ¡bia
+            Fale com a Fábia
           </a>
         </div>
-        <div className="footer-bottom">Â© 2026 IBVN Â· Instituto BÃ­blico Vinha Nova. Todos os direitos reservados.</div>
+        <div className="footer-bottom">© 2026 IBVN · Instituto Bíblico Vinha Nova. Todos os direitos reservados.</div>
       </footer>
     </div>
   );
