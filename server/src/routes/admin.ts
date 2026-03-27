@@ -10,6 +10,7 @@ import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth
 import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { processAIPipeline, processIAFromTranscript } from '../services/ai-mock.js';
 import { logContentChange } from '../services/content-change-log.js';
+import { buildStudentProgressDashboard, buildStudentProgressDashboardIndex, normalizeLessonPercentual } from '../services/progress-metrics.js';
 import { parseObjectiveQuestions, serializeObjectiveQuestions } from '../utils/objective-assessment.js';
 import { sendStoredUpload } from '../utils/stored-file.js';
 import { execFile } from 'child_process';
@@ -282,156 +283,198 @@ router.use(adminMiddleware);
 // GET /api/admin/dashboard
 router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    try {
-      // Fast path: use DB RPCs when available.
-      const [metrics, alunosAtencao, atividadeRecente, aulasStats] = await Promise.all([
-        prisma.$queryRaw<Array<{
-          total_alunos: bigint;
-          alunos_ativos_7d: bigint;
-          aulas_publicadas: bigint;
-          total_progressos: bigint;
-          progressos_concluidos: bigint;
-          taxa_conclusao: number;
-        }>>`SELECT * FROM get_admin_dashboard_metrics()`,
-        prisma.$queryRaw<Array<{
-          aluno_id: string;
-          nome: string;
-          email: string;
-          foto: string | null;
-          progresso_medio: number;
-        }>>`SELECT * FROM get_low_progress_students(20, 10)`,
-        prisma.loginHistorico.findMany({
-          include: { usuario: { select: { nome: true, email: true } } },
-          orderBy: { dataHora: 'desc' },
-          take: 10
-        }),
-        prisma.$queryRaw<Array<{
-          aula_id: string;
-          titulo: string;
-          total_alunos: bigint;
-          media_conclusao: number;
-        }>>`SELECT * FROM get_lesson_engagement_stats()`
-      ]);
-
-      const m = metrics[0];
-
-      res.json({
-        totalAlunos: Number(m?.total_alunos ?? 0),
-        alunosAtivos: Number(m?.alunos_ativos_7d ?? 0),
-        aulasPublicadas: Number(m?.aulas_publicadas ?? 0),
-        taxaConclusao: Math.round(Number(m?.taxa_conclusao ?? 0)),
-        alunosAtencao: alunosAtencao.map((a) => ({
-          id: a.aluno_id,
-          nome: a.nome,
-          email: a.email,
-          foto: a.foto,
-          progressoMedio: Math.round(Number(a.progresso_medio))
-        })),
-        atividadeRecente,
-        aulasStats: aulasStats.map((a) => ({
-          id: a.aula_id,
-          titulo: a.titulo,
-          totalAlunos: Number(a.total_alunos),
-          mediaConclusao: Math.round(Number(a.media_conclusao))
-        }))
-      });
-      return;
-    } catch (rpcError) {
-      logger.warn('Falha nas RPCs do dashboard admin, aplicando fallback via ORM.', rpcError);
-    }
-
     const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const now = new Date();
 
     const [
-      totalAlunos,
-      alunosAtivos,
-      aulasPublicadas,
-      totalProgressos,
-      progressosConcluidos,
+      alunos,
+      aulasObrigatorias,
+      aulasPublicadasBase,
+      progressosPublicados,
+      avaliacoesPublicadas,
+      entregasPublicadas,
       atividadeRecente,
-      progressoPorAluno,
-      progressoPorAula,
-      aulasPublicadasBase
+      totalAlunos
     ] = await Promise.all([
-      prisma.user.count({ where: { papel: 'aluno' } }),
-      prisma.user.count({
-        where: {
-          papel: 'aluno',
-          ultimoAcesso: { gte: seteDiasAtras }
+      prisma.user.findMany({
+        where: { papel: 'aluno' },
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          foto: true,
+          ultimoAcesso: true
         }
       }),
-      prisma.aula.count({ where: { publicado: true } }),
-      prisma.progressoAluno.count(),
-      prisma.progressoAluno.count({ where: { concluido: true } }),
+      prisma.aula.findMany({
+        where: {
+          publicado: true,
+          modulo: { obrigatorio: true }
+        },
+        select: {
+          id: true,
+          titulo: true,
+          dataPublicacao: true,
+          criadoEm: true,
+          modulo: {
+            select: {
+              titulo: true,
+              ordem: true
+            }
+          }
+        },
+        orderBy: [{ modulo: { ordem: 'asc' } }, { criadoEm: 'asc' }]
+      }),
+      prisma.aula.findMany({
+        where: { publicado: true },
+        select: { id: true, titulo: true },
+        orderBy: { criadoEm: 'asc' }
+      }),
+      prisma.progressoAluno.findMany({
+        where: { aula: { publicado: true } },
+        select: {
+          alunoId: true,
+          aulaId: true,
+          percentualAssistido: true,
+          concluido: true
+        }
+      }),
+      prisma.avaliacao.findMany({
+        where: { publicado: true },
+        select: {
+          id: true,
+          titulo: true,
+          tipo: true,
+          dataLimite: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true } },
+          aula: {
+            select: {
+              titulo: true,
+              modulo: { select: { titulo: true } }
+            }
+          }
+        },
+        orderBy: [{ dataLimite: 'asc' }, { criadoEm: 'desc' }]
+      }),
+      prisma.entregaAvaliacao.findMany({
+        where: { avaliacao: { publicado: true } },
+        select: {
+          alunoId: true,
+          avaliacaoId: true,
+          status: true
+        }
+      }),
       prisma.loginHistorico.findMany({
         include: { usuario: { select: { nome: true, email: true } } },
         orderBy: { dataHora: 'desc' },
         take: 10
       }),
-      prisma.progressoAluno.groupBy({
-        by: ['alunoId'],
-        _avg: { percentualAssistido: true }
-      }),
-      prisma.progressoAluno.groupBy({
-        by: ['aulaId'],
-        _avg: { percentualAssistido: true },
-        _count: { id: true }
-      }),
-      prisma.aula.findMany({
-        where: { publicado: true },
-        select: { id: true, titulo: true }
-      })
+      prisma.user.count({ where: { papel: 'aluno' } })
     ]);
 
-    const aulasMap = new Map(aulasPublicadasBase.map((aula) => [aula.id, aula.titulo]));
-    const taxaConclusao = totalProgressos > 0
-      ? Math.round((progressosConcluidos / totalProgressos) * 100)
-      : 0;
+    const aulasObrigatoriasIds = new Set(aulasObrigatorias.map((aula) => aula.id));
+    const progressosObrigatorios = progressosPublicados.filter((progresso) => aulasObrigatoriasIds.has(progresso.aulaId));
+    const dashboards = buildStudentProgressDashboardIndex({
+      studentIds: alunos.map((aluno) => aluno.id),
+      aulasPublicadas: aulasObrigatorias,
+      progressos: progressosObrigatorios,
+      avaliacoesPublicadas,
+      entregas: entregasPublicadas,
+      now
+    });
 
-    const alunosAtencaoMedias = progressoPorAluno
-      .map((item) => ({
-        alunoId: item.alunoId,
-        progressoMedio: Math.round(item._avg.percentualAssistido ?? 0)
-      }))
-      .filter((item) => item.progressoMedio < 20)
-      .sort((a, b) => a.progressoMedio - b.progressoMedio)
-      .slice(0, 10);
+    const alunosResumo = alunos.map((aluno) => {
+      const painel = dashboards.get(aluno.id) ?? buildStudentProgressDashboard({
+        aulasPublicadas: aulasObrigatorias,
+        progressos: [],
+        avaliacoesPublicadas,
+        entregas: [],
+        now
+      });
 
-    const alunosAtencaoIds = alunosAtencaoMedias.map((item) => item.alunoId);
-    const alunosAtencaoBase = alunosAtencaoIds.length
-      ? await prisma.user.findMany({
-        where: { id: { in: alunosAtencaoIds } },
-        select: { id: true, nome: true, email: true, foto: true }
-      })
-      : [];
-    const alunosAtencaoMap = new Map(alunosAtencaoBase.map((aluno) => [aluno.id, aluno]));
-
-    const alunosAtencao = alunosAtencaoMedias.map((item) => {
-      const aluno = alunosAtencaoMap.get(item.alunoId);
       return {
-        id: item.alunoId,
-        nome: aluno?.nome ?? 'Aluno',
-        email: aluno?.email ?? '',
-        foto: aluno?.foto ?? null,
-        progressoMedio: item.progressoMedio
+        ...aluno,
+        painel
       };
     });
 
-    const aulasStats = progressoPorAula
-      .filter((item) => aulasMap.has(item.aulaId))
-      .map((item) => ({
-        id: item.aulaId,
-        titulo: aulasMap.get(item.aulaId) ?? 'Aula',
-        totalAlunos: item._count.id,
-        mediaConclusao: Math.round(item._avg.percentualAssistido ?? 0)
-      }))
+    const alunosAtivos = alunosResumo.filter((aluno) => (
+      aluno.ultimoAcesso ? new Date(aluno.ultimoAcesso).getTime() >= seteDiasAtras.getTime() : false
+    )).length;
+
+    const progressoMedioAulas = totalAlunos > 0
+      ? Math.round(alunosResumo.reduce((sum, aluno) => sum + aluno.painel.progressoAulas.percentual, 0) / totalAlunos)
+      : 0;
+    const progressoMedioAvaliacoes = totalAlunos > 0
+      ? Math.round(alunosResumo.reduce((sum, aluno) => sum + aluno.painel.progressoAvaliacoes.percentual, 0) / totalAlunos)
+      : 0;
+    const progressoMedioGeral = totalAlunos > 0
+      ? Math.round(alunosResumo.reduce((sum, aluno) => sum + aluno.painel.progressoGeral, 0) / totalAlunos)
+      : 0;
+    const alertasAulasAtrasadas = alunosResumo.reduce((sum, aluno) => sum + aluno.painel.aulasAtrasadas.length, 0);
+    const alertasAvaliacoesAtrasadas = alunosResumo.reduce((sum, aluno) => sum + aluno.painel.avaliacoesPendentesAtrasadas.length, 0);
+
+    const alunosAtencao = alunosResumo
+      .filter((aluno) => aluno.painel.totalAlertasAtraso > 0 || aluno.painel.progressoGeral < 60)
+      .sort((a, b) => {
+        if (b.painel.avaliacoesPendentesAtrasadas.length !== a.painel.avaliacoesPendentesAtrasadas.length) {
+          return b.painel.avaliacoesPendentesAtrasadas.length - a.painel.avaliacoesPendentesAtrasadas.length;
+        }
+
+        if (b.painel.aulasAtrasadas.length !== a.painel.aulasAtrasadas.length) {
+          return b.painel.aulasAtrasadas.length - a.painel.aulasAtrasadas.length;
+        }
+
+        return a.painel.progressoGeral - b.painel.progressoGeral;
+      })
+      .slice(0, 10)
+      .map((aluno) => ({
+        id: aluno.id,
+        nome: aluno.nome,
+        email: aluno.email,
+        foto: aluno.foto,
+        progressoAulas: aluno.painel.progressoAulas.percentual,
+        progressoAvaliacoes: aluno.painel.progressoAvaliacoes.percentual,
+        progressoGeral: aluno.painel.progressoGeral,
+        aulasAtrasadas: aluno.painel.aulasAtrasadas.length,
+        avaliacoesAtrasadas: aluno.painel.avaliacoesPendentesAtrasadas.length
+      }));
+
+    const progressosPorAula = new Map<string, number[]>();
+
+    for (const progresso of progressosPublicados) {
+      const current = progressosPorAula.get(progresso.aulaId) || [];
+      current.push(normalizeLessonPercentual(progresso.percentualAssistido, progresso.concluido));
+      progressosPorAula.set(progresso.aulaId, current);
+    }
+
+    const aulasStats = aulasPublicadasBase
+      .map((aula) => {
+        const percentuais = progressosPorAula.get(aula.id) || [];
+        const mediaConclusao = percentuais.length
+          ? Math.round(percentuais.reduce((sum, percentual) => sum + percentual, 0) / percentuais.length)
+          : 0;
+
+        return {
+          id: aula.id,
+          titulo: aula.titulo,
+          totalAlunos: percentuais.length,
+          mediaConclusao
+        };
+      })
       .sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
 
     res.json({
       totalAlunos,
       alunosAtivos,
-      aulasPublicadas,
-      taxaConclusao,
+      aulasPublicadas: aulasPublicadasBase.length,
+      taxaConclusao: progressoMedioGeral,
+      progressoMedioAulas,
+      progressoMedioAvaliacoes,
+      progressoMedioGeral,
+      alertasAulasAtrasadas,
+      alertasAvaliacoesAtrasadas,
       alunosAtencao,
       atividadeRecente,
       aulasStats
@@ -445,40 +488,101 @@ router.get('/dashboard', async (_req: AuthRequest, res: Response): Promise<void>
 // GET /api/admin/alunos
 router.get('/alunos', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [alunos, progressoStats, concluidosStats] = await Promise.all([
+    const now = new Date();
+    const [alunos, aulasObrigatorias, progressosPublicados, avaliacoesPublicadas, entregasPublicadas] = await Promise.all([
       prisma.user.findMany({
         where: { papel: 'aluno' },
         select: { id: true, nome: true, email: true, foto: true, telefone: true, ativo: true, criadoEm: true, ultimoAcesso: true },
         orderBy: { criadoEm: 'desc' }
       }),
-      prisma.progressoAluno.groupBy({
-        by: ['alunoId'],
-        _count: { id: true },
-        _avg: { percentualAssistido: true }
+      prisma.aula.findMany({
+        where: {
+          publicado: true,
+          modulo: { obrigatorio: true }
+        },
+        select: {
+          id: true,
+          titulo: true,
+          dataPublicacao: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true, ordem: true } }
+        },
+        orderBy: [{ modulo: { ordem: 'asc' } }, { criadoEm: 'asc' }]
       }),
-      prisma.progressoAluno.groupBy({
-        by: ['alunoId'],
-        where: { concluido: true },
-        _count: { id: true }
+      prisma.progressoAluno.findMany({
+        where: { aula: { publicado: true } },
+        select: {
+          alunoId: true,
+          aulaId: true,
+          percentualAssistido: true,
+          concluido: true
+        }
+      }),
+      prisma.avaliacao.findMany({
+        where: { publicado: true },
+        select: {
+          id: true,
+          titulo: true,
+          tipo: true,
+          dataLimite: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true } },
+          aula: {
+            select: {
+              titulo: true,
+              modulo: { select: { titulo: true } }
+            }
+          }
+        }
+      }),
+      prisma.entregaAvaliacao.findMany({
+        where: { avaliacao: { publicado: true } },
+        select: {
+          alunoId: true,
+          avaliacaoId: true,
+          status: true
+        }
       })
     ]);
 
-    const statsMap = new Map(progressoStats.map((s) => [s.alunoId, s]));
-    const concluidosMap = new Map(concluidosStats.map((s) => [s.alunoId, s._count.id]));
+    const aulasObrigatoriasIds = new Set(aulasObrigatorias.map((aula) => aula.id));
+    const progressosObrigatorios = progressosPublicados.filter((progresso) => aulasObrigatoriasIds.has(progresso.aulaId));
+    const dashboards = buildStudentProgressDashboardIndex({
+      studentIds: alunos.map((aluno) => aluno.id),
+      aulasPublicadas: aulasObrigatorias,
+      progressos: progressosObrigatorios,
+      avaliacoesPublicadas,
+      entregas: entregasPublicadas,
+      now
+    });
 
-    const result = alunos.map((a) => ({
-      id: a.id,
-      nome: a.nome,
-      email: a.email,
-      foto: a.foto,
-      telefone: a.telefone,
-      ativo: a.ativo,
-      criadoEm: a.criadoEm,
-      ultimoAcesso: a.ultimoAcesso,
-      progressoGeral: Math.round(statsMap.get(a.id)?._avg.percentualAssistido || 0),
-      aulasConcluidas: concluidosMap.get(a.id) || 0,
-      totalAulasAcessadas: statsMap.get(a.id)?._count.id || 0
-    }));
+    const result = alunos.map((a) => {
+      const painel = dashboards.get(a.id) ?? buildStudentProgressDashboard({
+        aulasPublicadas: aulasObrigatorias,
+        progressos: [],
+        avaliacoesPublicadas,
+        entregas: [],
+        now
+      });
+
+      return {
+        id: a.id,
+        nome: a.nome,
+        email: a.email,
+        foto: a.foto,
+        telefone: a.telefone,
+        ativo: a.ativo,
+        criadoEm: a.criadoEm,
+        ultimoAcesso: a.ultimoAcesso,
+        progressoAulas: painel.progressoAulas.percentual,
+        progressoAvaliacoes: painel.progressoAvaliacoes.percentual,
+        progressoGeral: painel.progressoGeral,
+        aulasConcluidas: painel.progressoAulas.concluidas,
+        totalAulasAcessadas: progressosObrigatorios.filter((progresso) => progresso.alunoId === a.id).length,
+        aulasAtrasadas: painel.aulasAtrasadas.length,
+        avaliacoesAtrasadas: painel.avaliacoesPendentesAtrasadas.length
+      };
+    });
 
     res.json(result);
   } catch (error) {
@@ -496,7 +600,8 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    const [aluno, modulos] = await Promise.all([
+    const now = new Date();
+    const [aluno, modulos, aulasObrigatorias, avaliacoesPublicadas] = await Promise.all([
       prisma.user.findUnique({
         where: { id: alunoId },
         include: {
@@ -548,6 +653,38 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
           }
         },
         orderBy: { ordem: 'asc' }
+      }),
+      prisma.aula.findMany({
+        where: {
+          publicado: true,
+          modulo: { obrigatorio: true }
+        },
+        select: {
+          id: true,
+          titulo: true,
+          dataPublicacao: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true, ordem: true } }
+        },
+        orderBy: [{ modulo: { ordem: 'asc' } }, { criadoEm: 'asc' }]
+      }),
+      prisma.avaliacao.findMany({
+        where: { publicado: true },
+        select: {
+          id: true,
+          titulo: true,
+          tipo: true,
+          dataLimite: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true } },
+          aula: {
+            select: {
+              titulo: true,
+              modulo: { select: { titulo: true } }
+            }
+          }
+        },
+        orderBy: [{ dataLimite: 'asc' }, { criadoEm: 'desc' }]
       })
     ]);
 
@@ -556,8 +693,24 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
+    const progressosNormalizados = aluno.progressos.map((progresso) => ({
+      ...progresso,
+      percentualAssistido: normalizeLessonPercentual(progresso.percentualAssistido, progresso.concluido),
+      concluido: normalizeLessonPercentual(progresso.percentualAssistido, progresso.concluido) >= 100
+    }));
+
+    const painelProgresso = buildStudentProgressDashboard({
+      aulasPublicadas: aulasObrigatorias,
+      progressos: progressosNormalizados,
+      avaliacoesPublicadas,
+      entregas: aluno.entregasAvaliacao,
+      now
+    });
+
     res.json({
       ...aluno,
+      progressos: progressosNormalizados,
+      painelProgresso,
       relatorioAcademico: {
         frequenciaPorModulo: buildModuleFrequencyReport(modulos),
         entregasResumo: buildDeliverySummary(aluno.entregasAvaliacao),
@@ -2113,24 +2266,106 @@ router.post('/notificacao', async (req: AuthRequest, res: Response): Promise<voi
 // GET /api/admin/relatorios
 router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const now = new Date();
     // Engagement report
-    const aulas = await prisma.aula.findMany({
-      where: { publicado: true },
-      include: { progressos: true, resultadosQuiz: true },
-      orderBy: { criadoEm: 'asc' }
-    });
+    const [aulas, logins, alunos, avaliacoes, aulasObrigatorias] = await Promise.all([
+      prisma.aula.findMany({
+        where: { publicado: true },
+        include: {
+          progressos: {
+            select: {
+              percentualAssistido: true,
+              concluido: true
+            }
+          },
+          resultadosQuiz: true
+        },
+        orderBy: { criadoEm: 'asc' }
+      }),
+      prisma.loginHistorico.findMany({
+        orderBy: { dataHora: 'desc' },
+        take: 100,
+        include: { usuario: { select: { nome: true, email: true } } }
+      }),
+      prisma.user.findMany({
+        where: { papel: 'aluno' },
+        include: {
+          entregasAvaliacao: {
+            select: {
+              alunoId: true,
+              avaliacaoId: true,
+              status: true,
+              nota: true
+            }
+          },
+          progressos: {
+            select: {
+              alunoId: true,
+              aulaId: true,
+              percentualAssistido: true,
+              concluido: true
+            }
+          },
+          presencas: {
+            select: {
+              status: true
+            }
+          }
+        },
+        orderBy: { nome: 'asc' }
+      }),
+      prisma.avaliacao.findMany({
+        where: { publicado: true },
+        include: {
+          modulo: { select: { titulo: true } },
+          aula: { select: { titulo: true, modulo: { select: { titulo: true } } } },
+          entregas: {
+            select: {
+              status: true,
+              nota: true,
+              percentualObjetivo: true
+            }
+          }
+        },
+        orderBy: [
+          { dataLimite: 'asc' },
+          { criadoEm: 'desc' }
+        ]
+      }),
+      prisma.aula.findMany({
+        where: {
+          publicado: true,
+          modulo: { obrigatorio: true }
+        },
+        select: {
+          id: true,
+          titulo: true,
+          dataPublicacao: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true, ordem: true } }
+        },
+        orderBy: [{ modulo: { ordem: 'asc' } }, { criadoEm: 'asc' }]
+      })
+    ]);
 
     const engajamento = aulas.map((a: {
       id: string;
       titulo: string;
-      progressos: Array<{ percentualAssistido: number }>;
+      progressos: Array<{ percentualAssistido: number; concluido: boolean }>;
       resultadosQuiz: Array<{ pontuacao: number; totalQuestoes: number }>;
     }) => ({
       id: a.id,
       titulo: a.titulo,
       totalVisualizacoes: a.progressos.length,
       mediaConclusao: a.progressos.length > 0
-        ? Math.round(a.progressos.reduce((s: number, p: { percentualAssistido: number }) => s + p.percentualAssistido, 0) / a.progressos.length)
+        ? Math.round(
+            a.progressos.reduce(
+              (sum: number, progresso: { percentualAssistido: number; concluido: boolean }) => (
+                sum + normalizeLessonPercentual(progresso.percentualAssistido, progresso.concluido)
+              ),
+              0
+            ) / a.progressos.length
+          )
         : 0,
       mediaQuiz: a.resultadosQuiz.length > 0
         ? Math.round(a.resultadosQuiz.reduce((s: number, r: { pontuacao: number; totalQuestoes: number }) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / a.resultadosQuiz.length)
@@ -2138,54 +2373,7 @@ router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void
       totalQuizzes: a.resultadosQuiz.length
     }));
 
-    // Access report
-    const logins = await prisma.loginHistorico.findMany({
-      orderBy: { dataHora: 'desc' },
-      take: 100,
-      include: { usuario: { select: { nome: true, email: true } } }
-    });
-
-    const alunos = await prisma.user.findMany({
-      where: { papel: 'aluno' },
-      include: {
-        entregasAvaliacao: {
-          select: {
-            status: true,
-            nota: true
-          }
-        },
-        progressos: {
-          select: {
-            concluido: true
-          }
-        },
-        presencas: {
-          select: {
-            status: true
-          }
-        }
-      },
-      orderBy: { nome: 'asc' }
-    });
-
-    const avaliacoes = await prisma.avaliacao.findMany({
-      where: { publicado: true },
-      include: {
-        modulo: { select: { titulo: true } },
-        aula: { select: { titulo: true } },
-        entregas: {
-          select: {
-            status: true,
-            nota: true,
-            percentualObjetivo: true
-          }
-        }
-      },
-      orderBy: [
-        { dataLimite: 'asc' },
-        { criadoEm: 'desc' }
-      ]
-    });
+    const aulasObrigatoriasIds = new Set(aulasObrigatorias.map((aula) => aula.id));
 
     const academicByStudent = alunos.map((aluno) => {
       const totalPresencas = aluno.presencas.length;
@@ -2194,12 +2382,32 @@ router.get('/relatorios', async (_req: AuthRequest, res: Response): Promise<void
         if (presenca.status === 'parcial') return sum + 0.5;
         return sum;
       }, 0);
+      const painelProgresso = buildStudentProgressDashboard({
+        aulasPublicadas: aulasObrigatorias,
+        progressos: aluno.progressos.filter((progresso) => aulasObrigatoriasIds.has(progresso.aulaId)),
+        avaliacoesPublicadas: avaliacoes.map((avaliacao) => ({
+          id: avaliacao.id,
+          titulo: avaliacao.titulo,
+          tipo: avaliacao.tipo,
+          dataLimite: avaliacao.dataLimite,
+          criadoEm: avaliacao.criadoEm,
+          modulo: avaliacao.modulo,
+          aula: avaliacao.aula
+        })),
+        entregas: aluno.entregasAvaliacao,
+        now
+      });
 
       return {
         alunoId: aluno.id,
         nome: aluno.nome,
         email: aluno.email,
-        aulasConcluidas: aluno.progressos.filter((item) => item.concluido).length,
+        aulasConcluidas: painelProgresso.progressoAulas.concluidas,
+        progressoAulas: painelProgresso.progressoAulas.percentual,
+        progressoAvaliacoes: painelProgresso.progressoAvaliacoes.percentual,
+        progressoGeral: painelProgresso.progressoGeral,
+        aulasAtrasadas: painelProgresso.aulasAtrasadas.length,
+        avaliacoesAtrasadas: painelProgresso.avaliacoesPendentesAtrasadas.length,
         frequenciaGeral: totalPresencas > 0 ? Math.round((attendanceScore / totalPresencas) * 100) : 0,
         ...buildDeliverySummary(aluno.entregasAvaliacao)
       };

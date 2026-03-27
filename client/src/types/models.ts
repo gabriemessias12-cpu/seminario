@@ -190,9 +190,49 @@ export interface AlunoListItem {
   nome: string;
   email: string;
   foto?: string | null;
+  telefone?: string | null;
   ativo: boolean;
+  criadoEm?: string;
   ultimoAcesso?: string | null;
+  progressoAulas: number;
+  progressoAvaliacoes: number;
   progressoGeral: number;
+  aulasConcluidas?: number;
+  totalAulasAcessadas?: number;
+  aulasAtrasadas: number;
+  avaliacoesAtrasadas: number;
+}
+
+export interface ProgressMetric {
+  total: number;
+  concluidas: number;
+  pendentes: number;
+  percentual: number;
+}
+
+export interface LessonDelayAlert {
+  aulaId: string;
+  titulo: string;
+  modulo: string;
+  dataPublicacao: string;
+  percentualAssistido: number;
+  concluido: boolean;
+  atrasada: boolean;
+  diasAtraso: number | null;
+  status: 'concluida' | 'em_andamento' | 'nao_iniciada';
+}
+
+export interface AssessmentDelayAlert {
+  avaliacaoId: string;
+  titulo: string;
+  tipo: string;
+  modulo: string;
+  aula?: string | null;
+  dataLimite?: string | null;
+  concluido: boolean;
+  atrasada: boolean;
+  diasAtraso: number | null;
+  statusEntrega: string;
 }
 
 /** Admin dashboard response */
@@ -201,8 +241,23 @@ export interface AdminDashboardData {
   alunosAtivos: number;
   aulasPublicadas: number;
   taxaConclusao: number;
+  progressoMedioAulas: number;
+  progressoMedioAvaliacoes: number;
+  progressoMedioGeral: number;
+  alertasAulasAtrasadas: number;
+  alertasAvaliacoesAtrasadas: number;
   aulasStats: { id: string; titulo: string; mediaConclusao: number }[];
-  alunosAtencao: { id: string; nome: string; email: string; progressoMedio: number }[];
+  alunosAtencao: {
+    id: string;
+    nome: string;
+    email: string;
+    foto?: string | null;
+    progressoAulas: number;
+    progressoAvaliacoes: number;
+    progressoGeral: number;
+    aulasAtrasadas: number;
+    avaliacoesAtrasadas: number;
+  }[];
   atividadeRecente: LoginHistorico[];
 }
 
@@ -211,6 +266,11 @@ export interface StudentDashboardData {
   totalAulas: number;
   aulasConcluidas: number;
   percentualCurso: number;
+  progressoAulas: ProgressMetric;
+  progressoAvaliacoes: ProgressMetric;
+  progressoGeral: number;
+  aulasAtrasadas: LessonDelayAlert[];
+  avaliacoesPendentesAtrasadas: AssessmentDelayAlert[];
   mediaQuiz: number;
   notificacoes: Array<{ id: string; titulo: string; mensagem: string }>;
   proximaAula: { id: string; titulo: string; descricao?: string | null } | null;

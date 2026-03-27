@@ -9,6 +9,7 @@ import { authMiddleware, AuthRequest, generateVideoToken, verifyVideoToken } fro
 import { buildBulletinByModule, buildDeliverySummary, buildModuleFrequencyReport } from '../services/academic-report.js';
 import { askLessonAssistant, getAIConfig } from '../services/ai-mock.js';
 import { aiCreditSettings, consumeAICredit, syncDailyAICredits, updateAIConsent } from '../services/ai-credits.js';
+import { buildStudentProgressDashboard, normalizeLessonPercentual } from '../services/progress-metrics.js';
 import {
   gradeObjectiveAnswers,
   parseObjectiveAnswers,
@@ -188,62 +189,133 @@ router.get('/dashboard', async (req: AuthRequest, res: Response): Promise<void> 
     const userId = req.user!.userId;
     const iaStatus = formatAIStatus(await syncDailyAICredits(prisma, userId));
 
-    const [totalAulas, progressosObrigatorios, progressosGerais] = await Promise.all([
-      prisma.aula.count({
+    const [
+      aulasPublicadas,
+      progressosObrigatorios,
+      avaliacoesPublicadas,
+      entregasAvaliacao,
+      resultados,
+      notificacoes,
+      atividadeRecente
+    ] = await Promise.all([
+      prisma.aula.findMany({
         where: {
           publicado: true,
           modulo: { obrigatorio: true }
-        }
+        },
+        select: {
+          id: true,
+          titulo: true,
+          descricao: true,
+          dataPublicacao: true,
+          criadoEm: true,
+          modulo: {
+            select: {
+              titulo: true,
+              ordem: true
+            }
+          }
+        },
+        orderBy: [{ modulo: { ordem: 'asc' } }, { criadoEm: 'asc' }]
       }),
       prisma.progressoAluno.findMany({
         where: {
           alunoId: userId,
-          aula: { modulo: { obrigatorio: true } }
+          aula: {
+            publicado: true,
+            modulo: { obrigatorio: true }
+          }
         },
         select: {
+          alunoId: true,
+          aulaId: true,
+          percentualAssistido: true,
           concluido: true
         }
       }),
-      prisma.progressoAluno.findMany({ where: { alunoId: userId } })
+      prisma.avaliacao.findMany({
+        where: { publicado: true },
+        select: {
+          id: true,
+          titulo: true,
+          tipo: true,
+          dataLimite: true,
+          criadoEm: true,
+          modulo: { select: { titulo: true } },
+          aula: {
+            select: {
+              titulo: true,
+              modulo: { select: { titulo: true } }
+            }
+          }
+        },
+        orderBy: [{ dataLimite: 'asc' }, { criadoEm: 'desc' }]
+      }),
+      prisma.entregaAvaliacao.findMany({
+        where: {
+          alunoId: userId,
+          avaliacao: { publicado: true }
+        },
+        select: {
+          alunoId: true,
+          avaliacaoId: true,
+          status: true
+        }
+      }),
+      prisma.resultadoQuiz.findMany({ where: { alunoId: userId } }),
+      prisma.notificacao.findMany({
+        where: { alunoId: userId, lida: false },
+        orderBy: { criadaEm: 'desc' },
+        take: 5
+      }),
+      prisma.progressoAluno.findMany({
+        where: { alunoId: userId },
+        include: { aula: { select: { titulo: true, thumbnail: true } } },
+        orderBy: { dataInicio: 'desc' },
+        take: 5
+      })
     ]);
-    const aulasConc = progressosObrigatorios.filter((p: { concluido: boolean }) => p.concluido).length;
-    const resultados = await prisma.resultadoQuiz.findMany({ where: { alunoId: userId } });
+
+    const painelProgresso = buildStudentProgressDashboard({
+      aulasPublicadas,
+      progressos: progressosObrigatorios,
+      avaliacoesPublicadas,
+      entregas: entregasAvaliacao
+    });
+
     const mediaQuiz = resultados.length > 0
       ? Math.round(resultados.reduce((s: number, r: { pontuacao: number; totalQuestoes: number }) => s + (r.pontuacao / r.totalQuestoes * 100), 0) / resultados.length)
       : 0;
 
-    const notificacoes = await prisma.notificacao.findMany({
-      where: { alunoId: userId, lida: false },
-      orderBy: { criadaEm: 'desc' },
-      take: 5
-    });
-
     // Next lesson: first published lesson not completed
-    const completedIds = progressosGerais
-      .filter((p: { concluido: boolean }) => p.concluido)
-      .map((p: { aulaId: string }) => p.aulaId);
-    const proximaAula = await prisma.aula.findFirst({
-      where: { publicado: true, id: { notIn: completedIds } },
-      include: { modulo: true },
-      orderBy: [{ modulo: { ordem: 'asc' } }, { criadoEm: 'asc' }]
-    });
-
-    // Recent activity
-    const atividadeRecente = await prisma.progressoAluno.findMany({
-      where: { alunoId: userId },
-      include: { aula: { select: { titulo: true, thumbnail: true } } },
-      orderBy: { dataInicio: 'desc' },
-      take: 5
-    });
+    const proximaAulaRow = painelProgresso.aulas.find((aula) => !aula.concluido);
+    const proximaAulaBase = proximaAulaRow
+      ? aulasPublicadas.find((aula) => aula.id === proximaAulaRow.aulaId)
+      : null;
 
     res.json({
-      totalAulas,
-      aulasConcluidas: aulasConc,
-      percentualCurso: totalAulas > 0 ? Math.round((aulasConc / totalAulas) * 100) : 0,
+      totalAulas: painelProgresso.progressoAulas.total,
+      aulasConcluidas: painelProgresso.progressoAulas.concluidas,
+      percentualCurso: painelProgresso.progressoAulas.percentual,
+      progressoAulas: painelProgresso.progressoAulas,
+      progressoAvaliacoes: painelProgresso.progressoAvaliacoes,
+      progressoGeral: painelProgresso.progressoGeral,
+      aulasAtrasadas: painelProgresso.aulasAtrasadas,
+      avaliacoesPendentesAtrasadas: painelProgresso.avaliacoesPendentesAtrasadas,
       mediaQuiz,
       notificacoes,
-      proximaAula,
-      atividadeRecente,
+      proximaAula: proximaAulaBase
+        ? {
+            id: proximaAulaBase.id,
+            titulo: proximaAulaBase.titulo,
+            descricao: proximaAulaBase.descricao
+          }
+        : null,
+      atividadeRecente: atividadeRecente.map((item) => ({
+        ...item,
+        percentualAssistido: normalizeLessonPercentual(item.percentualAssistido, item.concluido),
+        concluido: normalizeLessonPercentual(item.percentualAssistido, item.concluido) >= 100
+      })),
       ia: iaStatus
     });
   } catch (error) {
@@ -581,14 +653,17 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
         duracaoSegundos: aula.duracaoSegundos,
         allowFreeSeek: liberaSeek
       });
-      const newPercentual = normalized.percentualAssistido;
-      const concluido = newPercentual >= 95;
+      const newPercentual = normalizeLessonPercentual(normalized.percentualAssistido);
+      const concluido = newPercentual >= 100;
+      const posicaoAtualSegundos = concluido && aula.duracaoSegundos > 0
+        ? aula.duracaoSegundos
+        : normalized.posicaoAtualSegundos;
 
       await prisma.progressoAluno.update({
         where: { id: existing.id },
         data: {
           percentualAssistido: newPercentual,
-          posicaoAtualSegundos: normalized.posicaoAtualSegundos,
+          posicaoAtualSegundos,
           tempoTotalSegundos: existing.tempoTotalSegundos + 5,
           concluido,
           dataConclusao: concluido && !existing.concluido ? new Date() : existing.dataConclusao,
@@ -614,14 +689,18 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
         duracaoSegundos: aula.duracaoSegundos,
         allowFreeSeek: liberaSeek
       });
-      const concluido = normalized.percentualAssistido >= 95;
+      const percentualAssistidoNormalizado = normalizeLessonPercentual(normalized.percentualAssistido);
+      const concluido = percentualAssistidoNormalizado >= 100;
+      const posicaoAtualSegundos = concluido && aula.duracaoSegundos > 0
+        ? aula.duracaoSegundos
+        : normalized.posicaoAtualSegundos;
 
       const progresso = await prisma.progressoAluno.create({
         data: {
           alunoId: userId,
           aulaId,
-          percentualAssistido: normalized.percentualAssistido,
-          posicaoAtualSegundos: normalized.posicaoAtualSegundos,
+          percentualAssistido: percentualAssistidoNormalizado,
+          posicaoAtualSegundos,
           tempoTotalSegundos: 5,
           concluido,
           dataConclusao: concluido ? new Date() : null,

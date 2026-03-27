@@ -4,6 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/apiClient';
 import type { AlunoListItem } from '../../types/models';
 
+function ProgressCell({ value }: { value: number }) {
+  return (
+    <div className="chart-inline-progress">
+      <div className="progress-bar">
+        <div
+          className={`progress-bar-fill ${value >= 95 ? 'completed' : ''}`}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+      <span className="text-sm">{value}%</span>
+    </div>
+  );
+}
+
 export default function AdminAlunos() {
   const navigate = useNavigate();
   const [alunos, setAlunos] = useState<AlunoListItem[]>([]);
@@ -24,7 +38,7 @@ export default function AdminAlunos() {
     setLoadError('');
     apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
-      .catch(() => setLoadError('Não foi possível carregar a lista de alunos agora.'))
+      .catch(() => setLoadError('Nao foi possivel carregar a lista de alunos agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -38,39 +52,38 @@ export default function AdminAlunos() {
   }, [search]);
 
   const filtered = useMemo(
-    () =>
-      alunos.filter(
-        (aluno) =>
-          aluno.nome.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-          aluno.email.toLowerCase().includes(debouncedSearch.toLowerCase())
-      ),
+    () => alunos.filter((aluno) => (
+      aluno.nome.toLowerCase().includes(debouncedSearch.toLowerCase())
+      || aluno.email.toLowerCase().includes(debouncedSearch.toLowerCase())
+    )),
     [alunos, debouncedSearch]
   );
 
   const toggleStatus = async (id: string) => {
     try {
       await apiPut(`/api/admin/aluno/${id}/toggle`);
-      setAlunos((current) =>
-        current.map((aluno) => (aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno))
-      );
+      setAlunos((current) => current.map((aluno) => (
+        aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno
+      )));
     } catch {
-      setFeedback('Não foi possível atualizar o status do aluno.');
+      setFeedback('Nao foi possivel atualizar o status do aluno.');
     }
   };
 
   const deleteAluno = async (id: string) => {
-    if (!window.confirm('Excluir aluno permanentemente? Esta ação remove o acesso e os dados do aluno.')) {
+    if (!window.confirm('Excluir aluno permanentemente? Esta acao remove o acesso e os dados do aluno.')) {
       return;
     }
 
     setDeletingId(id);
     setFeedback('');
+
     try {
       await apiDelete(`/api/admin/aluno/${id}`);
       setAlunos((current) => current.filter((aluno) => aluno.id !== id));
-      setFeedback('Aluno excluído com sucesso.');
+      setFeedback('Aluno excluido com sucesso.');
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Não foi possível excluir o aluno.');
+      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel excluir o aluno.');
     } finally {
       setDeletingId(null);
     }
@@ -82,13 +95,13 @@ export default function AdminAlunos() {
     setFeedback('');
 
     try {
-      const data = await apiPost<{ senhaTemporaria?: string; error?: string }>('/api/admin/aluno', {
+      const data = await apiPost<{ senhaTemporaria?: string }>('/api/admin/aluno', {
         nome,
         email,
         telefone,
         senha
       });
-      setFeedback(`Aluno criado com sucesso. Senha temporária: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
+      setFeedback(`Aluno criado com sucesso. Senha temporaria: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
       setNome('');
       setEmail('');
       setTelefone('');
@@ -106,7 +119,7 @@ export default function AdminAlunos() {
     <>
       <div className="page-header page-header-split">
         <div>
-          <h1>Gestão de Alunos</h1>
+          <h1>Gestao de Alunos</h1>
           <p>{alunos.length} alunos cadastrados</p>
         </div>
         <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)} type="button">
@@ -115,7 +128,6 @@ export default function AdminAlunos() {
       </div>
 
       {loadError && <div className="inline-feedback warning">{loadError}</div>}
-
       {feedback && <div className="inline-feedback warning">{feedback}</div>}
 
       {showForm && (
@@ -125,14 +137,14 @@ export default function AdminAlunos() {
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label">Nome</label>
-                <input className="form-input" value={nome} onChange={(e) => setNome(e.target.value)} required />
+                <input className="form-input" value={nome} onChange={(event) => setNome(event.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Telefone</label>
                 <input
                   className="form-input"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(event) => setTelefone(event.target.value)}
                   placeholder="(11) 99999-0000"
                 />
               </div>
@@ -140,11 +152,11 @@ export default function AdminAlunos() {
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input className="form-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input className="form-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Senha inicial</label>
-                <input className="form-input" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+                <input className="form-input" value={senha} onChange={(event) => setSenha(event.target.value)} required />
               </div>
             </div>
             <button className="btn btn-primary" type="submit" disabled={saving}>
@@ -158,7 +170,7 @@ export default function AdminAlunos() {
         <input
           className="form-input"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por nome ou email"
           aria-label="Buscar alunos por nome ou email"
         />
@@ -174,10 +186,13 @@ export default function AdminAlunos() {
                 <tr>
                   <th>Aluno</th>
                   <th>Email</th>
-                  <th>Progresso</th>
-                  <th>Último acesso</th>
+                  <th>Aulas</th>
+                  <th>Avaliacoes</th>
+                  <th>Geral</th>
+                  <th>Atrasos</th>
+                  <th>Ultimo acesso</th>
                   <th>Status</th>
-                  <th>Ações</th>
+                  <th>Acoes</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,15 +219,16 @@ export default function AdminAlunos() {
                         </div>
                       </td>
                       <td className="text-muted">{aluno.email}</td>
+                      <td><ProgressCell value={aluno.progressoAulas} /></td>
+                      <td><ProgressCell value={aluno.progressoAvaliacoes} /></td>
+                      <td><ProgressCell value={aluno.progressoGeral} /></td>
                       <td>
-                        <div className="chart-inline-progress">
-                          <div className="progress-bar">
-                            <div
-                              className={`progress-bar-fill ${aluno.progressoGeral >= 95 ? 'completed' : ''}`}
-                              style={{ width: `${aluno.progressoGeral}%` }}
-                            />
-                          </div>
-                          <span className="text-sm">{aluno.progressoGeral}%</span>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {aluno.aulasAtrasadas > 0 && <span className="badge badge-error">{aluno.aulasAtrasadas} aulas</span>}
+                          {aluno.avaliacoesAtrasadas > 0 && <span className="badge badge-warning">{aluno.avaliacoesAtrasadas} avaliacoes</span>}
+                          {aluno.aulasAtrasadas === 0 && aluno.avaliacoesAtrasadas === 0 && (
+                            <span className="badge badge-success">Em dia</span>
+                          )}
                         </div>
                       </td>
                       <td className="text-muted" style={{ fontSize: '0.85rem' }}>
@@ -246,7 +262,7 @@ export default function AdminAlunos() {
                   ))
                 ) : (
                   <tr>
-                    <td className="text-muted" colSpan={6}>
+                    <td className="text-muted" colSpan={9}>
                       Nenhum aluno corresponde ao filtro atual.
                     </td>
                   </tr>
@@ -283,15 +299,30 @@ export default function AdminAlunos() {
                       {aluno.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
-                  <div className="chart-inline-progress">
-                    <div className="progress-bar" style={{ flex: 1 }}>
-                      <div
-                        className={`progress-bar-fill ${aluno.progressoGeral >= 95 ? 'completed' : ''}`}
-                        style={{ width: `${aluno.progressoGeral}%` }}
-                      />
+
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    <div>
+                      <span className="text-muted text-sm">Aulas</span>
+                      <ProgressCell value={aluno.progressoAulas} />
                     </div>
-                    <span className="text-sm">{aluno.progressoGeral}%</span>
+                    <div>
+                      <span className="text-muted text-sm">Avaliacoes</span>
+                      <ProgressCell value={aluno.progressoAvaliacoes} />
+                    </div>
+                    <div>
+                      <span className="text-muted text-sm">Geral</span>
+                      <ProgressCell value={aluno.progressoGeral} />
+                    </div>
                   </div>
+
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.85rem' }}>
+                    {aluno.aulasAtrasadas > 0 && <span className="badge badge-error">{aluno.aulasAtrasadas} aulas atrasadas</span>}
+                    {aluno.avaliacoesAtrasadas > 0 && <span className="badge badge-warning">{aluno.avaliacoesAtrasadas} avaliacoes atrasadas</span>}
+                    {aluno.aulasAtrasadas === 0 && aluno.avaliacoesAtrasadas === 0 && (
+                      <span className="badge badge-success">Sem atrasos</span>
+                    )}
+                  </div>
+
                   <div className="admin-list-card-actions">
                     <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">
                       Ver detalhes

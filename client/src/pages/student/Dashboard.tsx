@@ -7,6 +7,18 @@ import { useAuth } from '../../contexts/AuthContext';
 import { apiGet, apiPut } from '../../lib/apiClient';
 import type { Modulo, StudentDashboardData } from '../../types/models';
 
+function formatDate(value?: string | null) {
+  return value ? new Date(value).toLocaleDateString('pt-BR') : 'Sem data';
+}
+
+function formatDelay(days?: number | null) {
+  if (!days) {
+    return 'Atraso recente';
+  }
+
+  return `${days} ${days === 1 ? 'dia' : 'dias'} de atraso`;
+}
+
 export default function StudentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -18,6 +30,7 @@ export default function StudentDashboard() {
   const loadData = () => {
     setLoading(true);
     setError('');
+
     Promise.all([
       apiGet<StudentDashboardData>('/api/aluno/dashboard'),
       apiGet<Modulo[]>('/api/aluno/aulas')
@@ -26,7 +39,7 @@ export default function StudentDashboard() {
         setData(dashboard);
         setModulos(aulas);
       })
-      .catch(() => setError('Não foi possível carregar o painel do aluno agora.'))
+      .catch(() => setError('Nao foi possivel carregar o painel do aluno agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -39,46 +52,39 @@ export default function StudentDashboard() {
       await apiPut(`/api/aluno/notificacao/${id}/lida`);
       loadData();
     } catch {
-      setError('Não foi possível atualizar a notificação.');
+      setError('Nao foi possivel atualizar a notificacao.');
     }
   };
 
   const firstName = user?.nome?.split(' ')[0] || 'Aluno';
   const totalTrilhas = modulos.length;
+  const aulasAtrasadas = data?.aulasAtrasadas || [];
+  const avaliacoesAtrasadas = data?.avaliacoesPendentesAtrasadas || [];
 
-  const aulasEmFalta = useMemo(() => {
-    const faltas: any[] = [];
-    modulos.forEach(modulo => {
-      (modulo.aulas ?? []).forEach((aula: any) => {
-        const presenca = aula.presencas?.[0];
-        const progresso = aula.progressos?.[0];
-        if (presenca?.status === 'ausente' && !progresso?.concluido) {
-          faltas.push({ ...aula, moduloTitulo: modulo.titulo });
-        }
-      });
-    });
-    return faltas;
-  }, [modulos]);
-
-  const cards = useMemo(() => {
-    return [
-      {
-        label: 'Conteúdos concluídos',
-        value: data ? `${data.aulasConcluidas}/${data.totalAulas}` : '--',
-        icon: 'library' as const
-      },
-      {
-        label: 'Progresso total',
-        value: data ? `${data.percentualCurso}%` : '--',
-        icon: 'dashboard' as const
-      },
-      {
-        label: 'Média nos quizzes',
-        value: data ? `${data.mediaQuiz}%` : '--',
-        icon: 'target' as const
-      }
-    ];
-  }, [data]);
+  const cards = useMemo(() => ([
+    {
+      label: data ? `Aulas (${data.progressoAulas.concluidas}/${data.progressoAulas.total})` : 'Progresso de aulas',
+      value: data ? `${data.progressoAulas.percentual}%` : '--',
+      icon: 'library' as const
+    },
+    {
+      label: data
+        ? `Trabalhos e provas (${data.progressoAvaliacoes.concluidas}/${data.progressoAvaliacoes.total})`
+        : 'Trabalhos e provas',
+      value: data ? `${data.progressoAvaliacoes.percentual}%` : '--',
+      icon: 'dashboard' as const
+    },
+    {
+      label: 'Progresso geral',
+      value: data ? `${data.progressoGeral}%` : '--',
+      icon: 'reports' as const
+    },
+    {
+      label: 'Media nos quizzes',
+      value: data ? `${data.mediaQuiz}%` : '--',
+      icon: 'target' as const
+    }
+  ]), [data]);
 
   if (loading) {
     return (
@@ -99,20 +105,21 @@ export default function StudentDashboard() {
       <Sidebar type="student" />
       <main className="main-content student-main">
         {error && <div className="inline-feedback warning">{error}</div>}
+
         <section className="student-topbar">
           <div>
-            <span className="section-kicker">IBVN - Seminário Teológico</span>
-            <h1 className="student-page-title">Olá, {firstName}</h1>
+            <span className="section-kicker">IBVN - Seminario Teologico</span>
+            <h1 className="student-page-title">Ola, {firstName}</h1>
             <p className="student-page-subtitle">
-              Continue sua formação com conteúdo organizado por trilhas e materiais de apoio.
+              Continue sua formacao com conteudo organizado por trilhas, prazos e progresso consolidado.
             </p>
           </div>
 
           <div className="student-topbar-actions">
-            <button aria-label="Abrir conteúdos" className="icon-button" type="button" onClick={() => navigate('/aulas')}>
+            <button aria-label="Abrir conteudos" className="icon-button" type="button" onClick={() => navigate('/aulas')}>
               <AppIcon name="search" size={18} />
             </button>
-            <button aria-label="Abrir perfil e notificações" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
+            <button aria-label="Abrir perfil e notificacoes" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
               <AppIcon name="bell" size={18} />
             </button>
             <button aria-label="Abrir perfil" className="profile-chip" type="button" onClick={() => navigate('/perfil')}>
@@ -123,30 +130,34 @@ export default function StudentDashboard() {
 
         <section className="student-hero">
           <div className="student-hero-copy">
-            <h2>Ambiente de estudos com trilhas e materiais completos.</h2>
+            <h2>Ambiente de estudos com aulas, trabalhos e provas acompanhados no mesmo painel.</h2>
             <p>
-              A plataforma agora separa seus conteúdos em uma estrutura mais profissional, com foco em continuidade e
-              revisão de conteúdo por aula.
+              Seu progresso agora combina o que foi assistido com as entregas academicas pendentes e concluidas.
             </p>
 
             <div className="hero-progress-panel">
               <div className="hero-progress-header">
                 <span>Progresso geral</span>
-                <strong>{data?.percentualCurso || 0}%</strong>
+                <strong>{data?.progressoGeral || 0}%</strong>
               </div>
               <div className="progress-bar progress-bar-large">
-                <div className="progress-bar-fill" style={{ width: `${data?.percentualCurso || 0}%` }} />
+                <div className="progress-bar-fill" style={{ width: `${data?.progressoGeral || 0}%` }} />
               </div>
               <div className="hero-progress-meta">
-                <span>{data?.aulasConcluidas || 0} aulas concluídas</span>
+                <span>{data?.progressoAulas.percentual || 0}% nas aulas</span>
+                <span>{data?.progressoAvaliacoes.percentual || 0}% em trabalhos e provas</span>
                 <span>{totalTrilhas} trilhas liberadas</span>
               </div>
             </div>
 
             <div className="student-hero-actions">
-              <button className="btn btn-primary btn-lg" type="button" onClick={() => navigate(data?.proximaAula ? `/aula/${data.proximaAula.id}` : '/aulas')}>
+              <button
+                className="btn btn-primary btn-lg"
+                type="button"
+                onClick={() => navigate(data?.proximaAula ? `/aula/${data.proximaAula.id}` : '/aulas')}
+              >
                 <AppIcon name="play" size={16} />
-                <span>{data?.proximaAula ? 'Continuar assistindo' : 'Explorar conteúdos'}</span>
+                <span>{data?.proximaAula ? 'Continuar assistindo' : 'Explorar conteudos'}</span>
               </button>
             </div>
           </div>
@@ -154,15 +165,15 @@ export default function StudentDashboard() {
           <div className="student-hero-side">
             <div className="hero-course-card">
               <div className="hero-course-card-header">
-                <span className="pill">Próxima aula</span>
-                <span className="pill subtle">{data?.proximaAula ? 'Liberada' : 'Concluída'}</span>
+                <span className="pill">Proxima aula</span>
+                <span className="pill subtle">{data?.proximaAula ? 'Liberada' : 'Concluida'}</span>
               </div>
-              <h3>{data?.proximaAula?.titulo || 'Curso concluído'}</h3>
+              <h3>{data?.proximaAula?.titulo || 'Curso concluido'}</h3>
               <p>
-                {data?.proximaAula?.descricao || 'Você terminou todas as aulas publicadas. Revise materiais e resultados.'}
+                {data?.proximaAula?.descricao || 'Voce terminou todas as aulas publicadas. Revise materiais e resultados.'}
               </p>
               {data?.proximaAula && (
-                <button className="btn btn-accent" type="button" onClick={() => navigate(`/aula/${data.proximaAula!.id}`)}>
+                <button className="btn btn-accent" type="button" onClick={() => navigate(`/aula/${data.proximaAula?.id}`)}>
                   <AppIcon name="chevron-right" size={16} />
                   <span>Acessar aula</span>
                 </button>
@@ -171,26 +182,68 @@ export default function StudentDashboard() {
           </div>
         </section>
 
-        {aulasEmFalta.length > 0 && (
+        {aulasAtrasadas.length > 0 && (
           <section className="student-section" style={{ marginTop: '2rem' }}>
             <div className="student-section-header">
               <div>
-                <span className="section-kicker" style={{ color: 'var(--color-error)' }}>Atenção</span>
-                <h2>Aulas em falta</h2>
-                <p className="text-muted text-sm">Você possui faltas registradas nestas aulas. Assista para revisar o conteúdo.</p>
+                <span className="section-kicker" style={{ color: 'var(--color-error)' }}>Atencao</span>
+                <h2>Aulas atrasadas</h2>
+                <p className="text-muted text-sm">Estas aulas ja foram publicadas e ainda nao foram concluidas.</p>
               </div>
             </div>
             <div className="card-grid">
-              {aulasEmFalta.map(aula => (
-                <article key={aula.id} className="panel-card" style={{ borderLeft: '4px solid var(--color-error)' }}>
+              {aulasAtrasadas.map((aula) => (
+                <article key={aula.aulaId} className="panel-card" style={{ borderLeft: '4px solid var(--color-error)' }}>
                   <div style={{ padding: '1.25rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                      <span className="pill subtle" style={{ fontSize: '0.7rem' }}>{aula.moduloTitulo}</span>
-                      <span className="badge badge-error">Falta registrada</span>
+                      <span className="pill subtle" style={{ fontSize: '0.7rem' }}>{aula.modulo}</span>
+                      <span className="badge badge-error">{formatDelay(aula.diasAtraso)}</span>
                     </div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>{aula.titulo}</h3>
-                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/aula/${aula.id}`)}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>{aula.titulo}</h3>
+                    <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+                      Publicada em {formatDate(aula.dataPublicacao)} · {aula.percentualAssistido}% concluido
+                    </p>
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(`/aula/${aula.aulaId}`)} type="button">
                       Assistir aula
+                      <AppIcon name="chevron-right" size={14} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {avaliacoesAtrasadas.length > 0 && (
+          <section className="student-section" style={{ marginTop: '2rem' }}>
+            <div className="student-section-header">
+              <div>
+                <span className="section-kicker" style={{ color: 'var(--color-warning)' }}>Prazos</span>
+                <h2>Trabalhos e provas pendentes</h2>
+                <p className="text-muted text-sm">Estas avaliacoes estao vencidas e ainda aguardam sua entrega.</p>
+              </div>
+              <button className="text-link-button" type="button" onClick={() => navigate('/avaliacoes')}>
+                Abrir avaliacoes
+                <AppIcon name="chevron-right" size={16} />
+              </button>
+            </div>
+            <div className="card-grid">
+              {avaliacoesAtrasadas.map((avaliacao) => (
+                <article key={avaliacao.avaliacaoId} className="panel-card" style={{ borderLeft: '4px solid var(--color-warning)' }}>
+                  <div style={{ padding: '1.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span className={`badge ${avaliacao.tipo === 'prova' ? 'badge-warning' : 'badge-info'}`}>{avaliacao.tipo}</span>
+                        <span className="pill subtle" style={{ fontSize: '0.7rem' }}>{avaliacao.modulo}</span>
+                      </div>
+                      <span className="badge badge-error">{formatDelay(avaliacao.diasAtraso)}</span>
+                    </div>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>{avaliacao.titulo}</h3>
+                    <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
+                      Prazo: {formatDate(avaliacao.dataLimite)} · Status: {avaliacao.statusEntrega}
+                    </p>
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate('/avaliacoes')} type="button">
+                      Resolver agora
                       <AppIcon name="chevron-right" size={14} />
                     </button>
                   </div>
@@ -221,7 +274,7 @@ export default function StudentDashboard() {
               <h2>Estrutura do curso</h2>
             </div>
             <button className="text-link-button" type="button" onClick={() => navigate('/aulas')}>
-              Ver todos os conteúdos
+              Ver todos os conteudos
               <AppIcon name="chevron-right" size={16} />
             </button>
           </div>
@@ -247,13 +300,16 @@ export default function StudentDashboard() {
                     }
                   }}
                 >
-                  <div className="track-card-visual" style={{ 
-                    backgroundImage: modulo.capaUrl ? `url(${modulo.capaUrl})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
+                  <div
+                    className="track-card-visual"
+                    style={{
+                      backgroundImage: modulo.capaUrl ? `url(${modulo.capaUrl})` : 'none',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
                     {!modulo.capaUrl && <span className="track-card-index">{String(index + 1).padStart(2, '0')}</span>}
                     {modulo.capaUrl && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />}
                     <div className="track-card-glow" />
@@ -266,9 +322,9 @@ export default function StudentDashboard() {
                       <div className="progress-bar">
                         <div className="progress-bar-fill" style={{ width: `${progresso}%` }} />
                       </div>
-                      <span>{progresso}% concluído</span>
+                      <span>{progresso}% concluido</span>
                     </div>
-                    {destaque && <small>Próximo conteúdo: {destaque.titulo}</small>}
+                    {destaque && <small>Proximo conteudo: {destaque.titulo}</small>}
                   </div>
                 </article>
               );
@@ -305,7 +361,10 @@ export default function StudentDashboard() {
                     <div className="lesson-list-content">
                       <strong>{item.aula?.titulo}</strong>
                       <div className="progress-bar">
-                        <div className={`progress-bar-fill ${item.concluido ? 'completed' : ''}`} style={{ width: `${item.percentualAssistido}%` }} />
+                        <div
+                          className={`progress-bar-fill ${item.concluido ? 'completed' : ''}`}
+                          style={{ width: `${item.percentualAssistido}%` }}
+                        />
                       </div>
                     </div>
                     <span>{Math.round(item.percentualAssistido)}%</span>
@@ -324,7 +383,7 @@ export default function StudentDashboard() {
             <div className="student-section-header compact">
               <div>
                 <span className="section-kicker">Avisos</span>
-                <h2>Notificações recentes</h2>
+                <h2>Notificacoes recentes</h2>
               </div>
             </div>
 
@@ -339,9 +398,9 @@ export default function StudentDashboard() {
                       <strong>{item.titulo}</strong>
                       <p>{item.mensagem}</p>
                     </div>
-                    <button 
+                    <button
                       aria-label={`Marcar aviso ${item.titulo} como lido`}
-                      className="icon-button" 
+                      className="icon-button"
                       onClick={() => handleMarkRead(item.id)}
                       title="Marcar como lida"
                       type="button"
@@ -353,7 +412,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="empty-panel">
                   <AppIcon name="check" size={20} />
-                  <p>Não há notificações novas no momento.</p>
+                  <p>Nao ha notificacoes novas no momento.</p>
                 </div>
               )}
             </div>
