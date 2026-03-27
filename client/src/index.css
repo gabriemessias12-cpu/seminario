@@ -3795,24 +3795,24 @@ body {
   min-width: 260px;
   flex: 0 0 auto;
   display: block;
-  transition: transform var(--transition-fast);
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.26);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .landing-poster-card:hover {
   transform: translateY(-4px);
+  box-shadow: 0 34px 54px rgba(0, 0, 0, 0.3);
 }
 
 .landing-poster-image {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.26);
-}
-
-.landing-poster-card:hover .landing-poster-image {
-  box-shadow: 0 34px 54px rgba(0, 0, 0, 0.3);
+  object-fit: cover;
 }
 
 .landing-poster-collage {
@@ -4431,9 +4431,6 @@ body {
   .landing-poster-card {
     min-width: 220px;
     width: min(248px, 76vw);
-  }
-
-  .landing-poster-image {
     border-radius: 24px;
   }
 

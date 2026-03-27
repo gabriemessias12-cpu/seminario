@@ -15,18 +15,14 @@ interface LeadershipSlide {
 }
 
 const posterImages = [
-  '/brand/1.jpg',
-  '/brand/2.jpg',
-  '/brand/3.jpg',
-  '/brand/carrossel.jpg',
   '/brand/carrossel1.jpg',
   '/brand/carrossel2.jpg',
   '/brand/carrossel3.jpg',
-  '/brand/DSC07325.jpg',
-  '/brand/DSC07326.jpg',
-  '/brand/DSC07327.jpg',
-  '/brand/WhatsApp%20Image%202026-03-26%20at%2011.23.59%20(1).jpeg',
-  '/brand/WhatsApp%20Image%202026-03-26%20at%2011.23.58%20(2).jpeg'
+  '/brand/carrossel4.jpeg',
+  '/brand/carrossel5.jpeg',
+  '/brand/carrossel6.jpg',
+  '/brand/carrossel7.jpg',
+  '/brand/carrossel8.jpg'
 ];
 
 const DEFAULT_SLIDES: LeadershipSlide[] = [
