@@ -61,6 +61,8 @@ export default function StudentAulaPlayer() {
   const youtubeInterval = useRef<number | null>(null);
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
+  const sessionTrackedRef = useRef(false);
+  const playbackStartedRef = useRef(false);
 
   const [aula, setAula] = useState<any>(null);
   const [playlist, setPlaylist] = useState<any[]>([]);
@@ -117,6 +119,8 @@ export default function StudentAulaPlayer() {
     setLessonFeedback('');
     currentTimeRef.current = 0;
     durationRef.current = 0;
+    sessionTrackedRef.current = false;
+    playbackStartedRef.current = false;
 
     const controller = new AbortController();
     let isMounted = true;
@@ -175,17 +179,28 @@ export default function StudentAulaPlayer() {
   const saveProgress = useCallback((percentual: number, posicao: number, pausou = false) => {
     if (!id) return;
 
+    const novaSessao = playbackStartedRef.current && !sessionTrackedRef.current;
+
     apiPost<any>('/api/aluno/progresso', {
       aulaId: id,
       percentualAssistido: percentual,
       posicaoAtualSegundos: posicao,
-      pausou
+      pausou,
+      novaSessao
     })
       .then((data) => {
+        sessionTrackedRef.current = true;
         if (data.concluido) setCompleted(true);
         setMaxWatched((current: number) => Math.max(current, data.percentualAssistido || percentual));
+        setLessonFeedback((current) => (
+          current === 'Nao foi possivel sincronizar seu progresso agora. Vamos tentar novamente automaticamente.'
+            ? ''
+            : current
+        ));
       })
-      .catch(() => {});
+      .catch(() => {
+        setLessonFeedback('Nao foi possivel sincronizar seu progresso agora. Vamos tentar novamente automaticamente.');
+      });
   }, [id]);
 
   const saveCurrentProgress = useCallback((pausou = false) => {
@@ -222,6 +237,27 @@ export default function StudentAulaPlayer() {
     progressInterval.current = window.setInterval(() => saveCurrentProgress(false), 30000);
     return () => {
       if (progressInterval.current) clearInterval(progressInterval.current);
+    };
+  }, [playing, saveCurrentProgress]);
+
+  useEffect(() => {
+    const flushProgress = () => {
+      if (playbackStartedRef.current) {
+        saveCurrentProgress(true);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushProgress();
+      }
+    };
+
+    window.addEventListener('pagehide', flushProgress);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flushProgress);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [playing, saveCurrentProgress]);
 
@@ -329,6 +365,7 @@ export default function StudentAulaPlayer() {
             if (cancelled || !window.YT?.PlayerState) return;
 
             if (event.data === window.YT.PlayerState.PLAYING) {
+              playbackStartedRef.current = true;
               setPlaying(true);
               return;
             }
@@ -428,6 +465,7 @@ export default function StudentAulaPlayer() {
         setPlaying(false);
         saveCurrentProgress(true);
       } else {
+        playbackStartedRef.current = true;
         player.playVideo();
         setPlaying(true);
       }
@@ -439,6 +477,7 @@ export default function StudentAulaPlayer() {
         setPlaying(false);
         saveCurrentProgress(true);
       } else {
+        playbackStartedRef.current = true;
         setPlaying(true);
       }
       return;
@@ -447,6 +486,7 @@ export default function StudentAulaPlayer() {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
+      playbackStartedRef.current = true;
       void video.play();
       setPlaying(true);
     } else {
@@ -532,11 +572,15 @@ export default function StudentAulaPlayer() {
       if (selected !== undefined && question.alternativas[selected]?.correta) score += 1;
     });
 
-    apiPost('/api/aluno/quiz', { aulaId: id, respostas: quizAnswers, pontuacao: score, totalQuestoes: quizData.length })
-      .catch(() => {});
-
     setQuizScore(score);
     setQuizSubmitted(true);
+    apiPost<any>('/api/aluno/quiz', { aulaId: id, respostas: quizAnswers })
+      .then((resultado) => {
+        setQuizScore(resultado.pontuacao);
+      })
+      .catch(() => {
+        setLessonFeedback('Nao foi possivel registrar o resultado do quiz agora.');
+      });
   };
 
   const saveNotes = () => {

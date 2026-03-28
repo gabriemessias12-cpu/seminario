@@ -32,6 +32,19 @@ export default function AdminChamada() {
   }, []);
 
   useEffect(() => {
+    if (!selectedAula || selectedModulo) return;
+
+    apiGet<any[]>('/api/admin/aulas')
+      .then((data) => {
+        const modulo = data.find((item: any) => item.aulas?.some((aula: any) => aula.id === selectedAula));
+        if (!modulo) return;
+        setSelectedModulo(modulo.id);
+        setAulas(modulo.aulas || []);
+      })
+      .catch(() => {});
+  }, [selectedAula, selectedModulo]);
+
+  useEffect(() => {
     if (!selectedModulo) { setAulas([]); setPresencas([]); return; }
     apiGet<any[]>('/api/admin/aulas')
       .then((data) => {
@@ -86,6 +99,8 @@ export default function AdminChamada() {
     parciais: presencas.filter((presenca) => presenca.status === 'parcial').length,
     ausentes: presencas.filter((presenca) => presenca.status === 'ausente').length
   };
+  const hasSelection = Boolean(selectedModulo || selectedAula);
+  const shouldRenderTable = editMode ? Boolean(selectedAula) : presencas.length > 0;
 
   const statusColors: Record<string, string> = {
     presente: 'badge-success',
@@ -183,7 +198,7 @@ export default function AdminChamada() {
           </div>
         )}
 
-        {!selectedModulo ? (
+        {!hasSelection ? (
           <div className="empty-state">
             <div className="icon">C</div>
             <h3>Selecione um módulo</h3>
@@ -191,7 +206,7 @@ export default function AdminChamada() {
           </div>
         ) : loading ? (
           <div className="skeleton" style={{ height: 200 }} />
-        ) : presencas.length === 0 ? (
+        ) : !shouldRenderTable ? (
           <div className="empty-state">
             <div className="icon">0</div>
             <h3>Nenhum registro encontrado</h3>
@@ -260,6 +275,13 @@ export default function AdminChamada() {
                               type="button"
                             >
                               Meet
+                            </button>
+                            <button
+                              className={`btn btn-sm ${currentStatus === 'parcial' ? 'btn-primary' : 'btn-outline'}`}
+                              onClick={() => updateManual(aluno.id, 'parcial', currentMetodo === 'presencial' ? 'presencial' : 'meet')}
+                              type="button"
+                            >
+                              Parcial
                             </button>
                             <button 
                               className={`btn btn-sm ${currentStatus === 'ausente' ? 'btn-accent' : 'btn-outline'}`}

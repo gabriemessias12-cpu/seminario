@@ -53,6 +53,7 @@ const uploadAvatar = multer({
 type ModuloComAulas = {
   aulas: Array<{
     presencas: Array<{ status: string; metodo: string; percentual: number }>;
+    progressos?: Array<{ percentualAssistido: number; concluido: boolean }>;
     [key: string]: unknown;
   }>;
   [key: string]: unknown;
@@ -178,6 +179,33 @@ function buildPresenceUpdate(percentual: number, presencaAtual?: { status: strin
     percentual,
     registradoEm: new Date()
   };
+}
+
+function normalizeProgressRecord<T extends { percentualAssistido: number; concluido: boolean }>(progresso: T) {
+  const percentualAssistido = normalizeLessonPercentual(progresso.percentualAssistido, progresso.concluido);
+  return {
+    ...progresso,
+    percentualAssistido,
+    concluido: percentualAssistido >= 100
+  };
+}
+
+function getObjectiveExamDurationSeconds(tempoLimiteMinutos?: number | null) {
+  return (tempoLimiteMinutos ?? 90) * 60;
+}
+
+function getRemainingExamSeconds(params: {
+  startedAt: Date;
+  tempoLimiteMinutos?: number | null;
+  now?: Date;
+}) {
+  const now = params.now ?? new Date();
+  const expiresAt = params.startedAt.getTime() + (getObjectiveExamDurationSeconds(params.tempoLimiteMinutos) * 1000);
+  return Math.max(Math.ceil((expiresAt - now.getTime()) / 1000), 0);
+}
+
+function isPastDeadline(dataLimite?: Date | null, now = new Date()) {
+  return Boolean(dataLimite && dataLimite.getTime() < now.getTime());
 }
 
 // All routes require auth
@@ -358,6 +386,7 @@ router.get('/aulas', async (req: AuthRequest, res: Response): Promise<void> => {
           const presenca = aula.presencas[0] || null;
           return {
             ...aula,
+            progressos: (aula.progressos || []).map((progresso) => normalizeProgressRecord(progresso)),
             controleVideo: {
               liberaSeek: hasAttendanceUnlock(presenca),
               permiteConclusaoManual: hasAttendanceUnlock(presenca)
@@ -441,8 +470,10 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
     const videoStreamUrl = videoTipo === 'upload'
       ? `/api/aluno/aula/${aula.id}/video?token=${generateVideoToken({ userId, aulaId: aula.id })}`
       : null;
+    const progressosNormalizados = aula.progressos.map((progresso) => normalizeProgressRecord(progresso));
     res.json({
       ...aula,
+      progressos: progressosNormalizados,
       materiaisAula: materiaisCompletos,
       urlVideo: null,
       videoTipo,
@@ -621,7 +652,7 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
 router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
-    const { aulaId, percentualAssistido, posicaoAtualSegundos, pausou } = req.body;
+    const { aulaId, percentualAssistido, posicaoAtualSegundos, pausou, novaSessao } = req.body;
 
     const aula = await prisma.aula.findUnique({
       where: { id: aulaId },
@@ -639,6 +670,7 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
     const liberaSeek = hasAttendanceUnlock(presencaAtual);
     const requestedPercentual = toFiniteNumber(percentualAssistido, 0);
     const requestedPosicao = toFiniteNumber(posicaoAtualSegundos, 0);
+    const shouldIncrementSession = Boolean(novaSessao);
 
     const existing = await prisma.progressoAluno.findUnique({
       where: { alunoId_aulaId: { alunoId: userId, aulaId } }
@@ -658,15 +690,18 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
       const posicaoAtualSegundos = concluido && aula.duracaoSegundos > 0
         ? aula.duracaoSegundos
         : normalized.posicaoAtualSegundos;
+      const deltaTempo = Math.max(0, Math.round(posicaoAtualSegundos - existing.posicaoAtualSegundos));
+      const tempoIncremento = Math.min(deltaTempo, 35);
 
       await prisma.progressoAluno.update({
         where: { id: existing.id },
         data: {
           percentualAssistido: newPercentual,
           posicaoAtualSegundos,
-          tempoTotalSegundos: existing.tempoTotalSegundos + 5,
+          tempoTotalSegundos: existing.tempoTotalSegundos + tempoIncremento,
           concluido,
           dataConclusao: concluido && !existing.concluido ? new Date() : existing.dataConclusao,
+          sessoes: existing.sessoes + (shouldIncrementSession ? 1 : 0),
           vezesQueParou: pausou ? existing.vezesQueParou + 1 : existing.vezesQueParou
         }
       });
@@ -694,6 +729,7 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
       const posicaoAtualSegundos = concluido && aula.duracaoSegundos > 0
         ? aula.duracaoSegundos
         : normalized.posicaoAtualSegundos;
+      const tempoInicial = Math.min(Math.max(Math.round(posicaoAtualSegundos), 5), 35);
 
       const progresso = await prisma.progressoAluno.create({
         data: {
@@ -701,7 +737,7 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
           aulaId,
           percentualAssistido: percentualAssistidoNormalizado,
           posicaoAtualSegundos,
-          tempoTotalSegundos: 5,
+          tempoTotalSegundos: tempoInicial,
           concluido,
           dataConclusao: concluido ? new Date() : null,
           sessoes: 1,
@@ -736,7 +772,41 @@ router.post('/aula/:id/concluir', async (_req: AuthRequest, res: Response): Prom
 router.post('/quiz', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.userId;
-    const { aulaId, respostas, pontuacao, totalQuestoes } = req.body;
+    const aulaId = readString(req.body.aulaId);
+    const respostasPayload = req.body.respostas;
+
+    if (!aulaId) {
+      res.status(400).json({ error: 'Aula invalida.' });
+      return;
+    }
+
+    const quiz = await prisma.quiz.findFirst({
+      where: { aulaId },
+      select: { questoes: true }
+    });
+
+    if (!quiz) {
+      res.status(404).json({ error: 'Quiz nao encontrado para esta aula.' });
+      return;
+    }
+
+    const questoes = parseJSONArray<{ alternativas?: Array<{ correta?: boolean }> }>(quiz.questoes);
+    const respostas = Array.isArray(respostasPayload)
+      ? respostasPayload
+      : typeof respostasPayload === 'object' && respostasPayload
+        ? Object.keys(respostasPayload)
+          .sort((a, b) => Number(a) - Number(b))
+          .map((key) => (respostasPayload as Record<string, unknown>)[key])
+        : [];
+    const pontuacao = questoes.reduce((score, questao, index) => {
+      const respostaSelecionada = Number(respostas[index]);
+      if (!Number.isInteger(respostaSelecionada) || respostaSelecionada < 0) {
+        return score;
+      }
+
+      return questao.alternativas?.[respostaSelecionada]?.correta ? score + 1 : score;
+    }, 0);
+    const totalQuestoes = questoes.length;
 
     const resultado = await prisma.resultadoQuiz.create({
       data: {
@@ -752,6 +822,79 @@ router.post('/quiz', async (req: AuthRequest, res: Response): Promise<void> => {
   } catch (error) {
     logger.error(error);
     res.status(500).json({ error: 'Erro ao salvar resultado do quiz' });
+  }
+});
+
+// POST /api/aluno/avaliacao/:id/iniciar
+router.post('/avaliacao/:id/iniciar', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const avaliacaoId = readString(req.params.id);
+
+    if (!avaliacaoId) {
+      res.status(400).json({ error: 'Avaliacao invalida.' });
+      return;
+    }
+
+    const now = new Date();
+    const avaliacao = await prisma.avaliacao.findFirst({
+      where: {
+        id: avaliacaoId,
+        publicado: true,
+        formato: 'objetiva'
+      },
+      select: {
+        id: true,
+        tempoLimiteMinutos: true,
+        dataLimite: true
+      }
+    });
+
+    if (!avaliacao) {
+      res.status(404).json({ error: 'Prova objetiva nao encontrada.' });
+      return;
+    }
+
+    if (isPastDeadline(avaliacao.dataLimite, now)) {
+      res.status(409).json({ error: 'O prazo desta prova ja foi encerrado.' });
+      return;
+    }
+
+    const entregaExistente = await prisma.entregaAvaliacao.findUnique({
+      where: {
+        avaliacaoId_alunoId: {
+          avaliacaoId,
+          alunoId: userId
+        }
+      }
+    });
+
+    if (entregaExistente?.enviadoEm) {
+      res.status(409).json({ error: 'Esta prova objetiva ja foi enviada.' });
+      return;
+    }
+
+    const entregaAtual = entregaExistente ?? await prisma.entregaAvaliacao.create({
+      data: {
+        avaliacaoId,
+        alunoId: userId,
+        status: 'pendente'
+      }
+    });
+    const remainingSeconds = getRemainingExamSeconds({
+      startedAt: entregaAtual.criadoEm,
+      tempoLimiteMinutos: avaliacao.tempoLimiteMinutos,
+      now
+    });
+
+    res.json({
+      entregaAtual,
+      remainingSeconds,
+      expirou: remainingSeconds <= 0
+    });
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: 'Erro ao iniciar prova objetiva' });
   }
 });
 
@@ -931,6 +1074,12 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       return;
     }
 
+    const now = new Date();
+    if (isPastDeadline(avaliacao.dataLimite, now)) {
+      res.status(409).json({ error: 'O prazo desta avaliacao ja foi encerrado.' });
+      return;
+    }
+
     const questoesObjetivas = parseObjectiveQuestions(avaliacao.questoesObjetivas);
 
     if (avaliacao.formato === 'objetiva') {
@@ -956,9 +1105,30 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
 
     const arquivoAnterior = entregaExistente?.arquivoUrl;
 
+    if (entregaExistente?.status === 'corrigido') {
+      res.status(409).json({ error: 'Esta avaliacao ja foi corrigida e nao pode mais ser alterada.' });
+      return;
+    }
+
     if (avaliacao.formato === 'objetiva') {
-      if (entregaExistente?.enviadoEm) {
+      if (!entregaExistente) {
+        res.status(409).json({ error: 'Inicie a prova antes de enviar as respostas.' });
+        return;
+      }
+
+      if (entregaExistente.enviadoEm) {
         res.status(409).json({ error: 'Esta prova objetiva ja foi enviada e nao aceita nova tentativa.' });
+        return;
+      }
+
+      const remainingSeconds = getRemainingExamSeconds({
+        startedAt: entregaExistente.criadoEm,
+        tempoLimiteMinutos: avaliacao.tempoLimiteMinutos,
+        now
+      });
+
+      if (remainingSeconds <= 0) {
+        res.status(409).json({ error: 'O tempo desta prova objetiva expirou.' });
         return;
       }
 
@@ -1206,7 +1376,7 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
       })
     ]);
 
-    const progressos = progressosResult.status === 'fulfilled' ? progressosResult.value : [];
+    const progressos = progressosResult.status === 'fulfilled' ? progressosResult.value.map((progresso) => normalizeProgressRecord(progresso)) : [];
     if (progressosResult.status === 'rejected') {
       logger.warn('Falha ao carregar progressos do aluno no perfil.', progressosResult.reason);
     }

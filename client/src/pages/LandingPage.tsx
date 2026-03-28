@@ -5,7 +5,6 @@ import { BookOpen, Home, Info, MessageSquare, Radio } from 'lucide-react';
 import AppIcon from '../components/AppIcon';
 import BrandMark from '../components/BrandMark';
 import { NavBar } from '../components/ui/tubelight-navbar';
-import { VINHA_NOVA_HOME_URL } from '../lib/external-links';
 
 interface LeadershipSlide {
   slot: number;
@@ -137,13 +136,6 @@ export default function LandingPage() {
         actionsInline
         actions={(
           <div className="flex items-center gap-2">
-            <a
-              className="btn btn-outline btn-sm whitespace-nowrap"
-              href={VINHA_NOVA_HOME_URL}
-              rel="noreferrer"
-            >
-              Vinha Nova
-            </a>
             <button
               className="btn btn-primary btn-sm whitespace-nowrap"
               onClick={() => navigate('/login')}

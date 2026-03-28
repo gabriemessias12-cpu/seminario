@@ -4,6 +4,7 @@ import AppIcon from '../../components/AppIcon';
 import Sidebar from '../../components/Sidebar';
 import { downloadAuthenticatedFile } from '../../lib/auth-file';
 import { apiGet, apiFetch } from '../../lib/apiClient';
+import { clearDraft, readDraft, writeDraft } from '../../lib/draft-storage';
 import type { ObjectiveReviewItem, StudentObjectiveQuestion } from '../../lib/objective-assessment';
 
 type Avaliacao = {
@@ -40,6 +41,7 @@ type Avaliacao = {
     arquivoUrl?: string | null;
     respostaTexto?: string | null;
     enviadoEm?: string | null;
+    criadoEm?: string | null;
     totalQuestoes?: number | null;
     acertosObjetivos?: number | null;
     percentualObjetivo?: number | null;
@@ -54,6 +56,64 @@ function formatCountdown(seconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function getObjectiveDraftKey(avaliacaoId: string) {
+  return `objective-exam:${avaliacaoId}`;
+}
+
+function getObjectiveDurationSeconds(avaliacao: Avaliacao) {
+  return (avaliacao.tempoLimiteMinutos ?? 90) * 60;
+}
+
+function isObjectiveInProgress(avaliacao: Avaliacao) {
+  return avaliacao.formato === 'objetiva'
+    && avaliacao.entregaAtual?.status === 'pendente'
+    && !avaliacao.entregaAtual?.enviadoEm;
+}
+
+function getRemainingObjectiveSeconds(avaliacao: Avaliacao, nowMs = Date.now()) {
+  if (!isObjectiveInProgress(avaliacao) || !avaliacao.entregaAtual?.criadoEm) {
+    return null;
+  }
+
+  const expiresAt = new Date(avaliacao.entregaAtual.criadoEm).getTime() + (getObjectiveDurationSeconds(avaliacao) * 1000);
+  return Math.max(Math.ceil((expiresAt - nowMs) / 1000), 0);
+}
+
+function buildObjectiveAnswers(avaliacao: Avaliacao) {
+  if (avaliacao.resultadoObjetivo?.respostas?.length) {
+    return avaliacao.resultadoObjetivo.respostas.map((item) => item.respostaAluno ?? null);
+  }
+
+  const draft = readDraft<Array<number | string | null>>(getObjectiveDraftKey(avaliacao.id));
+  if (draft?.length === avaliacao.quantidadeQuestoes) {
+    return draft;
+  }
+
+  return avaliacao.questoesObjetivas?.map(() => null) || [];
+}
+
+function hydrateAvaliacaoState(data: Avaliacao[]) {
+  const respostasTexto = Object.fromEntries(
+    data.map((item) => [item.id, item.entregaAtual?.respostaTexto || ''])
+  );
+  const respostasObjetivas = Object.fromEntries(
+    data.map((item) => [item.id, buildObjectiveAnswers(item)])
+  );
+  const timerSeconds = Object.fromEntries(
+    data
+      .map((item) => [item.id, getRemainingObjectiveSeconds(item)] as const)
+      .filter((entry): entry is [string, number] => entry[1] !== null)
+  );
+
+  data.forEach((item) => {
+    if (!isObjectiveInProgress(item)) {
+      clearDraft(getObjectiveDraftKey(item.id));
+    }
+  });
+
+  return { respostasTexto, respostasObjetivas, timerSeconds };
+}
+
 export default function StudentAvaliacoes() {
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,121 +123,165 @@ export default function StudentAvaliacoes() {
   const [arquivos, setArquivos] = useState<Record<string, File | null>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [startingExamId, setStartingExamId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
   const [filterModulo, setFilterModulo] = useState('todos');
   const [pageError, setPageError] = useState('');
-
-  // Timer state: maps avaliacaoId -> remaining seconds (null = not started)
   const [timerSeconds, setTimerSeconds] = useState<Record<string, number>>({});
-  const timerRefs = useRef<Record<string, number>>({});
+  const countdownRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
-  // We need a ref to `handleSubmit` to call it from the timer
-  const submitRef = useRef<((avaliacao: Avaliacao) => void) | null>(null);
+  const avaliacoesRef = useRef<Avaliacao[]>([]);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setLoading(true);
     setPageError('');
     apiGet<Avaliacao[]>('/api/aluno/avaliacoes')
       .then((data) => {
+        const hydrated = hydrateAvaliacaoState(data);
         setAvaliacoes(data);
-        setRespostasTexto(Object.fromEntries(
-          data.map((item: Avaliacao) => [item.id, item.entregaAtual?.respostaTexto || ''])
-        ));
-        setRespostasObjetivas(Object.fromEntries(
-          data.map((item: Avaliacao) => [
-            item.id,
-            item.questoesObjetivas?.map((_, index) => item.resultadoObjetivo?.respostas?.[index]?.respostaAluno ?? null) || []
-          ])
-        ));
+        setRespostasTexto(hydrated.respostasTexto);
+        setRespostasObjetivas(hydrated.respostasObjetivas);
+        setTimerSeconds(hydrated.timerSeconds);
       })
       .catch(() => setPageError('Não foi possível carregar as avaliações agora.'))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  // Start timer when an objective exam is opened
-  useEffect(() => {
-    if (!expandedId) return;
-
-    const avaliacao = avaliacoes.find((a) => a.id === expandedId);
-    if (!avaliacao) return;
-
-    const jaEnviou = avaliacao.formato === 'objetiva' && Boolean(avaliacao.entregaAtual?.enviadoEm);
-    if (avaliacao.formato !== 'objetiva' || jaEnviou) return;
-    if (timerSeconds[expandedId] !== undefined) return; // already running
-
-    // Default: 90 minutes (1:30h). Use tempoLimiteMinutos if set.
-    const minutes = avaliacao.tempoLimiteMinutos ?? 90;
-    const initialSeconds = minutes * 60;
-    setTimerSeconds((prev) => ({ ...prev, [expandedId]: initialSeconds }));
-  }, [expandedId, avaliacoes]);
-
-  // Start/stop countdown interval when exam is opened/closed
-  const expandedIdRef = useRef<string | null>(null);
-  const avaliacoesRef = useRef<Avaliacao[]>([]);
-  expandedIdRef.current = expandedId;
-  avaliacoesRef.current = avaliacoes;
+  }, [loadData]);
 
   useEffect(() => {
-    // Clear any interval for a previously expanded exam
-    Object.keys(timerRefs.current).forEach((id) => {
-      if (id !== expandedId) {
-        clearInterval(timerRefs.current[id]);
-        delete timerRefs.current[id];
+    avaliacoesRef.current = avaliacoes;
+  }, [avaliacoes]);
+
+  useEffect(() => {
+    avaliacoes.forEach((avaliacao) => {
+      if (isObjectiveInProgress(avaliacao)) {
+        writeDraft(getObjectiveDraftKey(avaliacao.id), respostasObjetivas[avaliacao.id] || []);
       }
     });
+  }, [avaliacoes, respostasObjetivas]);
 
-    if (!expandedId) return;
-    if (timerRefs.current[expandedId]) return; // already ticking
+  useEffect(() => {
+    const tick = () => {
+      const nextTimers: Record<string, number> = {};
+      const expiredIds: string[] = [];
 
-    // Only start if timer was initialized (setTimerSeconds was called)
-    // We check via timerSeconds in the initialization effect
-    const startInterval = () => {
-      timerRefs.current[expandedId] = window.setInterval(() => {
-        setTimerSeconds((prev) => {
-          const current = prev[expandedIdRef.current!] ?? 0;
-          if (current <= 1) {
-            clearInterval(timerRefs.current[expandedIdRef.current!]);
-            delete timerRefs.current[expandedIdRef.current!];
-            const avaliacao = avaliacoesRef.current.find((a) => a.id === expandedIdRef.current);
-            if (avaliacao && submitRef.current) {
-              submitRef.current(avaliacao);
+      avaliacoesRef.current.forEach((avaliacao) => {
+        const remaining = getRemainingObjectiveSeconds(avaliacao);
+        if (remaining === null) {
+          return;
+        }
+
+        nextTimers[avaliacao.id] = remaining;
+        if (remaining === 0) {
+          expiredIds.push(avaliacao.id);
+        }
+      });
+
+      setTimerSeconds(nextTimers);
+      if (expiredIds.length) {
+        setFeedback((current) => {
+          const next = { ...current };
+          expiredIds.forEach((id) => {
+            if (!next[id]) {
+              next[id] = 'O tempo desta prova expirou. O envio foi bloqueado.';
             }
-            return { ...prev, [expandedIdRef.current!]: 0 };
-          }
-          return { ...prev, [expandedIdRef.current!]: current - 1 };
+          });
+          return next;
         });
-      }, 1000);
-    };
-
-    // Delay slightly to let timerSeconds be set by the initialization effect
-    const timeout = window.setTimeout(startInterval, 100);
-
-    return () => {
-      clearTimeout(timeout);
-      if (timerRefs.current[expandedId]) {
-        clearInterval(timerRefs.current[expandedId]);
-        delete timerRefs.current[expandedId];
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedId]);
+
+    const hasRunningExam = avaliacoes.some((avaliacao) => isObjectiveInProgress(avaliacao));
+    if (!hasRunningExam) {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+      return;
+    }
+
+    tick();
+    countdownRef.current = window.setInterval(tick, 1000);
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    };
+  }, [avaliacoes]);
+
+  const handleStartObjectiveExam = useCallback(async (avaliacao: Avaliacao) => {
+    if (avaliacao.formato !== 'objetiva') {
+      return;
+    }
+
+    setStartingExamId(avaliacao.id);
+    setFeedback((current) => ({ ...current, [avaliacao.id]: '' }));
+
+    try {
+      const response = await apiFetch(`/api/aluno/avaliacao/${avaliacao.id}/iniciar`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Nao foi possivel iniciar a prova.' }));
+        return;
+      }
+
+      setAvaliacoes((current) => current.map((item) => (
+        item.id === avaliacao.id
+          ? { ...item, entregaAtual: data.entregaAtual }
+          : item
+      )));
+      setTimerSeconds((current) => ({ ...current, [avaliacao.id]: data.remainingSeconds }));
+      setRespostasObjetivas((current) => {
+        if (current[avaliacao.id]?.length) {
+          return current;
+        }
+
+        const draft = readDraft<Array<number | string | null>>(getObjectiveDraftKey(avaliacao.id));
+        return {
+          ...current,
+          [avaliacao.id]: draft?.length === avaliacao.quantidadeQuestoes
+            ? draft
+            : Array.from({ length: avaliacao.quantidadeQuestoes }, () => null)
+        };
+      });
+
+      if (data.expirou) {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: 'O tempo desta prova ja expirou.' }));
+      }
+    } catch {
+      setFeedback((current) => ({ ...current, [avaliacao.id]: 'Erro ao comunicar com o servidor.' }));
+    } finally {
+      setStartingExamId(null);
+    }
+  }, []);
 
   const handleSubmit = useCallback(async (avaliacao: Avaliacao, event?: FormEvent) => {
     if (event) event.preventDefault();
+
+    if (avaliacao.formato === 'objetiva') {
+      if (!isObjectiveInProgress(avaliacao)) {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: 'Inicie a prova antes de enviar as respostas.' }));
+        return;
+      }
+
+      const remaining = getRemainingObjectiveSeconds(avaliacao);
+      if (remaining !== null && remaining <= 0) {
+        setFeedback((current) => ({ ...current, [avaliacao.id]: 'O tempo desta prova expirou. O envio foi bloqueado.' }));
+        return;
+      }
+    }
+
     setSubmittingId(avaliacao.id);
     setFeedback((current) => ({ ...current, [avaliacao.id]: '' }));
-
-    // Stop timer
-    if (timerRefs.current[avaliacao.id]) {
-      clearInterval(timerRefs.current[avaliacao.id]);
-      delete timerRefs.current[avaliacao.id];
-    }
 
     const formData = new FormData();
     if (avaliacao.formato === 'objetiva') {
@@ -206,19 +310,15 @@ export default function StudentAvaliacoes() {
         return;
       }
 
+      clearDraft(getObjectiveDraftKey(avaliacao.id));
+      setTimerSeconds((current) => {
+        const next = { ...current };
+        delete next[avaliacao.id];
+        return next;
+      });
       setFeedback((current) => ({ ...current, [avaliacao.id]: 'Entrega enviada com sucesso.' }));
       setArquivos((current) => ({ ...current, [avaliacao.id]: null }));
-      // Reload data after successful submission
-      setLoading(true);
-      apiGet<Avaliacao[]>('/api/aluno/avaliacoes')
-        .then((d) => {
-          if (!isMountedRef.current) return;
-          setAvaliacoes(d);
-          setRespostasTexto(Object.fromEntries(d.map((item: Avaliacao) => [item.id, item.entregaAtual?.respostaTexto || ''])));
-          setRespostasObjetivas(Object.fromEntries(d.map((item: Avaliacao) => [item.id, item.questoesObjetivas?.map((_: unknown, i: number) => item.resultadoObjetivo?.respostas?.[i]?.respostaAluno ?? null) || []])));
-        })
-        .catch(() => {})
-        .finally(() => { if (isMountedRef.current) setLoading(false); });
+      loadData();
     } catch (err) {
       clearTimeout(submitTimeout);
       if (err instanceof Error && err.name === 'AbortError') {
@@ -229,21 +329,17 @@ export default function StudentAvaliacoes() {
     } finally {
       setSubmittingId(null);
     }
-  }, [arquivos, respostasObjetivas, respostasTexto]);
+  }, [arquivos, loadData, respostasObjetivas, respostasTexto]);
 
   // Cleanup all timers on unmount
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
-      Object.values(timerRefs.current).forEach(clearInterval);
-      timerRefs.current = {};
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
     };
   }, []);
-
-  // Keep submitRef updated
-  useEffect(() => {
-    submitRef.current = (avaliacao: Avaliacao) => void handleSubmit(avaliacao);
-  }, [handleSubmit]);
 
   const resumo = useMemo(() => {
     const total = avaliacoes.length;
@@ -363,12 +459,15 @@ export default function StudentAvaliacoes() {
               {filteredAvaliacoes.map((avaliacao) => {
                 const status = avaliacao.entregaAtual?.status || 'pendente';
                 const prazo = avaliacao.dataLimite ? new Date(avaliacao.dataLimite).toLocaleDateString('pt-BR') : 'Sem prazo definido';
+                const prazoEncerrado = Boolean(avaliacao.dataLimite && new Date(avaliacao.dataLimite).getTime() < Date.now());
                 const isExpanded = expandedId === avaliacao.id;
                 const jaEnviouObjetiva = avaliacao.formato === 'objetiva' && Boolean(avaliacao.entregaAtual?.enviadoEm);
                 const mostrarResultadoObjetivo = avaliacao.formato !== 'objetiva' || avaliacao.resultadoImediato;
-
-                const remaining = timerSeconds[avaliacao.id];
-                const timerRunning = isExpanded && remaining !== undefined && !jaEnviouObjetiva;
+                const provaEmAndamento = isObjectiveInProgress(avaliacao);
+                const discursivaBloqueada = avaliacao.formato === 'discursiva' && (status === 'corrigido' || prazoEncerrado);
+                const remaining = timerSeconds[avaliacao.id] ?? getRemainingObjectiveSeconds(avaliacao);
+                const timerRunning = provaEmAndamento && remaining !== null && remaining > 0;
+                const timerExpired = provaEmAndamento && remaining === 0;
                 const timerWarning = timerRunning && remaining <= 300; // last 5 min
                 const timerCritical = timerRunning && remaining <= 60; // last 1 min
 
@@ -401,7 +500,7 @@ export default function StudentAvaliacoes() {
                       )}
                     </div>
 
-                    {avaliacao.entregaAtual && (
+                    {avaliacao.entregaAtual && avaliacao.entregaAtual.status !== 'pendente' && (
                       <div className="assessment-result-box">
                         <div>
                           <strong>Situação da entrega</strong>
@@ -492,9 +591,23 @@ export default function StudentAvaliacoes() {
                       </div>
                     )}
 
+                    {provaEmAndamento && (
+                      <div className="inline-feedback warning" style={{ marginTop: '0.85rem' }}>
+                        {timerExpired
+                          ? 'A prova foi iniciada, mas o tempo expirou. O envio esta bloqueado.'
+                          : `Prova iniciada em ${avaliacao.entregaAtual?.criadoEm ? new Date(avaliacao.entregaAtual.criadoEm).toLocaleString('pt-BR') : 'agora'}. O cronometro continua mesmo se voce fechar este card ou recarregar a pagina.`}
+                      </div>
+                    )}
+
                     <div className="assessment-card-actions">
                       <button className="btn btn-outline btn-sm" onClick={() => setExpandedId(isExpanded ? null : avaliacao.id)} type="button">
-                        {isExpanded ? 'Fechar' : jaEnviouObjetiva ? (mostrarResultadoObjetivo ? 'Ver prova' : 'Ver envio') : 'Enviar atividade'}
+                        {isExpanded
+                          ? 'Fechar'
+                          : jaEnviouObjetiva
+                            ? (mostrarResultadoObjetivo ? 'Ver prova' : 'Ver envio')
+                            : avaliacao.formato === 'objetiva'
+                              ? (provaEmAndamento ? 'Continuar prova' : 'Abrir prova')
+                              : 'Enviar atividade'}
                       </button>
                     </div>
 
@@ -504,12 +617,28 @@ export default function StudentAvaliacoes() {
                         {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && timerRunning && (
                           <div className={`exam-timer-banner ${timerCritical ? 'critical' : timerWarning ? 'warning' : ''}`}>
                             <AppIcon name="clock" size={16} />
-                            <span>Tempo restante: <strong>{formatCountdown(remaining!)}</strong></span>
+                            <span>Tempo restante: <strong>{formatCountdown(remaining ?? 0)}</strong></span>
                             {timerCritical && <span className="exam-timer-alert">Finalize agora!</span>}
                           </div>
                         )}
 
-                        {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && (
+                        {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && !provaEmAndamento && (
+                          <div className="inline-feedback warning">
+                            <div style={{ marginBottom: '0.75rem' }}>
+                              Ao iniciar a prova, o cronometro comeca imediatamente e fica vinculado a sua conta ate o envio ou o fim do tempo.
+                            </div>
+                            <button
+                              className="btn btn-primary"
+                              disabled={startingExamId === avaliacao.id}
+                              onClick={() => void handleStartObjectiveExam(avaliacao)}
+                              type="button"
+                            >
+                              {startingExamId === avaliacao.id ? 'Iniciando...' : 'Iniciar prova'}
+                            </button>
+                          </div>
+                        )}
+
+                        {avaliacao.formato === 'objetiva' && !jaEnviouObjetiva && provaEmAndamento && (
                           <div className="assessment-review-list">
                             {avaliacao.questoesObjetivas?.map((questao, questionIndex) => {
                               const tipo = questao.tipo ?? 'objetiva';
@@ -570,6 +699,7 @@ export default function StudentAvaliacoes() {
                             <label className="form-label">Resposta em texto</label>
                             <textarea
                               className="form-textarea"
+                              disabled={discursivaBloqueada}
                               rows={6}
                               value={respostasTexto[avaliacao.id] || ''}
                               onChange={(event) => setRespostasTexto((current) => ({ ...current, [avaliacao.id]: event.target.value }))}
@@ -583,6 +713,7 @@ export default function StudentAvaliacoes() {
                             <input
                               accept=".pdf,.doc,.docx,.odt,.jpg,.jpeg,.png,.zip,.mp4,.mov,.avi,.mkv,.webm"
                               className="form-input file-input"
+                              disabled={discursivaBloqueada}
                               onChange={(event) => setArquivos((current) => ({ ...current, [avaliacao.id]: event.target.files?.[0] || null }))}
                               type="file"
                             />
@@ -598,11 +729,17 @@ export default function StudentAvaliacoes() {
                           </div>
                         )}
 
-                        {!jaEnviouObjetiva && (
+                        {discursivaBloqueada && (
+                          <div className="inline-feedback warning">
+                            {status === 'corrigido' ? 'Esta entrega ja foi corrigida e nao pode mais ser alterada.' : 'O prazo desta avaliacao foi encerrado.'}
+                          </div>
+                        )}
+
+                        {(!jaEnviouObjetiva && avaliacao.formato === 'discursiva' && !discursivaBloqueada) || (avaliacao.formato === 'objetiva' && provaEmAndamento && !timerExpired) ? (
                           <button className="btn btn-primary" disabled={submittingId === avaliacao.id} type="submit">
                             {submittingId === avaliacao.id ? 'Enviando...' : avaliacao.formato === 'objetiva' ? 'Finalizar prova' : 'Salvar entrega'}
                           </button>
-                        )}
+                        ) : null}
                       </form>
                     )}
                   </article>

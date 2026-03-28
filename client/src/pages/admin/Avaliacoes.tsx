@@ -334,6 +334,18 @@ export default function AdminAvaliacoes() {
 
   const handleSaveCorrection = async (entregaId: string) => {
     const payload = correcoes[entregaId];
+    const notaInformada = Number(payload?.nota);
+
+    if (!selectedAvaliacao) {
+      setFeedback('Selecione uma avaliacao antes de salvar a correcao.');
+      return;
+    }
+
+    if (!Number.isFinite(notaInformada) || notaInformada < 0 || notaInformada > selectedAvaliacao.notaMaxima) {
+      setFeedback(`A nota precisa ficar entre 0 e ${selectedAvaliacao.notaMaxima}.`);
+      return;
+    }
+
     setSavingCorrectionId(entregaId);
 
     try {
@@ -949,6 +961,7 @@ export default function AdminAvaliacoes() {
                         <label className="form-label">Nota</label>
                         <input
                           className="form-input"
+                          max={selectedAvaliacao.notaMaxima}
                           min={0}
                           step="0.5"
                           type="number"

@@ -984,7 +984,20 @@ router.get('/aulas', async (_req: AuthRequest, res: Response): Promise<void> => 
       orderBy: { ordem: 'asc' }
     });
 
-    res.json(modulos);
+    res.json(modulos.map((modulo) => ({
+      ...modulo,
+      aulas: modulo.aulas.map((aula) => ({
+        ...aula,
+        progressos: aula.progressos.map((progresso) => {
+          const percentualAssistido = normalizeLessonPercentual(progresso.percentualAssistido, progresso.concluido);
+          return {
+            ...progresso,
+            percentualAssistido,
+            concluido: percentualAssistido >= 100
+          };
+        })
+      }))
+    })));
   } catch (error) {
     logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar aulas' });
@@ -2053,6 +2066,27 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
       return;
     }
 
+    const entregaAtual = await prisma.entregaAvaliacao.findUnique({
+      where: { id: entregaId },
+      include: {
+        avaliacao: {
+          select: {
+            notaMaxima: true
+          }
+        }
+      }
+    });
+
+    if (!entregaAtual) {
+      res.status(404).json({ error: 'Entrega nao encontrada.' });
+      return;
+    }
+
+    if (nota < 0 || nota > entregaAtual.avaliacao.notaMaxima) {
+      res.status(400).json({ error: `A nota deve estar entre 0 e ${entregaAtual.avaliacao.notaMaxima}.` });
+      return;
+    }
+
     const entrega = await prisma.entregaAvaliacao.update({
       where: { id: entregaId },
       data: {
@@ -2180,47 +2214,67 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       select: { duracaoSegundos: true }
     });
 
-    for (const item of presencas) {
-      await prisma.presenca.upsert({
-        where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId: aulaId } },
-        update: {
-          status: item.status,
-          metodo: item.metodo,
-          percentual: item.status === 'presente' ? 100 : item.status === 'parcial' ? 50 : 0,
-          registradoEm: new Date()
-        },
-        create: {
-          alunoId: item.alunoId,
-          aulaId: aulaId,
-          status: item.status,
-          metodo: item.metodo,
-          percentual: item.status === 'presente' ? 100 : 0
-        }
-      });
+    await prisma.$transaction(async (tx) => {
+      for (const item of presencas) {
+        const percentual = item.status === 'presente' ? 100 : item.status === 'parcial' ? 50 : 0;
+        const posicaoAtualSegundos = percentual >= 100
+          ? aulaData?.duracaoSegundos || 0
+          : Math.round((aulaData?.duracaoSegundos || 0) * (percentual / 100));
+        const progressoAtual = await tx.progressoAluno.findUnique({
+          where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId } }
+        });
 
-      // When marked as present → auto-complete the lesson in ProgressoAluno
-      if (item.status === 'presente') {
-        await prisma.progressoAluno.upsert({
+        await tx.presenca.upsert({
           where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId } },
           update: {
-            percentualAssistido: 100,
-            concluido: true,
-            dataConclusao: new Date(),
-            posicaoAtualSegundos: aulaData?.duracaoSegundos || 0
+            status: item.status,
+            metodo: item.metodo,
+            percentual,
+            registradoEm: new Date()
           },
           create: {
             alunoId: item.alunoId,
             aulaId,
-            percentualAssistido: 100,
-            posicaoAtualSegundos: aulaData?.duracaoSegundos || 0,
-            tempoTotalSegundos: 0,
-            concluido: true,
-            dataConclusao: new Date(),
-            sessoes: 0
+            status: item.status,
+            metodo: item.metodo,
+            percentual
+          }
+        });
+
+        if (!progressoAtual && percentual <= 0) {
+          continue;
+        }
+
+        if (progressoAtual) {
+          await tx.progressoAluno.update({
+            where: { id: progressoAtual.id },
+            data: {
+              percentualAssistido: percentual,
+              concluido: percentual >= 100,
+              dataConclusao: percentual >= 100 ? new Date() : null,
+              posicaoAtualSegundos,
+              tempoTotalSegundos: Math.max(progressoAtual.tempoTotalSegundos, posicaoAtualSegundos),
+              sessoes: percentual > 0 ? Math.max(progressoAtual.sessoes, 1) : progressoAtual.sessoes
+            }
+          });
+          continue;
+        }
+
+        await tx.progressoAluno.create({
+          data: {
+            alunoId: item.alunoId,
+            aulaId,
+            percentualAssistido: percentual,
+            posicaoAtualSegundos,
+            tempoTotalSegundos: posicaoAtualSegundos,
+            concluido: percentual >= 100,
+            dataConclusao: percentual >= 100 ? new Date() : null,
+            sessoes: percentual > 0 ? 1 : 0,
+            vezesQueParou: 0
           }
         });
       }
-    }
+    });
 
     logger.info('chamada registrada', {
       aulaId,
