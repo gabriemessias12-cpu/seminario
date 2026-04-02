@@ -21,7 +21,9 @@ const posterImages = [
   '/brand/carrossel5.jpeg',
   '/brand/carrossel6.jpg',
   '/brand/carrossel7.jpg',
-  '/brand/carrossel8.jpg'
+  '/brand/carrossel8.jpg',
+  '/brand/carrossel10.jpg',
+  '/brand/carrossel11.jpg'
 ];
 
 const DEFAULT_SLIDES: LeadershipSlide[] = [
@@ -519,4 +521,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

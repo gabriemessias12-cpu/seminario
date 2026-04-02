@@ -139,6 +139,44 @@ function readBoolean(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+function readInteger(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    if (!normalized) {
+      return 0;
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  if (typeof value === 'undefined' || value === null) {
+    return 0;
+  }
+
+  return null;
+}
+
+function removeUploadedFile(fileUrl: string | null | undefined) {
+  if (!fileUrl) {
+    return;
+  }
+
+  if (!fileUrl.startsWith('/uploads/') && !fileUrl.startsWith('/api/uploads/')) {
+    return;
+  }
+
+  const relativePath = fileUrl
+    .replace(/^\/api\//, '/')
+    .replace(/^\//, '');
+
+  fs.unlink(path.resolve(relativePath), () => {});
+}
+
 function parseStoredDetails(value: string | null): Record<string, unknown> | null {
   if (!value) {
     return null;
@@ -1301,14 +1339,32 @@ router.delete('/aula/:id', async (req: AuthRequest, res: Response): Promise<void
 // POST /api/admin/modulo
 router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { titulo, descricao, capaUrl, ordem } = req.body;
+    const titulo = readString(req.body.titulo)?.trim();
+    const descricao = typeof req.body.descricao === 'string'
+      ? req.body.descricao.trim() || null
+      : null;
+    const capaUrl = req.body.capaUrl === null
+      ? null
+      : readString(req.body.capaUrl as string | string[] | undefined);
+    const ordem = readInteger(req.body.ordem);
     const obrigatorio = readBoolean(req.body.obrigatorio, true);
+
+    if (!titulo) {
+      res.status(400).json({ error: 'Informe o titulo do modulo.' });
+      return;
+    }
+
+    if (ordem === null) {
+      res.status(400).json({ error: 'Informe uma ordem valida para o modulo.' });
+      return;
+    }
+
     const modulo = await prisma.modulo.create({
       data: {
         titulo,
         descricao,
         capaUrl,
-        ordem: parseInt(ordem || '0'),
+        ordem,
         obrigatorio
       }
     });
@@ -1337,12 +1393,34 @@ router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> =>
 router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const moduloId = readString(req.params.id);
-    const { titulo, descricao, capaUrl, ordem } = req.body;
+    const titulo = readString(req.body.titulo)?.trim();
+    const descricao = typeof req.body.descricao === 'string'
+      ? req.body.descricao.trim() || null
+      : null;
+    const hasCapaUrl = Object.prototype.hasOwnProperty.call(req.body, 'capaUrl');
+    const capaUrl = hasCapaUrl
+      ? req.body.capaUrl === null
+        ? null
+        : readString(req.body.capaUrl as string | string[] | undefined)
+      : undefined;
+    const ordem = typeof req.body.ordem === 'undefined'
+      ? undefined
+      : readInteger(req.body.ordem);
     const obrigatorio = typeof req.body.obrigatorio === 'undefined'
       ? undefined
       : readBoolean(req.body.obrigatorio, true);
     if (!moduloId) {
       res.status(400).json({ error: 'Modulo invalido' });
+      return;
+    }
+
+    if (!titulo) {
+      res.status(400).json({ error: 'Informe o titulo do modulo.' });
+      return;
+    }
+
+    if (ordem === null) {
+      res.status(400).json({ error: 'Informe uma ordem valida para o modulo.' });
       return;
     }
 
@@ -1362,13 +1440,17 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    if (moduloAtual.capaUrl && capaUrl === null) {
+      removeUploadedFile(moduloAtual.capaUrl);
+    }
+
     const modulo = await prisma.modulo.update({
       where: { id: moduloId },
       data: {
         titulo,
         descricao,
         capaUrl,
-        ordem: ordem ? parseInt(ordem) : undefined,
+        ordem,
         obrigatorio
       }
     });
@@ -1404,16 +1486,46 @@ router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthR
     if (!moduloId) { res.status(400).json({ error: 'ID invalido' }); return; }
     if (!req.file) { res.status(400).json({ error: 'Nenhum arquivo enviado.' }); return; }
 
-    const modulo = await prisma.modulo.findUnique({ where: { id: moduloId }, select: { capaUrl: true } });
+    const modulo = await prisma.modulo.findUnique({
+      where: { id: moduloId },
+      select: {
+        titulo: true,
+        descricao: true,
+        capaUrl: true,
+        ordem: true,
+        obrigatorio: true
+      }
+    });
     if (!modulo) { res.status(404).json({ error: 'Modulo nao encontrado.' }); return; }
 
-    if (modulo.capaUrl) {
-      const oldPath = path.resolve(modulo.capaUrl.replace(/^\/(api\/)?/, ''));
-      fs.unlink(oldPath, () => {});
-    }
+    removeUploadedFile(modulo.capaUrl);
 
     const capaUrl = `/api/uploads/thumbnails/${req.file.filename}`;
     await prisma.modulo.update({ where: { id: moduloId }, data: { capaUrl } });
+
+    await logContentChange(prisma, req, {
+      entity: 'modulo',
+      action: 'atualizado',
+      entityId: moduloId,
+      title: modulo.titulo,
+      details: {
+        antes: {
+          titulo: modulo.titulo,
+          descricao: modulo.descricao,
+          capaUrl: modulo.capaUrl,
+          ordem: modulo.ordem,
+          obrigatorio: modulo.obrigatorio
+        },
+        depois: {
+          titulo: modulo.titulo,
+          descricao: modulo.descricao,
+          capaUrl,
+          ordem: modulo.ordem,
+          obrigatorio: modulo.obrigatorio
+        }
+      }
+    });
+
     res.json({ capaUrl });
   } catch (error) {
     logger.error(error);
