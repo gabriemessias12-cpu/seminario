@@ -1,5 +1,5 @@
-const DEFAULT_VINHA_NOVA_URL = 'https://zyonxagency.com';
-const DEFAULT_SEMINARIO_URL = 'https://seminariovn.zyonxagency.com';
+const DEFAULT_VINHA_NOVA_URL = 'https://doxahub.com.br';
+const DEFAULT_SEMINARIO_URL = 'https://seminario.doxahub.com.br';
 
 function normalizeUrl(value: string | undefined, fallback: string) {
   if (!value || !value.trim()) return fallback;
