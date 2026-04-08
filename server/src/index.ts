@@ -22,9 +22,14 @@ loadEnvFiles();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const uploadRoot = path.resolve('uploads');
+
+function normalizeOrigin(origin: string) {
+  return origin.trim().replace(/\/+$/, '');
+}
+
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 
 for (const dir of ['materials', 'thumbnails', 'videos', 'submissions', 'avatars', 'brand']) {
@@ -39,7 +44,7 @@ app.use(cors({
   origin(origin, callback) {
     // Allow requests with no origin (server-to-server, curl, health checks)
     // and explicitly listed browser origins
-    if (!origin || corsOrigins.includes(origin)) {
+    if (!origin || corsOrigins.includes(normalizeOrigin(origin))) {
       callback(null, true);
       return;
     }
