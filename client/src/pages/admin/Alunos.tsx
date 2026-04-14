@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { apiDelete, apiGet, apiPost, apiPut } from '../../lib/apiClient';
-import type { AlunoListItem } from '../../types/models';
+import type { AlunoListItem, StatusCadastroAluno } from '../../types/models';
 
 function ProgressCell({ value }: { value: number }) {
   return (
@@ -18,6 +18,25 @@ function ProgressCell({ value }: { value: number }) {
   );
 }
 
+function cadastroStatusLabel(status: StatusCadastroAluno) {
+  if (status === 'pendente') return 'Pendente';
+  if (status === 'rejeitado') return 'Rejeitado';
+  return 'Aprovado';
+}
+
+function cadastroStatusClassName(status: StatusCadastroAluno) {
+  if (status === 'pendente') return 'badge-warning';
+  if (status === 'rejeitado') return 'badge-error';
+  return 'badge-success';
+}
+
+function formatDate(dateValue?: string | null) {
+  if (!dateValue) return '-';
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('pt-BR');
+}
+
 export default function AdminAlunos() {
   const navigate = useNavigate();
   const [alunos, setAlunos] = useState<AlunoListItem[]>([]);
@@ -29,8 +48,12 @@ export default function AdminAlunos() {
   const [email, setEmail] = useState('');
   const [telefone, setTelefone] = useState('');
   const [senha, setSenha] = useState('123456');
+  const [dataNascimento, setDataNascimento] = useState('');
+  const [membroVinha, setMembroVinha] = useState(false);
+  const [batizado, setBatizado] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
   const [loadError, setLoadError] = useState('');
 
@@ -59,6 +82,11 @@ export default function AdminAlunos() {
     [alunos, debouncedSearch]
   );
 
+  const pendentesCount = useMemo(
+    () => alunos.filter((aluno) => aluno.statusCadastro === 'pendente').length,
+    [alunos]
+  );
+
   const toggleStatus = async (id: string) => {
     try {
       await apiPut(`/api/admin/aluno/${id}/toggle`);
@@ -67,6 +95,42 @@ export default function AdminAlunos() {
       )));
     } catch {
       setFeedback('Nao foi possivel atualizar o status do aluno.');
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    setProcessingId(id);
+    setFeedback('');
+    try {
+      await apiPut(`/api/admin/aluno/${id}/aprovar`);
+      setAlunos((current) => current.map((aluno) => (
+        aluno.id === id ? { ...aluno, statusCadastro: 'aprovado', ativo: true } : aluno
+      )));
+      setFeedback('Cadastro aprovado com sucesso.');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel aprovar o cadastro.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!window.confirm('Confirmar rejeicao deste cadastro?')) {
+      return;
+    }
+
+    setProcessingId(id);
+    setFeedback('');
+    try {
+      await apiPut(`/api/admin/aluno/${id}/rejeitar`);
+      setAlunos((current) => current.map((aluno) => (
+        aluno.id === id ? { ...aluno, statusCadastro: 'rejeitado', ativo: false } : aluno
+      )));
+      setFeedback('Cadastro rejeitado.');
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel rejeitar o cadastro.');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -99,13 +163,19 @@ export default function AdminAlunos() {
         nome,
         email,
         telefone,
-        senha
+        senha,
+        dataNascimento: dataNascimento || undefined,
+        membroVinha,
+        batizado
       });
       setFeedback(`Aluno criado com sucesso. Senha temporaria: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
       setNome('');
       setEmail('');
       setTelefone('');
       setSenha('123456');
+      setDataNascimento('');
+      setMembroVinha(false);
+      setBatizado(false);
       setShowForm(false);
       loadAlunos();
     } catch (err) {
@@ -120,7 +190,7 @@ export default function AdminAlunos() {
       <div className="page-header page-header-split">
         <div>
           <h1>Gestao de Alunos</h1>
-          <p>{alunos.length} alunos cadastrados</p>
+          <p>{alunos.length} alunos cadastrados · {pendentesCount} pendentes de aprovacao</p>
         </div>
         <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)} type="button">
           {showForm ? 'Fechar cadastro' : '+ Cadastrar aluno'}
@@ -136,19 +206,15 @@ export default function AdminAlunos() {
           <form onSubmit={handleCreateStudent}>
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Nome</label>
+                <label className="form-label">Nome completo</label>
                 <input className="form-input" value={nome} onChange={(event) => setNome(event.target.value)} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Telefone</label>
-                <input
-                  className="form-input"
-                  value={telefone}
-                  onChange={(event) => setTelefone(event.target.value)}
-                  placeholder="(11) 99999-0000"
-                />
+                <label className="form-label">Data de nascimento</label>
+                <input className="form-input" type="date" value={dataNascimento} onChange={(event) => setDataNascimento(event.target.value)} />
               </div>
             </div>
+
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label">Email</label>
@@ -159,6 +225,31 @@ export default function AdminAlunos() {
                 <input className="form-input" value={senha} onChange={(event) => setSenha(event.target.value)} required />
               </div>
             </div>
+
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Telefone</label>
+                <input
+                  className="form-input"
+                  value={telefone}
+                  onChange={(event) => setTelefone(event.target.value)}
+                  placeholder="(11) 99999-0000"
+                />
+              </div>
+              <div className="form-group" style={{ display: 'grid', gap: '0.6rem' }}>
+                <label className="form-label">Pertence a Vinha Nova?</label>
+                <select className="form-input" value={membroVinha ? 'sim' : 'nao'} onChange={(event) => setMembroVinha(event.target.value === 'sim')}>
+                  <option value="nao">Nao</option>
+                  <option value="sim">Sim</option>
+                </select>
+                <label className="form-label">Batizado?</label>
+                <select className="form-input" value={batizado ? 'sim' : 'nao'} onChange={(event) => setBatizado(event.target.value === 'sim')}>
+                  <option value="nao">Nao</option>
+                  <option value="sim">Sim</option>
+                </select>
+              </div>
+            </div>
+
             <button className="btn btn-primary" type="submit" disabled={saving}>
               {saving ? 'Salvando...' : 'Criar aluno'}
             </button>
@@ -186,12 +277,12 @@ export default function AdminAlunos() {
                 <tr>
                   <th>Aluno</th>
                   <th>Email</th>
+                  <th>Cadastro</th>
                   <th>Aulas</th>
                   <th>Avaliacoes</th>
                   <th>Geral</th>
                   <th>Atrasos</th>
                   <th>Ultimo acesso</th>
-                  <th>Status</th>
                   <th>Acoes</th>
                 </tr>
               </thead>
@@ -215,10 +306,21 @@ export default function AdminAlunos() {
                           </div>
                           <div className="table-entity-copy">
                             <strong>{aluno.nome}</strong>
+                            <span className="text-muted text-sm">Nascimento: {formatDate(aluno.dataNascimento)}</span>
                           </div>
                         </div>
                       </td>
                       <td className="text-muted">{aluno.email}</td>
+                      <td>
+                        <div style={{ display: 'grid', gap: '0.35rem' }}>
+                          <span className={`badge ${cadastroStatusClassName(aluno.statusCadastro)}`}>
+                            {cadastroStatusLabel(aluno.statusCadastro)}
+                          </span>
+                          <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
+                            {aluno.ativo ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </div>
+                      </td>
                       <td><ProgressCell value={aluno.progressoAulas} /></td>
                       <td><ProgressCell value={aluno.progressoAvaliacoes} /></td>
                       <td><ProgressCell value={aluno.progressoGeral} /></td>
@@ -235,18 +337,26 @@ export default function AdminAlunos() {
                         {aluno.ultimoAcesso ? new Date(aluno.ultimoAcesso).toLocaleDateString('pt-BR') : '-'}
                       </td>
                       <td>
-                        <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
-                          {aluno.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-                      <td>
                         <div className="table-actions">
                           <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">
                             Ver
                           </button>
-                          <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
-                            {aluno.ativo ? 'Desativar' : 'Ativar'}
-                          </button>
+
+                          {aluno.statusCadastro === 'pendente' ? (
+                            <>
+                              <button className="btn btn-primary btn-sm" onClick={() => handleApprove(aluno.id)} disabled={processingId === aluno.id} type="button">
+                                {processingId === aluno.id ? 'Salvando...' : 'Aprovar'}
+                              </button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => handleReject(aluno.id)} disabled={processingId === aluno.id} type="button" style={{ color: 'var(--color-error, #ef4444)' }}>
+                                Rejeitar
+                              </button>
+                            </>
+                          ) : (
+                            <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
+                              {aluno.ativo ? 'Desativar' : 'Ativar'}
+                            </button>
+                          )}
+
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ color: 'var(--color-error, #ef4444)' }}
@@ -291,13 +401,19 @@ export default function AdminAlunos() {
                     <div className="admin-list-card-info">
                       <strong>{aluno.nome}</strong>
                       <span className="text-muted text-sm">{aluno.email}</span>
+                      <span className="text-muted text-sm">Nascimento: {formatDate(aluno.dataNascimento)}</span>
                       <span className="text-muted text-sm">
                         {aluno.ultimoAcesso ? new Date(aluno.ultimoAcesso).toLocaleDateString('pt-BR') : 'Sem acesso'}
                       </span>
                     </div>
-                    <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
-                      {aluno.ativo ? 'Ativo' : 'Inativo'}
-                    </span>
+                    <div style={{ display: 'grid', gap: '0.35rem' }}>
+                      <span className={`badge ${cadastroStatusClassName(aluno.statusCadastro)}`}>
+                        {cadastroStatusLabel(aluno.statusCadastro)}
+                      </span>
+                      <span className={`badge ${aluno.ativo ? 'badge-success' : 'badge-error'}`}>
+                        {aluno.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -327,9 +443,22 @@ export default function AdminAlunos() {
                     <button className="btn btn-outline btn-sm" onClick={() => navigate(`/admin/aluno/${aluno.id}`)} type="button">
                       Ver detalhes
                     </button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
-                      {aluno.ativo ? 'Desativar' : 'Ativar'}
-                    </button>
+
+                    {aluno.statusCadastro === 'pendente' ? (
+                      <>
+                        <button className="btn btn-primary btn-sm" onClick={() => handleApprove(aluno.id)} disabled={processingId === aluno.id} type="button">
+                          {processingId === aluno.id ? 'Salvando...' : 'Aprovar'}
+                        </button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-error, #ef4444)' }} onClick={() => handleReject(aluno.id)} disabled={processingId === aluno.id} type="button">
+                          Rejeitar
+                        </button>
+                      </>
+                    ) : (
+                      <button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(aluno.id)} type="button">
+                        {aluno.ativo ? 'Desativar' : 'Ativar'}
+                      </button>
+                    )}
+
                     <button
                       className="btn btn-ghost btn-sm"
                       style={{ color: 'var(--color-error, #ef4444)' }}

@@ -25,13 +25,28 @@ const refreshLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const cadastroLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 8,
+  message: { error: 'Muitas tentativas de cadastro. Aguarde e tente novamente.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // --- Zod schemas ---
 const loginSchema = z.object({
   email: z.string().email('Email invalido').max(255),
   senha: z.string().min(1, 'Senha obrigatoria').max(128)
 });
 
-// ---
+const cadastroSchema = z.object({
+  nome: z.string().min(3, 'Nome completo deve ter pelo menos 3 caracteres').max(255).trim(),
+  email: z.string().email('Email invalido').max(255),
+  senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento invalida'),
+  membroVinha: z.boolean(),
+  batizado: z.boolean()
+});
 
 function parseUserAgent(ua: string): string {
   const mobile = /Mobile|Android|iPhone|iPad/i.test(ua);
@@ -40,14 +55,76 @@ function parseUserAgent(ua: string): string {
   else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) browser = 'Chrome';
   else if (/Firefox\//i.test(ua)) browser = 'Firefox';
   else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+
   let os = 'SO desconhecido';
   if (/Windows NT/i.test(ua)) os = 'Windows';
   else if (/Android/i.test(ua)) os = 'Android';
   else if (/iPhone|iPad/i.test(ua)) os = 'iOS';
   else if (/Mac OS X/i.test(ua)) os = 'macOS';
   else if (/Linux/i.test(ua)) os = 'Linux';
-  return `${browser} · ${os}${mobile ? ' · Mobile' : ''}`;
+
+  return `${browser} - ${os}${mobile ? ' - Mobile' : ''}`;
 }
+
+function parseBirthDateToUtcMidday(dateOnly: string): Date | null {
+  const parsed = new Date(`${dateOnly}T12:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
+// POST /api/auth/cadastro
+router.post('/cadastro', cadastroLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = cadastroSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0].message });
+      return;
+    }
+
+    const { nome, email, senha, dataNascimento, membroVinha, batizado } = parsed.data;
+    const emailNormalizado = email.trim().toLowerCase();
+
+    const existente = await prisma.user.findUnique({
+      where: { email: emailNormalizado },
+      select: { id: true }
+    });
+
+    if (existente) {
+      res.status(409).json({ error: 'Ja existe uma conta com esse email' });
+      return;
+    }
+
+    const birthDate = parseBirthDateToUtcMidday(dataNascimento);
+    if (!birthDate) {
+      res.status(400).json({ error: 'Data de nascimento invalida' });
+      return;
+    }
+
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    await prisma.user.create({
+      data: {
+        nome: nome.trim(),
+        email: emailNormalizado,
+        senhaHash,
+        papel: 'aluno',
+        statusCadastro: 'pendente',
+        dataNascimento: birthDate,
+        membroVinha,
+        batizado
+      }
+    });
+
+    res.status(201).json({
+      ok: true,
+      message: 'Cadastro enviado com sucesso. Aguarde a aprovacao do administrador.'
+    });
+  } catch {
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
 
 // POST /api/auth/login
 router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
@@ -58,38 +135,49 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
       return;
     }
 
-    const { email, senha } = parsed.data;
+    const emailNormalizado = parsed.data.email.trim().toLowerCase();
+    const { senha } = parsed.data;
 
     const realIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || req.ip || 'unknown';
     const ua = req.headers['user-agent'] || 'unknown';
     const dispositivo = parseUserAgent(ua);
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.ativo) {
-      // Record failed attempt only when the user account exists (avoids user enumeration via timing)
-      if (user) {
-        await prisma.loginHistorico.create({ data: { usuarioId: user.id, ip: realIp, dispositivo, sucesso: false } }).catch(() => {});
-        await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com senha incorreta para ${user.email}. IP: ${realIp} · ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
-      }
-      res.status(401).json({ error: 'Credenciais inválidas' });
+    const user = await prisma.user.findUnique({ where: { email: emailNormalizado } });
+    if (!user) {
+      res.status(401).json({ error: 'Credenciais invalidas' });
+      return;
+    }
+
+    if (user.statusCadastro === 'pendente') {
+      res.status(403).json({ error: 'Seu cadastro esta em analise. Aguarde aprovacao do administrador.' });
+      return;
+    }
+
+    if (user.statusCadastro === 'rejeitado') {
+      res.status(403).json({ error: 'Seu cadastro foi rejeitado. Fale com a administracao para regularizar.' });
+      return;
+    }
+
+    if (!user.ativo) {
+      await prisma.loginHistorico.create({ data: { usuarioId: user.id, ip: realIp, dispositivo, sucesso: false } }).catch(() => {});
+      await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com conta inativa para ${user.email}. IP: ${realIp} - ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
+      res.status(403).json({ error: 'Conta inativa. Entre em contato com a administracao.' });
       return;
     }
 
     const senhaValida = await bcrypt.compare(senha, user.senhaHash);
     if (!senhaValida) {
       await prisma.loginHistorico.create({ data: { usuarioId: user.id, ip: realIp, dispositivo, sucesso: false } }).catch(() => {});
-      await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com senha incorreta para ${user.email}. IP: ${realIp} · ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
-      res.status(401).json({ error: 'Credenciais inválidas' });
+      await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com senha incorreta para ${user.email}. IP: ${realIp} - ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
+      res.status(401).json({ error: 'Credenciais invalidas' });
       return;
     }
 
-    // Update last access
     await prisma.user.update({
       where: { id: user.id },
       data: { ultimoAcesso: new Date() }
     });
 
-    // Log login
     await prisma.loginHistorico.create({
       data: {
         usuarioId: user.id,
@@ -99,22 +187,23 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
       }
     });
 
-    // Detect new IP — if this user has logins and never used this IP before, create security alert
     const previousLogins = await prisma.loginHistorico.findMany({
       where: { usuarioId: user.id, sucesso: true, ip: { not: realIp } },
       take: 1
     });
+
     const usedThisIpBefore = await prisma.loginHistorico.findFirst({
       where: { usuarioId: user.id, ip: realIp, id: { not: undefined } },
       orderBy: { dataHora: 'desc' },
-      skip: 1 // skip the record we just created
+      skip: 1
     });
+
     if (previousLogins.length > 0 && !usedThisIpBefore) {
       await prisma.alertaSeguranca.create({
         data: {
           usuarioId: user.id,
           tipo: 'novo_ip',
-          mensagem: `Acesso de IP novo detectado para ${user.nome}. IP: ${realIp} · Dispositivo: ${dispositivo}`,
+          mensagem: `Acesso de IP novo detectado para ${user.nome}. IP: ${realIp} - Dispositivo: ${dispositivo}`,
           ip: realIp,
           dispositivo
         }
@@ -131,7 +220,13 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
         nome: user.nome,
         email: user.email,
         papel: user.papel,
-        foto: user.foto
+        foto: user.foto,
+        ativo: user.ativo,
+        statusCadastro: user.statusCadastro,
+        dataNascimento: user.dataNascimento,
+        membroVinha: user.membroVinha,
+        batizado: user.batizado,
+        criadoEm: user.criadoEm
       }
     });
   } catch {
@@ -144,7 +239,7 @@ router.post('/refresh', refreshLimiter, async (req: Request, res: Response): Pro
   try {
     const { refreshToken } = req.body;
     if (!refreshToken || typeof refreshToken !== 'string') {
-      res.status(400).json({ error: 'Refresh token obrigatório' });
+      res.status(400).json({ error: 'Refresh token obrigatorio' });
       return;
     }
 
@@ -152,13 +247,13 @@ router.post('/refresh', refreshLimiter, async (req: Request, res: Response): Pro
 
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.ativo) {
-      res.status(401).json({ error: 'Usuário inválido' });
+      res.status(401).json({ error: 'Usuario invalido' });
       return;
     }
 
     res.json(newTokens);
   } catch {
-    res.status(401).json({ error: 'Refresh token inválido ou expirado' });
+    res.status(401).json({ error: 'Refresh token invalido ou expirado' });
   }
 });
 
@@ -176,12 +271,27 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response): Promi
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId },
-      select: { id: true, nome: true, email: true, papel: true, foto: true, telefone: true, criadoEm: true }
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        papel: true,
+        foto: true,
+        telefone: true,
+        ativo: true,
+        criadoEm: true,
+        statusCadastro: true,
+        dataNascimento: true,
+        membroVinha: true,
+        batizado: true
+      }
     });
+
     if (!user) {
-      res.status(404).json({ error: 'Usuário não encontrado' });
+      res.status(404).json({ error: 'Usuario nao encontrado' });
       return;
     }
+
     res.json(user);
   } catch {
     res.status(500).json({ error: 'Erro interno' });
@@ -189,3 +299,4 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response): Promi
 });
 
 export default router;
+

@@ -30,7 +30,8 @@ export async function ensureSystemAccounts(): Promise<void> {
         senhaHash,
         papel: account.papel as PapelUsuario,
         telefone: account.telefone,
-        ativo: true
+        ativo: true,
+        statusCadastro: 'aprovado'
       },
       create: {
         nome: account.nome,
@@ -38,7 +39,8 @@ export async function ensureSystemAccounts(): Promise<void> {
         senhaHash,
         papel: account.papel as PapelUsuario,
         telefone: account.telefone,
-        ativo: true
+        ativo: true,
+        statusCadastro: 'aprovado'
       }
     });
   }

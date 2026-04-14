@@ -161,6 +161,14 @@ function readInteger(value: unknown): number | null {
   return null;
 }
 
+function parseBirthDateToUtcMidday(value: string): Date | null {
+  const parsed = new Date(`${value}T12:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
+}
+
 function removeUploadedFile(fileUrl: string | null | undefined) {
   if (!fileUrl) {
     return;
@@ -530,7 +538,20 @@ router.get('/alunos', async (_req: AuthRequest, res: Response): Promise<void> =>
     const [alunos, aulasObrigatorias, progressosPublicados, avaliacoesPublicadas, entregasPublicadas] = await Promise.all([
       prisma.user.findMany({
         where: { papel: 'aluno' },
-        select: { id: true, nome: true, email: true, foto: true, telefone: true, ativo: true, criadoEm: true, ultimoAcesso: true },
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          foto: true,
+          telefone: true,
+          ativo: true,
+          criadoEm: true,
+          ultimoAcesso: true,
+          statusCadastro: true,
+          dataNascimento: true,
+          membroVinha: true,
+          batizado: true
+        },
         orderBy: { criadoEm: 'desc' }
       }),
       prisma.aula.findMany({
@@ -610,6 +631,10 @@ router.get('/alunos', async (_req: AuthRequest, res: Response): Promise<void> =>
         foto: a.foto,
         telefone: a.telefone,
         ativo: a.ativo,
+        statusCadastro: a.statusCadastro,
+        dataNascimento: a.dataNascimento,
+        membroVinha: a.membroVinha,
+        batizado: a.batizado,
         criadoEm: a.criadoEm,
         ultimoAcesso: a.ultimoAcesso,
         progressoAulas: painel.progressoAulas.percentual,
@@ -765,20 +790,31 @@ const createAlunoSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(255).trim(),
   email: z.string().email('Email invalido').max(255),
   senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128).optional(),
-  telefone: z.string().max(30).optional()
+  telefone: z.string().max(30).optional(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento invalida').optional(),
+  membroVinha: z.boolean().optional(),
+  batizado: z.boolean().optional()
 });
 
 const updateAlunoSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(255).trim().optional(),
   email: z.string().email('Email invalido').max(255).optional(),
   senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128).optional(),
-  telefone: z.string().max(30).nullable().optional()
+  telefone: z.string().max(30).nullable().optional(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento invalida').nullable().optional(),
+  membroVinha: z.boolean().optional(),
+  batizado: z.boolean().optional(),
+  statusCadastro: z.enum(['pendente', 'aprovado', 'rejeitado']).optional()
 }).refine(
   (payload) => (
     payload.nome !== undefined ||
     payload.email !== undefined ||
     payload.senha !== undefined ||
-    payload.telefone !== undefined
+    payload.telefone !== undefined ||
+    payload.dataNascimento !== undefined ||
+    payload.membroVinha !== undefined ||
+    payload.batizado !== undefined ||
+    payload.statusCadastro !== undefined
   ),
   { message: 'Informe ao menos um campo para atualizar' }
 );
@@ -792,7 +828,7 @@ router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => 
       return;
     }
 
-    const { nome, email, senha, telefone } = parsed.data;
+    const { nome, email, senha, telefone, dataNascimento, membroVinha, batizado } = parsed.data;
     const emailNormalizado = email.trim().toLowerCase();
     const existente = await prisma.user.findUnique({ where: { email: emailNormalizado } });
     if (existente) {
@@ -802,6 +838,11 @@ router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => 
 
     const senhaGerada = senha ?? crypto.randomBytes(8).toString('hex');
     const senhaHash = await bcrypt.hash(senhaGerada, 10);
+    const birthDate = dataNascimento ? parseBirthDateToUtcMidday(dataNascimento) : null;
+    if (dataNascimento && !birthDate) {
+      res.status(400).json({ error: 'Data de nascimento invalida' });
+      return;
+    }
 
     const aluno = await prisma.user.create({
       data: {
@@ -809,7 +850,11 @@ router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => 
         email: emailNormalizado,
         senhaHash,
         telefone: telefone?.trim() || null,
-        papel: 'aluno'
+        papel: 'aluno',
+        statusCadastro: 'aprovado',
+        dataNascimento: birthDate,
+        membroVinha: membroVinha ?? false,
+        batizado: batizado ?? false
       }
     });
 
@@ -853,12 +898,17 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
-    const { nome, email, senha, telefone } = parsed.data;
+    const { nome, email, senha, telefone, dataNascimento, membroVinha, batizado, statusCadastro } = parsed.data;
     const updateData: {
       nome?: string;
       email?: string;
       telefone?: string | null;
       senhaHash?: string;
+      dataNascimento?: Date | null;
+      membroVinha?: boolean;
+      batizado?: boolean;
+      statusCadastro?: 'pendente' | 'aprovado' | 'rejeitado';
+      ativo?: boolean;
     } = {};
 
     if (nome !== undefined) {
@@ -886,6 +936,37 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       updateData.senhaHash = await bcrypt.hash(senha, 10);
     }
 
+    if (dataNascimento !== undefined) {
+      if (dataNascimento === null) {
+        updateData.dataNascimento = null;
+      } else {
+        const birthDate = parseBirthDateToUtcMidday(dataNascimento);
+        if (!birthDate) {
+          res.status(400).json({ error: 'Data de nascimento invalida' });
+          return;
+        }
+        updateData.dataNascimento = birthDate;
+      }
+    }
+
+    if (membroVinha !== undefined) {
+      updateData.membroVinha = membroVinha;
+    }
+
+    if (batizado !== undefined) {
+      updateData.batizado = batizado;
+    }
+
+    if (statusCadastro !== undefined) {
+      updateData.statusCadastro = statusCadastro;
+      if (statusCadastro === 'aprovado') {
+        updateData.ativo = true;
+      }
+      if (statusCadastro === 'rejeitado') {
+        updateData.ativo = false;
+      }
+    }
+
     const atualizado = await prisma.user.update({
       where: { id: alunoId },
       data: updateData,
@@ -896,7 +977,11 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
         foto: true,
         telefone: true,
         papel: true,
-        ativo: true
+        ativo: true,
+        statusCadastro: true,
+        dataNascimento: true,
+        membroVinha: true,
+        batizado: true
       }
     });
 
@@ -926,6 +1011,70 @@ router.put('/aluno/:id/toggle', async (req: AuthRequest, res: Response): Promise
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro' });
+  }
+});
+
+// PUT /api/admin/aluno/:id/aprovar
+router.put('/aluno/:id/aprovar', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const alunoId = readString(req.params.id);
+    if (!alunoId) {
+      res.status(400).json({ error: 'Aluno invalido' });
+      return;
+    }
+
+    const aluno = await prisma.user.findUnique({
+      where: { id: alunoId },
+      select: { id: true, papel: true }
+    });
+
+    if (!aluno || aluno.papel !== 'aluno') {
+      res.status(404).json({ error: 'Aluno nao encontrado' });
+      return;
+    }
+
+    const atualizado = await prisma.user.update({
+      where: { id: alunoId },
+      data: { statusCadastro: 'aprovado', ativo: true },
+      select: { id: true, statusCadastro: true, ativo: true }
+    });
+
+    res.json(atualizado);
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: 'Erro ao aprovar cadastro' });
+  }
+});
+
+// PUT /api/admin/aluno/:id/rejeitar
+router.put('/aluno/:id/rejeitar', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const alunoId = readString(req.params.id);
+    if (!alunoId) {
+      res.status(400).json({ error: 'Aluno invalido' });
+      return;
+    }
+
+    const aluno = await prisma.user.findUnique({
+      where: { id: alunoId },
+      select: { id: true, papel: true }
+    });
+
+    if (!aluno || aluno.papel !== 'aluno') {
+      res.status(404).json({ error: 'Aluno nao encontrado' });
+      return;
+    }
+
+    const atualizado = await prisma.user.update({
+      where: { id: alunoId },
+      data: { statusCadastro: 'rejeitado', ativo: false },
+      select: { id: true, statusCadastro: true, ativo: true }
+    });
+
+    res.json(atualizado);
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: 'Erro ao rejeitar cadastro' });
   }
 });
 

@@ -1,6 +1,7 @@
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export type PapelUsuario = 'aluno' | 'admin' | 'pastor';
+export type StatusCadastroAluno = 'pendente' | 'aprovado' | 'rejeitado';
 export type StatusIA = 'pendente' | 'processando' | 'concluido' | 'erro';
 export type StatusEntrega = 'pendente' | 'enviado' | 'corrigido';
 export type StatusPresenca = 'presente' | 'parcial' | 'ausente';
@@ -17,6 +18,10 @@ export interface User {
   foto?: string | null;
   telefone?: string | null;
   ativo: boolean;
+  statusCadastro: StatusCadastroAluno;
+  dataNascimento?: string | null;
+  membroVinha: boolean;
+  batizado: boolean;
   criadoEm: string;
   ultimoAcesso?: string | null;
 }
@@ -192,6 +197,10 @@ export interface AlunoListItem {
   foto?: string | null;
   telefone?: string | null;
   ativo: boolean;
+  statusCadastro: StatusCadastroAluno;
+  dataNascimento?: string | null;
+  membroVinha: boolean;
+  batizado: boolean;
   criadoEm?: string;
   ultimoAcesso?: string | null;
   progressoAulas: number;

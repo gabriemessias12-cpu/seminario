@@ -70,6 +70,9 @@ export default function LoginPage() {
           <button className="btn btn-accent w-full btn-lg" type="submit" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
+          <button className="btn btn-outline w-full" type="button" onClick={() => navigate('/cadastro')} style={{ marginTop: '0.75rem' }}>
+            Criar conta de aluno
+          </button>
         </form>
 
         <div className="print-hide" style={{ textAlign: 'center', marginTop: '1.5rem' }}>

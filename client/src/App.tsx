@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
 const StudentAulas = lazy(() => import('./pages/student/Aulas'));
@@ -73,6 +74,7 @@ function AppRoutes() {
       {/* Public */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/cadastro" element={<RegisterPage />} />
       <Route path="/admin" element={<AdminLoginPage />} />
 
       {/* Student Protected */}

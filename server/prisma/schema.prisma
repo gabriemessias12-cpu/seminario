@@ -52,6 +52,12 @@ enum TipoAlertaSeguranca {
   senha_alterada
 }
 
+enum StatusCadastroAluno {
+  pendente
+  aprovado
+  rejeitado
+}
+
 // ─── MODELS ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -63,6 +69,10 @@ model User {
   foto          String?
   telefone      String?
   ativo         Boolean       @default(true)
+  statusCadastro StatusCadastroAluno @default(aprovado)
+  dataNascimento DateTime?
+  membroVinha    Boolean      @default(false)
+  batizado       Boolean      @default(false)
   criadoEm      DateTime      @default(now())
   ultimoAcesso  DateTime?
   compartilhaDadosIA    Boolean  @default(false)
@@ -83,6 +93,7 @@ model User {
   @@index([papel])
   @@index([ultimoAcesso])
   @@index([ativo])
+  @@index([statusCadastro])
 }
 
 model Modulo {
