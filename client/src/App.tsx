@@ -32,13 +32,13 @@ const AdminConfiguracoes = lazy(() => import('./pages/admin/Configuracoes'));
 export const adminSidebarItems = [
   { path: '/admin/dashboard', icon: 'dashboard' as const, label: 'Dashboard' },
   { path: '/admin/alunos', icon: 'users' as const, label: 'Alunos' },
-  { path: '/admin/avaliacoes', icon: 'quiz' as const, label: 'Avaliacoes' },
+  { path: '/admin/avaliacoes', icon: 'quiz' as const, label: 'Avaliações'},
   { path: '/admin/aulas', icon: 'book' as const, label: 'Aulas' },
   { path: '/admin/materiais', icon: 'folder' as const, label: 'Materiais' },
   { path: '/admin/chamada', icon: 'attendance' as const, label: 'Chamada' },
   { path: '/admin/avisos', icon: 'bell' as const, label: 'Avisos' },
-  { path: '/admin/relatorios', icon: 'reports' as const, label: 'Relatorios' },
-  { path: '/admin/configuracoes', icon: 'settings' as const, label: 'Configuracoes' },
+  { path: '/admin/relatorios', icon: 'reports' as const, label: 'Relatórios' },
+  { path: '/admin/configuracoes', icon: 'settings' as const, label: 'Configurações' },
 ];
 
 function ProtectedRoute({ children, role }: { children: ReactNode; role: 'aluno' | 'admin' }) {

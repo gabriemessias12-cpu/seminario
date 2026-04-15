@@ -38,7 +38,7 @@ export default function LoginPage() {
             <BrandMark className="brand-mark brand-mark-login" />
           </div>
           <h1>IBVN</h1>
-          <p>Acesse sua area de estudos do Seminario Teologico</p>
+          <p>Acesse sua área de estudos do Seminário Teológico</p>
         </div>
 
         {error && <div className="login-error" role="alert">{error}</div>}
@@ -53,7 +53,7 @@ export default function LoginPage() {
               onChange={(event) => { setEmail(event.target.value); if (emailError) setEmailError(''); }}
               onBlur={(event) => {
                 if (event.target.value && !event.target.value.includes('@')) {
-                  setEmailError('Digite um e-mail valido.');
+                  setEmailError('Digite um e-mail válido.');
                 } else {
                   setEmailError('');
                 }

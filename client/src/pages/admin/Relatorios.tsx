@@ -87,16 +87,16 @@ export default function AdminRelatorios() {
       <div className="pdf-header hidden print:flex items-center gap-4 mb-6 pb-4 border-b-2 border-primary">
         <BrandMark className="pdf-brand-logo w-12 h-12 rounded-lg bg-white p-1" />
         <div>
-          <div className="pdf-brand-name font-bold text-xl text-gray-900">Instituto Biblico Vinha Nova</div>
-          <div className="pdf-brand-sub text-xs text-gray-500 uppercase tracking-widest">Seminario Teologico - Relatorios Academicos</div>
+          <div className="pdf-brand-name font-bold text-xl text-gray-900">Instituto Bíblico Vinha Nova</div>
+          <div className="pdf-brand-sub text-xs text-gray-500 uppercase tracking-widest">Seminário Teológico - Relatórios Acadêmicos</div>
         </div>
         <div className="ml-auto text-xs text-gray-400">Emitido em {today}</div>
       </div>
 
       <div className="page-header page-header-split print-hide">
         <div>
-          <h1>Relatorios</h1>
-          <p>Metricas de engajamento, desempenho e acesso do seminario.</p>
+          <h1>Relatórios</h1>
+          <p>Métricas de engajamento, desempenho e acesso do seminário.</p>
         </div>
         <div className="page-header-actions">
           <button className="btn btn-outline" onClick={handlePrintPDF} type="button">
@@ -400,7 +400,7 @@ export default function AdminRelatorios() {
           </div>
 
           <div className="hidden print:block mt-8 pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
-            Instituto Biblico Vinha Nova - Seminario Teologico | Documento gerado em {today} | Uso interno
+            Instituto Bíblico Vinha Nova - Seminário Teológico | Documento gerado em {today} | Uso interno
           </div>
         </>
       ) : (

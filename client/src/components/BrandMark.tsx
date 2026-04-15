@@ -3,6 +3,6 @@ interface BrandMarkProps {
   alt?: string;
 }
 
-export default function BrandMark({ className, alt = 'IBVN - Instituto Biblico Vinha Nova' }: BrandMarkProps) {
+export default function BrandMark({ className, alt = 'IBVN - Instituto Bíblico Vinha Nova' }: BrandMarkProps) {
   return <img className={className} src="/brand/logo.jpg" alt={alt} />;
 }

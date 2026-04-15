@@ -192,8 +192,8 @@ export default function AdminAlunoDetalhes() {
       </div>
 
       <section className="print-report-header print-only">
-        <p>IBVN - Instituto Biblico Vinha Nova</p>
-        <h2>Relatorio academico do aluno</h2>
+        <p>IBVN - Instituto Bíblico Vinha Nova</p>
+        <h2>Relatório acadêmico do aluno</h2>
         <span>{aluno.nome} | {aluno.email}</span>
       </section>
 

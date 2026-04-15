@@ -108,10 +108,10 @@ export default function StudentDashboard() {
 
         <section className="student-topbar">
           <div>
-            <span className="section-kicker">IBVN - Seminario Teologico</span>
-            <h1 className="student-page-title">Ola, {firstName}</h1>
+            <span className="section-kicker">IBVN - Seminário Teológico</span>
+            <h1 className="student-page-title">Olá, {firstName}</h1>
             <p className="student-page-subtitle">
-              Continue sua formacao com conteudo organizado por trilhas, prazos e progresso consolidado.
+              Continue sua formação com conteúdo organizado por trilhas, prazos e progresso consolidado.
             </p>
           </div>
 

@@ -21,7 +21,7 @@ export default function AdminLoginPage() {
     setLoading(false);
 
     if (result.success) navigate('/admin/dashboard');
-    else setError(result.error || 'Credenciais invalidas');
+    else setError(result.error || 'Credenciais inválidas');
   };
 
   return (
@@ -31,8 +31,8 @@ export default function AdminLoginPage() {
           <div className="logo-circle">
             <BrandMark className="brand-mark brand-mark-login" />
           </div>
-          <h1>Administracao</h1>
-          <p>Acesso restrito do IBVN - Instituto Biblico Vinha Nova</p>
+          <h1>Administração</h1>
+          <p>Acesso restrito do IBVN - Instituto Bíblico Vinha Nova</p>
         </div>
 
         {error && <div className="login-error" role="alert">{error}</div>}

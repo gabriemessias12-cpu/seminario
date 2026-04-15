@@ -47,7 +47,7 @@ export default function AdminDashboard() {
     <>
       <div className="page-header">
         <h1>Painel Administrativo</h1>
-        <p>Visao geral do IBVN e do Seminario Teologico.</p>
+        <p>Visão geral do IBVN e do Seminário Teológico.</p>
       </div>
 
       {error && <div className="inline-feedback warning">{error}</div>}
