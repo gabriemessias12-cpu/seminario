@@ -337,7 +337,7 @@ export default function AdminAvaliacoes() {
     const notaInformada = Number(payload?.nota);
 
     if (!selectedAvaliacao) {
-      setFeedback('Selecione uma avaliacao antes de salvar a correcao.');
+      setFeedback('Selecione uma avaliação antes de salvar a correção.');
       return;
     }
 
@@ -481,7 +481,7 @@ export default function AdminAvaliacoes() {
 
             <div className="form-row form-row-compact">
               <div className="form-group">
-                <label className="form-label">Tipo academico</label>
+                <label className="form-label">Tipo acadêmico</label>
                 <select className="form-select" value={tipo} onChange={(event) => setTipo(event.target.value)}>
                   <option value="trabalho">Trabalho</option>
                   <option value="prova">Prova</option>
@@ -495,7 +495,7 @@ export default function AdminAvaliacoes() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Nota maxima</label>
+                <label className="form-label">Nota máxima</label>
                 <input className="form-input" min={1} step="0.5" type="number" value={notaMaxima} onChange={(event) => setNotaMaxima(event.target.value)} />
               </div>
               <div className="form-group">
@@ -506,7 +506,7 @@ export default function AdminAvaliacoes() {
 
             <div className="form-row form-row-compact">
               <div className="form-group">
-                <label className="form-label">Modulo</label>
+                <label className="form-label">Módulo</label>
                 <select
                   className="form-select"
                   value={moduloId}
@@ -515,7 +515,7 @@ export default function AdminAvaliacoes() {
                     setAulaId('');
                   }}
                 >
-                  <option value="">Nao vincular modulo</option>
+                  <option value="">Não vincular módulo</option>
                   {modulos.map((modulo: any) => (
                     <option key={modulo.id} value={modulo.id}>{modulo.titulo}</option>
                   ))}
@@ -524,7 +524,7 @@ export default function AdminAvaliacoes() {
               <div className="form-group">
                 <label className="form-label">Aula</label>
                 <select className="form-select" value={aulaId} onChange={(event) => setAulaId(event.target.value)}>
-                  <option value="">{moduloId ? 'Sem aula (avaliacao por modulo)' : 'Nao vincular aula'}</option>
+                  <option value="">{moduloId ? 'Sem aula (avaliação por módulo)' : 'Não vincular aula'}</option>
                   {aulasFiltradas.map((aula: any) => (
                     <option key={aula.id} value={aula.id}>{aula.moduloTitulo} - {aula.titulo}</option>
                   ))}
@@ -653,7 +653,7 @@ export default function AdminAvaliacoes() {
                             </div>
 
                             <div className="form-group">
-                              <label className="form-label">Explicacao da resposta</label>
+                              <label className="form-label">Explicação da resposta</label>
                               <textarea
                                 className="form-textarea"
                                 rows={3}
@@ -677,7 +677,7 @@ export default function AdminAvaliacoes() {
                           </div>
 
                           <div className="form-group">
-                            <label className="form-label">Comentario / Contexto (opcional)</label>
+                            <label className="form-label">Comentário / Contexto (opcional)</label>
                             <textarea
                               className="form-textarea"
                               rows={3}
@@ -778,7 +778,7 @@ export default function AdminAvaliacoes() {
               <div className="assessment-result-grid">
                 <div><span>Entregas</span><strong>{avaliacao.resumoEntregas?.entregues || 0}</strong></div>
                 <div><span>Corrigidas</span><strong>{avaliacao.resumoEntregas?.corrigidas || 0}</strong></div>
-                <div><span>Media</span><strong>{avaliacao.resumoEntregas?.mediaNotas ?? 'N/A'}</strong></div>
+                <div><span>Média</span><strong>{avaliacao.resumoEntregas?.mediaNotas ?? 'N/A'}</strong></div>
               </div>
 
               <div className="assessment-card-actions">
@@ -977,7 +977,7 @@ export default function AdminAvaliacoes() {
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">Comentario</label>
+                        <label className="form-label">Comentário</label>
                         <textarea
                           className="form-textarea"
                           rows={4}

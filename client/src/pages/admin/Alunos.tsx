@@ -61,7 +61,7 @@ export default function AdminAlunos() {
     setLoadError('');
     apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
-      .catch(() => setLoadError('Nao foi possivel carregar a lista de alunos agora.'))
+      .catch(() => setLoadError('Não foi possível carregar a lista de alunos agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -94,7 +94,7 @@ export default function AdminAlunos() {
         aluno.id === id ? { ...aluno, ativo: !aluno.ativo } : aluno
       )));
     } catch {
-      setFeedback('Nao foi possivel atualizar o status do aluno.');
+      setFeedback('Não foi possível atualizar o status do aluno.');
     }
   };
 
@@ -108,14 +108,14 @@ export default function AdminAlunos() {
       )));
       setFeedback('Cadastro aprovado com sucesso.');
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel aprovar o cadastro.');
+      setFeedback(err instanceof Error ? err.message : 'Não foi possível aprovar o cadastro.');
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleReject = async (id: string) => {
-    if (!window.confirm('Confirmar rejeicao deste cadastro?')) {
+    if (!window.confirm('Confirmar rejeição deste cadastro?')) {
       return;
     }
 
@@ -128,14 +128,14 @@ export default function AdminAlunos() {
       )));
       setFeedback('Cadastro rejeitado.');
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel rejeitar o cadastro.');
+      setFeedback(err instanceof Error ? err.message : 'Não foi possível rejeitar o cadastro.');
     } finally {
       setProcessingId(null);
     }
   };
 
   const deleteAluno = async (id: string) => {
-    if (!window.confirm('Excluir aluno permanentemente? Esta acao remove o acesso e os dados do aluno.')) {
+    if (!window.confirm('Excluir aluno permanentemente? Esta ação remove o acesso e os dados do aluno.')) {
       return;
     }
 
@@ -145,9 +145,9 @@ export default function AdminAlunos() {
     try {
       await apiDelete(`/api/admin/aluno/${id}`);
       setAlunos((current) => current.filter((aluno) => aluno.id !== id));
-      setFeedback('Aluno excluido com sucesso.');
+      setFeedback('Aluno excluído com sucesso.');
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'Nao foi possivel excluir o aluno.');
+      setFeedback(err instanceof Error ? err.message : 'Não foi possível excluir o aluno.');
     } finally {
       setDeletingId(null);
     }
@@ -168,7 +168,7 @@ export default function AdminAlunos() {
         membroVinha,
         batizado
       });
-      setFeedback(`Aluno criado com sucesso. Senha temporaria: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
+      setFeedback(`Aluno criado com sucesso. Senha temporária: ${data.senhaTemporaria ?? '(definida pelo admin)'}`);
       setNome('');
       setEmail('');
       setTelefone('');
@@ -189,8 +189,8 @@ export default function AdminAlunos() {
     <>
       <div className="page-header page-header-split">
         <div>
-          <h1>Gestao de Alunos</h1>
-          <p>{alunos.length} alunos cadastrados · {pendentesCount} pendentes de aprovacao</p>
+          <h1>Gestão de Alunos</h1>
+          <p>{alunos.length} alunos cadastrados · {pendentesCount} pendentes de aprovação</p>
         </div>
         <button className="btn btn-accent" onClick={() => setShowForm((current) => !current)} type="button">
           {showForm ? 'Fechar cadastro' : '+ Cadastrar aluno'}
@@ -237,14 +237,14 @@ export default function AdminAlunos() {
                 />
               </div>
               <div className="form-group" style={{ display: 'grid', gap: '0.6rem' }}>
-                <label className="form-label">Pertence a Vinha Nova?</label>
+                <label className="form-label">Pertence à Vinha Nova?</label>
                 <select className="form-input" value={membroVinha ? 'sim' : 'nao'} onChange={(event) => setMembroVinha(event.target.value === 'sim')}>
-                  <option value="nao">Nao</option>
+                  <option value="nao">Não</option>
                   <option value="sim">Sim</option>
                 </select>
                 <label className="form-label">Batizado?</label>
                 <select className="form-input" value={batizado ? 'sim' : 'nao'} onChange={(event) => setBatizado(event.target.value === 'sim')}>
-                  <option value="nao">Nao</option>
+                  <option value="nao">Não</option>
                   <option value="sim">Sim</option>
                 </select>
               </div>
@@ -279,11 +279,11 @@ export default function AdminAlunos() {
                   <th>Email</th>
                   <th>Cadastro</th>
                   <th>Aulas</th>
-                  <th>Avaliacoes</th>
+                  <th>Avaliações</th>
                   <th>Geral</th>
                   <th>Atrasos</th>
-                  <th>Ultimo acesso</th>
-                  <th>Acoes</th>
+                  <th>Último acesso</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -327,7 +327,7 @@ export default function AdminAlunos() {
                       <td>
                         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                           {aluno.aulasAtrasadas > 0 && <span className="badge badge-error">{aluno.aulasAtrasadas} aulas</span>}
-                          {aluno.avaliacoesAtrasadas > 0 && <span className="badge badge-warning">{aluno.avaliacoesAtrasadas} avaliacoes</span>}
+                          {aluno.avaliacoesAtrasadas > 0 && <span className="badge badge-warning">{aluno.avaliacoesAtrasadas} avaliações</span>}
                           {aluno.aulasAtrasadas === 0 && aluno.avaliacoesAtrasadas === 0 && (
                             <span className="badge badge-success">Em dia</span>
                           )}
@@ -422,7 +422,7 @@ export default function AdminAlunos() {
                       <ProgressCell value={aluno.progressoAulas} />
                     </div>
                     <div>
-                      <span className="text-muted text-sm">Avaliacoes</span>
+                      <span className="text-muted text-sm">Avaliações</span>
                       <ProgressCell value={aluno.progressoAvaliacoes} />
                     </div>
                     <div>
@@ -433,7 +433,7 @@ export default function AdminAlunos() {
 
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.85rem' }}>
                     {aluno.aulasAtrasadas > 0 && <span className="badge badge-error">{aluno.aulasAtrasadas} aulas atrasadas</span>}
-                    {aluno.avaliacoesAtrasadas > 0 && <span className="badge badge-warning">{aluno.avaliacoesAtrasadas} avaliacoes atrasadas</span>}
+                    {aluno.avaliacoesAtrasadas > 0 && <span className="badge badge-warning">{aluno.avaliacoesAtrasadas} avaliações atrasadas</span>}
                     {aluno.aulasAtrasadas === 0 && aluno.avaliacoesAtrasadas === 0 && (
                       <span className="badge badge-success">Sem atrasos</span>
                     )}

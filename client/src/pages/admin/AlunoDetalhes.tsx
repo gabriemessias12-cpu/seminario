@@ -358,7 +358,7 @@ export default function AdminAlunoDetalhes() {
           </div>
 
           <div className="card">
-            <h3 className="section-title">Avaliacoes atrasadas</h3>
+            <h3 className="section-title">Avaliações atrasadas</h3>
             {painel.avaliacoesPendentesAtrasadas.length ? (
               <div style={{ display: 'grid', gap: '0.75rem' }}>
                 {painel.avaliacoesPendentesAtrasadas.map((avaliacao: any) => (
@@ -388,7 +388,7 @@ export default function AdminAlunoDetalhes() {
             <thead>
               <tr>
                 <th>Aula</th>
-                <th>Modulo</th>
+                <th>Módulo</th>
                 <th>Publicada</th>
                 <th>Progresso</th>
                 <th>Sessoes</th>
@@ -437,9 +437,9 @@ export default function AdminAlunoDetalhes() {
           <table>
             <thead>
               <tr>
-                <th>Avaliacao</th>
+                <th>Avaliação</th>
                 <th>Tipo</th>
-                <th>Vinculo</th>
+                <th>Vínculo</th>
                 <th>Prazo</th>
                 <th>Status</th>
                 <th>Atraso</th>
@@ -500,13 +500,13 @@ export default function AdminAlunoDetalhes() {
       </div>
 
       <div className="card mb-3">
-        <h3 className="section-title">Frequencia por materia</h3>
+        <h3 className="section-title">Frequência por matéria</h3>
         <div className="table-container">
           <table>
             <thead>
               <tr>
                 <th>Materia</th>
-                <th>Frequencia</th>
+                <th>Frequência</th>
                 <th>Presentes</th>
                 <th>Parciais</th>
                 <th>Ausencias</th>
@@ -573,13 +573,13 @@ export default function AdminAlunoDetalhes() {
           <table>
             <thead>
               <tr>
-                <th>Avaliacao</th>
+                <th>Avaliação</th>
                 <th>Tipo</th>
                 <th>Formato</th>
                 <th>Status</th>
                 <th>Nota</th>
                 <th>Arquivo</th>
-                <th>Comentario</th>
+                <th>Comentário</th>
               </tr>
             </thead>
             <tbody>
@@ -632,7 +632,7 @@ export default function AdminAlunoDetalhes() {
               <thead>
                 <tr>
                   <th>Aula</th>
-                  <th>Pontuacao</th>
+                  <th>Pontuação</th>
                   <th>Data</th>
                 </tr>
               </thead>
@@ -655,7 +655,7 @@ export default function AdminAlunoDetalhes() {
       )}
 
       <div className="card">
-        <h3 className="section-title">Historico de login</h3>
+        <h3 className="section-title">Histórico de login</h3>
         <div className="table-container">
           <table>
             <thead>

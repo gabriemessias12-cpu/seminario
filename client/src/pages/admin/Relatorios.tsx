@@ -114,7 +114,7 @@ export default function AdminRelatorios() {
         <>
           <div className="card mb-3">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio de engajamento por aula</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatório de engajamento por aula</h3>
               <button
                 className="btn btn-outline btn-sm print-hide"
                 onClick={() => {
@@ -150,7 +150,7 @@ export default function AdminRelatorios() {
                 <thead>
                   <tr>
                     <th>Aula</th>
-                    <th>Visualizacoes</th>
+                    <th>Visualizações</th>
                     <th>% Medio</th>
                     <th>Media Quiz</th>
                     <th>Quizzes feitos</th>
@@ -184,7 +184,7 @@ export default function AdminRelatorios() {
 
           <div className="card">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio de acesso</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatório de acesso</h3>
               <button
                 className="btn btn-outline btn-sm print-hide"
                 onClick={() => {
@@ -210,7 +210,7 @@ export default function AdminRelatorios() {
               <table>
                 <thead>
                   <tr>
-                    <th>Usuario</th>
+                    <th>Usuário</th>
                     <th>Email</th>
                     <th>Data/Hora</th>
                     <th>IP</th>
@@ -232,7 +232,7 @@ export default function AdminRelatorios() {
 
           <div className="card mt-3">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatorio academico por aluno</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Relatório acadêmico por aluno</h3>
               <div className="page-header-actions print-hide">
                 <div className="search-field compact">
                   <AppIcon name="search" size={16} />
@@ -277,12 +277,12 @@ export default function AdminRelatorios() {
                   <tr>
                     <th>Aluno</th>
                     <th>Aulas</th>
-                    <th>Avaliacoes</th>
+                    <th>Avaliações</th>
                     <th>Geral</th>
                     <th>Atrasos</th>
-                    <th>Frequencia</th>
+                    <th>Frequência</th>
                     <th>Entregas</th>
-                    <th>Media notas</th>
+                    <th>Média notas</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -355,10 +355,10 @@ export default function AdminRelatorios() {
               <table>
                 <thead>
                   <tr>
-                    <th>Avaliacao</th>
+                    <th>Avaliação</th>
                     <th>Tipo</th>
                     <th>Formato</th>
-                    <th>Vinculo</th>
+                    <th>Vínculo</th>
                     <th>Entregas</th>
                     <th>Corrigidas</th>
                     <th>Media notas</th>

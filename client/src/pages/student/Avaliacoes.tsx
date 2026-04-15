@@ -230,7 +230,7 @@ export default function StudentAvaliacoes() {
       const data = await response.json();
 
       if (!response.ok) {
-        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Nao foi possivel iniciar a prova.' }));
+        setFeedback((current) => ({ ...current, [avaliacao.id]: data.error || 'Não foi possível iniciar a prova.' }));
         return;
       }
 
@@ -731,7 +731,7 @@ export default function StudentAvaliacoes() {
 
                         {discursivaBloqueada && (
                           <div className="inline-feedback warning">
-                            {status === 'corrigido' ? 'Esta entrega ja foi corrigida e nao pode mais ser alterada.' : 'O prazo desta avaliacao foi encerrado.'}
+                            {status === 'corrigido' ? 'Esta entrega já foi corrigida e não pode mais ser alterada.' : 'O prazo desta avaliação foi encerrado.'}
                           </div>
                         )}
 

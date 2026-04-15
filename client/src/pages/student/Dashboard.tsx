@@ -39,7 +39,7 @@ export default function StudentDashboard() {
         setData(dashboard);
         setModulos(aulas);
       })
-      .catch(() => setError('Nao foi possivel carregar o painel do aluno agora.'))
+      .catch(() => setError('Não foi possível carregar o painel do aluno agora.'))
       .finally(() => setLoading(false));
   };
 
@@ -52,7 +52,7 @@ export default function StudentDashboard() {
       await apiPut(`/api/aluno/notificacao/${id}/lida`);
       loadData();
     } catch {
-      setError('Nao foi possivel atualizar a notificacao.');
+      setError('Não foi possível atualizar a notificação.');
     }
   };
 
@@ -186,9 +186,9 @@ export default function StudentDashboard() {
           <section className="student-section" style={{ marginTop: '2rem' }}>
             <div className="student-section-header">
               <div>
-                <span className="section-kicker" style={{ color: 'var(--color-error)' }}>Atencao</span>
+                <span className="section-kicker" style={{ color: 'var(--color-error)' }}>Atenção</span>
                 <h2>Aulas atrasadas</h2>
-                <p className="text-muted text-sm">Estas aulas ja foram publicadas e ainda nao foram concluidas.</p>
+                <p className="text-muted text-sm">Estas aulas já foram publicadas e ainda não foram concluídas.</p>
               </div>
             </div>
             <div className="card-grid">
@@ -383,7 +383,7 @@ export default function StudentDashboard() {
             <div className="student-section-header compact">
               <div>
                 <span className="section-kicker">Avisos</span>
-                <h2>Notificacoes recentes</h2>
+                <h2>Notificações recentes</h2>
               </div>
             </div>
 
@@ -412,7 +412,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="empty-panel">
                   <AppIcon name="check" size={20} />
-                  <p>Nao ha notificacoes novas no momento.</p>
+                  <p>Não há notificações novas no momento.</p>
                 </div>
               )}
             </div>

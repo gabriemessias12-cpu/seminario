@@ -193,13 +193,13 @@ export default function StudentAulaPlayer() {
         if (data.concluido) setCompleted(true);
         setMaxWatched((current: number) => Math.max(current, data.percentualAssistido || percentual));
         setLessonFeedback((current) => (
-          current === 'Nao foi possivel sincronizar seu progresso agora. Vamos tentar novamente automaticamente.'
+          current === 'Não foi possível sincronizar seu progresso agora. Vamos tentar novamente automaticamente.'
             ? ''
             : current
         ));
       })
       .catch(() => {
-        setLessonFeedback('Nao foi possivel sincronizar seu progresso agora. Vamos tentar novamente automaticamente.');
+        setLessonFeedback('Não foi possível sincronizar seu progresso agora. Vamos tentar novamente automaticamente.');
       });
   }, [id]);
 
@@ -579,7 +579,7 @@ export default function StudentAulaPlayer() {
         setQuizScore(resultado.pontuacao);
       })
       .catch(() => {
-        setLessonFeedback('Nao foi possivel registrar o resultado do quiz agora.');
+        setLessonFeedback('Não foi possível registrar o resultado do quiz agora.');
       });
   };
 

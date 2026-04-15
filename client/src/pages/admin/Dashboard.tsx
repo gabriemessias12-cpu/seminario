@@ -21,7 +21,7 @@ export default function AdminDashboard() {
         if (dashResult.status === 'fulfilled') {
           setData(dashResult.value);
         } else {
-          setError('Nao foi possivel carregar o painel administrativo agora.');
+          setError('Não foi possível carregar o painel administrativo agora.');
         }
 
         if (alertasResult.status === 'fulfilled' && Array.isArray(alertasResult.value)) {
@@ -121,9 +121,9 @@ export default function AdminDashboard() {
           <div className="stat-grid-auto mb-3">
             {[
               { icon: 'library' as const, className: 'purple', value: `${data.progressoMedioAulas}%`, label: 'Progresso medio nas aulas' },
-              { icon: 'quiz' as const, className: 'orange', value: `${data.progressoMedioAvaliacoes}%`, label: 'Progresso medio em avaliacoes' },
+              { icon: 'quiz' as const, className: 'orange', value: `${data.progressoMedioAvaliacoes}%`, label: 'Progresso médio em avaliações' },
               { icon: 'reports' as const, className: 'green', value: `${data.progressoMedioGeral}%`, label: 'Progresso medio geral' },
-              { icon: 'clock' as const, className: 'blue', value: `${data.alertasAvaliacoesAtrasadas}/${data.alertasAulasAtrasadas}`, label: 'Avaliacoes/Aulas atrasadas' }
+              { icon: 'clock' as const, className: 'blue', value: `${data.alertasAvaliacoesAtrasadas}/${data.alertasAulasAtrasadas}`, label: 'Avaliações/Aulas atrasadas' }
             ].map((item) => (
               <div className="stat-card" key={item.label}>
                 <div className={`stat-icon ${item.className}`}><AppIcon name={item.icon} size={18} /></div>
@@ -175,7 +175,7 @@ export default function AdminDashboard() {
                           <div className="table-entity-copy">{aluno.nome}</div>
                           <div className="text-muted text-sm">{aluno.email}</div>
                           <div className="text-muted text-sm">
-                            Aulas {aluno.progressoAulas}% · Avaliacoes {aluno.progressoAvaliacoes}% · Geral {aluno.progressoGeral}%
+                            Aulas {aluno.progressoAulas}% · Avaliações {aluno.progressoAvaliacoes}% · Geral {aluno.progressoGeral}%
                           </div>
                         </div>
                       </div>
@@ -199,8 +199,8 @@ export default function AdminDashboard() {
               <table>
                 <thead>
                   <tr>
-                    <th>Usuario</th>
-                    <th>Acao</th>
+                    <th>Usuário</th>
+                    <th>Ação</th>
                     <th>Data/Hora</th>
                     <th>Dispositivo</th>
                   </tr>
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
       ) : (
         <div className="empty-panel">
           <AppIcon name="reports" size={20} />
-          <p>Os dados do painel ainda nao estao disponiveis.</p>
+          <p>Os dados do painel ainda não estão disponíveis.</p>
         </div>
       )}
     </>
