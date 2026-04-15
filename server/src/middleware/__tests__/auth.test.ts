@@ -56,7 +56,7 @@ describe('verifyAndRotateRefreshToken', () => {
     const { refreshToken } = generateTokens(basePayload);
     verifyAndRotateRefreshToken(refreshToken); // 1ª vez — ok
     expect(() => verifyAndRotateRefreshToken(refreshToken)).toThrow(
-      'Refresh token invalido ou ja utilizado'
+      'Refresh token inválido ou já utilizado'
     );
   });
 
@@ -72,7 +72,7 @@ describe('invalidateRefreshToken', () => {
     const { refreshToken } = generateTokens(basePayload);
     invalidateRefreshToken(refreshToken);
     expect(() => verifyAndRotateRefreshToken(refreshToken)).toThrow(
-      'Refresh token invalido ou ja utilizado'
+      'Refresh token inválido ou já utilizado'
     );
   });
 
@@ -94,7 +94,7 @@ describe('generateVideoToken + verifyVideoToken', () => {
 
   it('rejeita access token normal como video token', () => {
     const { accessToken } = generateTokens(basePayload);
-    expect(() => verifyVideoToken(accessToken)).toThrow('Tipo de token invalido');
+    expect(() => verifyVideoToken(accessToken)).toThrow('Tipo de token inválido');
   });
 
   it('rejeita token inválido', () => {

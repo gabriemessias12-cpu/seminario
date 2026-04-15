@@ -259,7 +259,7 @@ const uploadThumbnail = multer({
   storage: thumbnailStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens sao permitidas.'));
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens são permitidas.'));
     cb(null, true);
   }
 });
@@ -276,7 +276,7 @@ const uploadAvatar = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Apenas imagens sao permitidas.'));
+      return cb(new Error('Apenas imagens são permitidas.'));
     }
     cb(null, true);
   }
@@ -297,7 +297,7 @@ const uploadBrand = multer({
   storage: brandStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens sao permitidas.'));
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Apenas imagens são permitidas.'));
     cb(null, true);
   }
 });
@@ -2964,7 +2964,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
 
         const apiProvider = getApiTranscriptionProvider();
         if (!apiProvider) {
-          throw new Error('Legendas do YouTube indisponiveis, Whisper local nao disponivel e nenhuma API configurada (GROQ_API_KEY ou OPENAI_API_KEY).');
+          throw new Error('Legendas do YouTube indisponíveis, Whisper local não disponível e nenhuma API configurada (GROQ_API_KEY ou OPENAI_API_KEY).');
         }
 
         const chunks = await splitAudioIntoChunks(rawAudio, tempDir, 1200);
@@ -3046,7 +3046,7 @@ router.put('/alerta-seguranca/:id/ler', async (req: AuthRequest, res: Response):
     await prisma.alertaSeguranca.update({ where: { id: String(req.params.id) }, data: { lido: true } });
     res.json({ ok: true });
   } catch {
-    res.status(404).json({ error: 'Alerta nao encontrado.' });
+    res.status(404).json({ error: 'Alerta não encontrado.' });
   }
 });
 
@@ -3070,11 +3070,11 @@ router.get('/brand/lideranca', (_req: AuthRequest, res: Response): void => {
 router.put('/brand/lideranca/:slot', uploadBrand.single('foto'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const slot = Number(req.params.slot);
-    if (![1, 2, 3].includes(slot)) { res.status(400).json({ error: 'Slot invalido. Use 1, 2 ou 3.' }); return; }
+    if (![1, 2, 3].includes(slot)) { res.status(400).json({ error: 'Slot inválido. Use 1, 2 ou 3.' }); return; }
 
     const config = readBrandConfig();
     const entry = config.find(e => e.slot === slot);
-    if (!entry) { res.status(404).json({ error: 'Slot nao encontrado.' }); return; }
+    if (!entry) { res.status(404).json({ error: 'Slot não encontrado.' }); return; }
 
     if (req.body?.name) entry.name = String(req.body.name).trim();
     if (req.body?.objectPosition) entry.objectPosition = String(req.body.objectPosition).trim();

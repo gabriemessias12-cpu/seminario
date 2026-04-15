@@ -44,7 +44,7 @@ const uploadAvatar = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Apenas imagens sao permitidas.'));
+      return cb(new Error('Apenas imagens são permitidas.'));
     }
     cb(null, true);
   }
@@ -408,7 +408,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
     const aulaId = readString(req.params.id);
     const iaStatus = formatAIStatus(await syncDailyAICredits(prisma, userId));
     if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida' });
+      res.status(400).json({ error: 'Aula inválida' });
       return;
     }
 
@@ -502,7 +502,7 @@ router.get('/aula/:id/ytk', authMiddleware, async (req: AuthRequest, res: Respon
     const aulaId = readString(req.params.id);
     const userId = req.user?.userId;
     if (!aulaId || !userId) {
-      res.status(400).json({ error: 'Parametros invalidos' });
+      res.status(400).json({ error: 'Parâmetros inválidos' });
       return;
     }
 
@@ -512,13 +512,13 @@ router.get('/aula/:id/ytk', authMiddleware, async (req: AuthRequest, res: Respon
     });
 
     if (!aula || getLessonVideoKind(aula.urlVideo) !== 'youtube') {
-      res.status(404).json({ error: 'Aula nao encontrada ou nao e YouTube' });
+      res.status(404).json({ error: 'Aula não encontrada ou não é YouTube' });
       return;
     }
 
     const videoId = extractYouTubeVideoId(aula.urlVideo);
     if (!videoId) {
-      res.status(404).json({ error: 'ID do video nao encontrado' });
+      res.status(404).json({ error: 'ID do vídeo não encontrado' });
       return;
     }
 
@@ -530,7 +530,7 @@ router.get('/aula/:id/ytk', authMiddleware, async (req: AuthRequest, res: Respon
     res.json({ k: encoded });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao obter token de video' });
+    res.status(500).json({ error: 'Erro ao obter token de vídeo' });
   }
 });
 
@@ -541,7 +541,7 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     const token = readString(req.query.token as string | string[] | undefined);
 
     if (!aulaId || !token) {
-      res.status(400).json({ error: 'Token ou aula invalidos' });
+      res.status(400).json({ error: 'Token ou aula inválidos' });
       return;
     }
 
@@ -549,12 +549,12 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     try {
       payload = verifyVideoToken(token);
     } catch {
-      res.status(401).json({ error: 'Token de video invalido ou expirado' });
+      res.status(401).json({ error: 'Token de vídeo inválido ou expirado' });
       return;
     }
 
     if (payload.aulaId !== aulaId) {
-      res.status(403).json({ error: 'Acesso negado ao video' });
+      res.status(403).json({ error: 'Acesso negado ao vídeo' });
       return;
     }
 
@@ -571,12 +571,12 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     });
 
     if (!aula?.urlVideo) {
-      res.status(404).json({ error: 'Video nao encontrado' });
+      res.status(404).json({ error: 'Vídeo não encontrado' });
       return;
     }
 
     if (getLessonVideoKind(aula.urlVideo) !== 'upload') {
-      res.status(404).json({ error: 'Aula sem arquivo local de video' });
+      res.status(404).json({ error: 'Aula sem arquivo local de vídeo' });
       return;
     }
 
@@ -590,7 +590,7 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     });
 
     if (!user) {
-      res.status(403).json({ error: 'Usuario sem acesso ao video' });
+      res.status(403).json({ error: 'Usuário sem acesso ao vídeo' });
       return;
     }
 
@@ -598,7 +598,7 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     const videoPath = path.resolve('uploads/videos', fileName);
 
     if (!fs.existsSync(videoPath)) {
-      res.status(404).json({ error: 'Arquivo de video nao encontrado' });
+      res.status(404).json({ error: 'Arquivo de vídeo não encontrado' });
       return;
     }
 
@@ -644,7 +644,7 @@ router.get('/aula/:id/video', async (req, res: Response): Promise<void> => {
     fs.createReadStream(videoPath).pipe(res);
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao carregar video' });
+    res.status(500).json({ error: 'Erro ao carregar vídeo' });
   }
 });
 
@@ -660,7 +660,7 @@ router.post('/progresso', async (req: AuthRequest, res: Response): Promise<void>
     });
 
     if (!aula) {
-      res.status(404).json({ error: 'Aula nao encontrada' });
+      res.status(404).json({ error: 'Aula não encontrada' });
       return;
     }
 
@@ -776,7 +776,7 @@ router.post('/quiz', async (req: AuthRequest, res: Response): Promise<void> => {
     const respostasPayload = req.body.respostas;
 
     if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida.' });
+      res.status(400).json({ error: 'Aula inválida.' });
       return;
     }
 
@@ -786,7 +786,7 @@ router.post('/quiz', async (req: AuthRequest, res: Response): Promise<void> => {
     });
 
     if (!quiz) {
-      res.status(404).json({ error: 'Quiz nao encontrado para esta aula.' });
+      res.status(404).json({ error: 'Quiz não encontrado para esta aula.' });
       return;
     }
 
@@ -832,7 +832,7 @@ router.post('/avaliacao/:id/iniciar', async (req: AuthRequest, res: Response): P
     const avaliacaoId = readString(req.params.id);
 
     if (!avaliacaoId) {
-      res.status(400).json({ error: 'Avaliacao invalida.' });
+      res.status(400).json({ error: 'Avaliação inválida.' });
       return;
     }
 
@@ -851,12 +851,12 @@ router.post('/avaliacao/:id/iniciar', async (req: AuthRequest, res: Response): P
     });
 
     if (!avaliacao) {
-      res.status(404).json({ error: 'Prova objetiva nao encontrada.' });
+      res.status(404).json({ error: 'Prova objetiva não encontrada.' });
       return;
     }
 
     if (isPastDeadline(avaliacao.dataLimite, now)) {
-      res.status(409).json({ error: 'O prazo desta prova ja foi encerrado.' });
+      res.status(409).json({ error: 'O prazo desta prova já foi encerrado.' });
       return;
     }
 
@@ -870,7 +870,7 @@ router.post('/avaliacao/:id/iniciar', async (req: AuthRequest, res: Response): P
     });
 
     if (entregaExistente?.enviadoEm) {
-      res.status(409).json({ error: 'Esta prova objetiva ja foi enviada.' });
+      res.status(409).json({ error: 'Esta prova objetiva já foi enviada.' });
       return;
     }
 
@@ -1058,7 +1058,7 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
     const arquivo = req.file;
 
     if (!avaliacaoId) {
-      res.status(400).json({ error: 'Avaliacao invalida.' });
+      res.status(400).json({ error: 'Avaliação inválida.' });
       return;
     }
 
@@ -1070,13 +1070,13 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
     });
 
     if (!avaliacao) {
-      res.status(404).json({ error: 'Avaliacao nao encontrada.' });
+      res.status(404).json({ error: 'Avaliação não encontrada.' });
       return;
     }
 
     const now = new Date();
     if (isPastDeadline(avaliacao.dataLimite, now)) {
-      res.status(409).json({ error: 'O prazo desta avaliacao ja foi encerrado.' });
+      res.status(409).json({ error: 'O prazo desta avaliação já foi encerrado.' });
       return;
     }
 
@@ -1089,7 +1089,7 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       }
 
       if (!questoesObjetivas.length) {
-        res.status(400).json({ error: 'A prova objetiva nao possui questoes validas cadastradas.' });
+        res.status(400).json({ error: 'A prova objetiva não possui questões válidas cadastradas.' });
         return;
       }
     }
@@ -1106,7 +1106,7 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
     const arquivoAnterior = entregaExistente?.arquivoUrl;
 
     if (entregaExistente?.status === 'corrigido') {
-      res.status(409).json({ error: 'Esta avaliacao ja foi corrigida e nao pode mais ser alterada.' });
+      res.status(409).json({ error: 'Esta avaliação já foi corrigida e não pode mais ser alterada.' });
       return;
     }
 
@@ -1117,7 +1117,7 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
       }
 
       if (entregaExistente.enviadoEm) {
-        res.status(409).json({ error: 'Esta prova objetiva ja foi enviada e nao aceita nova tentativa.' });
+        res.status(409).json({ error: 'Esta prova objetiva já foi enviada e não aceita nova tentativa.' });
         return;
       }
 
@@ -1203,12 +1203,12 @@ router.post('/avaliacao/:id/entrega', uploadSubmission.single('arquivo'), async 
     }
 
     if (!avaliacao.permiteArquivo && arquivo) {
-      res.status(400).json({ error: 'Esta atividade nao aceita arquivo.' });
+      res.status(400).json({ error: 'Esta atividade não aceita arquivo.' });
       return;
     }
 
     if (!avaliacao.permiteTexto && respostaTexto) {
-      res.status(400).json({ error: 'Esta atividade nao aceita resposta em texto.' });
+      res.status(400).json({ error: 'Esta atividade não aceita resposta em texto.' });
       return;
     }
 
@@ -1264,7 +1264,7 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
     const entregaId = readString(req.params.id);
 
     if (!entregaId) {
-      res.status(400).json({ error: 'Entrega invalida.' });
+      res.status(400).json({ error: 'Entrega inválida.' });
       return;
     }
 
@@ -1279,7 +1279,7 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
     });
 
     if (!entrega?.arquivoUrl) {
-      res.status(404).json({ error: 'Arquivo da entrega nao encontrado.' });
+      res.status(404).json({ error: 'Arquivo da entrega não encontrado.' });
       return;
     }
 
@@ -1310,7 +1310,7 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
     });
 
     if (!user) {
-      res.status(404).json({ error: 'Usuario nao encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
@@ -1388,12 +1388,12 @@ router.get('/perfil', async (req: AuthRequest, res: Response): Promise<void> => 
 
     const entregasAvaliacao = entregasResult.status === 'fulfilled' ? entregasResult.value : [];
     if (entregasResult.status === 'rejected') {
-      logger.warn('Falha ao carregar entregas de avaliacao no perfil.', entregasResult.reason);
+      logger.warn('Falha ao carregar entregas de avaliação no perfil.', entregasResult.reason);
     }
 
     const modulos = modulosResult.status === 'fulfilled' ? modulosResult.value : [];
     if (modulosResult.status === 'rejected') {
-      logger.warn('Falha ao carregar frequencia por modulo no perfil.', modulosResult.reason);
+      logger.warn('Falha ao carregar frequência por módulo no perfil.', modulosResult.reason);
     }
 
     res.json({
@@ -1502,7 +1502,7 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
     });
 
     if (!aula) {
-      res.status(404).json({ error: 'Aula nao encontrada' });
+      res.status(404).json({ error: 'Aula não encontrada' });
       return;
     }
 
@@ -1529,7 +1529,7 @@ router.post('/ia/perguntar', async (req: AuthRequest, res: Response): Promise<vo
     ]).values());
 
     if (!aula.transcricao) {
-      res.status(400).json({ error: 'O assistente esta disponivel apenas para aulas com transcricao. Aguarde o administrador adicionar a transcricao desta aula.' });
+      res.status(400).json({ error: 'O assistente está disponível apenas para aulas com transcrição. Aguarde o administrador adicionar a transcrição desta aula.' });
       return;
     }
 
@@ -1600,7 +1600,7 @@ router.put('/senha', async (req: AuthRequest, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      res.status(404).json({ error: 'Usuario nao encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 
@@ -1639,7 +1639,7 @@ router.put('/notificacao/:id/lida', async (req: AuthRequest, res: Response): Pro
   try {
     const notificacaoId = readString(req.params.id);
     if (!notificacaoId) {
-      res.status(400).json({ error: 'Notificacao invalida' });
+      res.status(400).json({ error: 'Notificação inválida' });
       return;
     }
 
@@ -1666,13 +1666,13 @@ router.delete('/conta', authMiddleware, async (req: AuthRequest, res: Response):
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      res.status(404).json({ error: 'Usuario nao encontrado.' });
+      res.status(404).json({ error: 'Usuário não encontrado.' });
       return;
     }
 
     const senhaValida = await bcrypt.compare(senha, user.senhaHash);
     if (!senhaValida) {
-      res.status(401).json({ error: 'Senha incorreta. A exclusao nao foi realizada.' });
+      res.status(401).json({ error: 'Senha incorreta. A exclusão não foi realizada.' });
       return;
     }
 

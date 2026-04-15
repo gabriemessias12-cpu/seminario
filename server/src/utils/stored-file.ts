@@ -7,7 +7,7 @@ export function sendStoredUpload(res: Response, storedUrl: string, directory: st
   const filePath = path.resolve(directory, fileName);
 
   if (!fs.existsSync(filePath)) {
-    res.status(404).json({ error: 'Arquivo nao encontrado' });
+    res.status(404).json({ error: 'Arquivo não encontrado' });
     return;
   }
 
