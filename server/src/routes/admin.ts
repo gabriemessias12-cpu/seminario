@@ -287,7 +287,7 @@ const brandStorage = multer.diskStorage({
   filename: (req: any, _file, cb) => {
     const slot = String(req.params?.slot ?? '1').replace(/[^0-9]/g, '').substring(0, 2);
     if (!['1', '2', '3'].includes(slot)) {
-      cb(new Error('Slot invalido'), '');
+      cb(new Error('Slot inválido'), '');
       return;
     }
     cb(null, `lideranca-${slot}.jpg`);
@@ -659,7 +659,7 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
   try {
     const alunoId = readString(req.params.id);
     if (!alunoId) {
-      res.status(400).json({ error: 'Aluno invalido' });
+      res.status(400).json({ error: 'Aluno inválido' });
       return;
     }
 
@@ -788,20 +788,20 @@ router.get('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
 
 const createAlunoSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(255).trim(),
-  email: z.string().email('Email invalido').max(255),
+  email: z.string().email('Email inválido').max(255),
   senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128).optional(),
   telefone: z.string().max(30).optional(),
-  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento invalida').optional(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento inválida').optional(),
   membroVinha: z.boolean().optional(),
   batizado: z.boolean().optional()
 });
 
 const updateAlunoSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(255).trim().optional(),
-  email: z.string().email('Email invalido').max(255).optional(),
+  email: z.string().email('Email inválido').max(255).optional(),
   senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128).optional(),
   telefone: z.string().max(30).nullable().optional(),
-  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento invalida').nullable().optional(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento inválida').nullable().optional(),
   membroVinha: z.boolean().optional(),
   batizado: z.boolean().optional(),
   statusCadastro: z.enum(['pendente', 'aprovado', 'rejeitado']).optional()
@@ -832,7 +832,7 @@ router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => 
     const emailNormalizado = email.trim().toLowerCase();
     const existente = await prisma.user.findUnique({ where: { email: emailNormalizado } });
     if (existente) {
-      res.status(409).json({ error: 'Ja existe um usuario com esse email' });
+      res.status(409).json({ error: 'Já existe um usuário com esse email' });
       return;
     }
 
@@ -840,7 +840,7 @@ router.post('/aluno', async (req: AuthRequest, res: Response): Promise<void> => 
     const senhaHash = await bcrypt.hash(senhaGerada, 10);
     const birthDate = dataNascimento ? parseBirthDateToUtcMidday(dataNascimento) : null;
     if (dataNascimento && !birthDate) {
-      res.status(400).json({ error: 'Data de nascimento invalida' });
+      res.status(400).json({ error: 'Data de nascimento inválida' });
       return;
     }
 
@@ -873,7 +873,7 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
   try {
     const alunoId = readString(req.params.id);
     if (!alunoId) {
-      res.status(400).json({ error: 'Aluno invalido' });
+      res.status(400).json({ error: 'Aluno inválido' });
       return;
     }
 
@@ -889,12 +889,12 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
     });
 
     if (!aluno) {
-      res.status(404).json({ error: 'Aluno nao encontrado' });
+      res.status(404).json({ error: 'Aluno não encontrado' });
       return;
     }
 
     if (aluno.papel !== 'aluno') {
-      res.status(400).json({ error: 'Somente usuarios do tipo aluno podem ser atualizados por esta rota.' });
+      res.status(400).json({ error: 'Somente usuários do tipo aluno podem ser atualizados por esta rota.' });
       return;
     }
 
@@ -920,7 +920,7 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       if (emailNormalizado !== aluno.email) {
         const existente = await prisma.user.findUnique({ where: { email: emailNormalizado }, select: { id: true } });
         if (existente && existente.id !== aluno.id) {
-          res.status(409).json({ error: 'Ja existe um usuario com esse email' });
+          res.status(409).json({ error: 'Já existe um usuário com esse email' });
           return;
         }
       }
@@ -942,7 +942,7 @@ router.put('/aluno/:id', async (req: AuthRequest, res: Response): Promise<void> 
       } else {
         const birthDate = parseBirthDateToUtcMidday(dataNascimento);
         if (!birthDate) {
-          res.status(400).json({ error: 'Data de nascimento invalida' });
+          res.status(400).json({ error: 'Data de nascimento inválida' });
           return;
         }
         updateData.dataNascimento = birthDate;
@@ -997,7 +997,7 @@ router.put('/aluno/:id/toggle', async (req: AuthRequest, res: Response): Promise
   try {
     const alunoId = readString(req.params.id);
     if (!alunoId) {
-      res.status(400).json({ error: 'Aluno invalido' });
+      res.status(400).json({ error: 'Aluno inválido' });
       return;
     }
 
@@ -1019,7 +1019,7 @@ router.put('/aluno/:id/aprovar', async (req: AuthRequest, res: Response): Promis
   try {
     const alunoId = readString(req.params.id);
     if (!alunoId) {
-      res.status(400).json({ error: 'Aluno invalido' });
+      res.status(400).json({ error: 'Aluno inválido' });
       return;
     }
 
@@ -1029,7 +1029,7 @@ router.put('/aluno/:id/aprovar', async (req: AuthRequest, res: Response): Promis
     });
 
     if (!aluno || aluno.papel !== 'aluno') {
-      res.status(404).json({ error: 'Aluno nao encontrado' });
+      res.status(404).json({ error: 'Aluno não encontrado' });
       return;
     }
 
@@ -1051,7 +1051,7 @@ router.put('/aluno/:id/rejeitar', async (req: AuthRequest, res: Response): Promi
   try {
     const alunoId = readString(req.params.id);
     if (!alunoId) {
-      res.status(400).json({ error: 'Aluno invalido' });
+      res.status(400).json({ error: 'Aluno inválido' });
       return;
     }
 
@@ -1061,7 +1061,7 @@ router.put('/aluno/:id/rejeitar', async (req: AuthRequest, res: Response): Promi
     });
 
     if (!aluno || aluno.papel !== 'aluno') {
-      res.status(404).json({ error: 'Aluno nao encontrado' });
+      res.status(404).json({ error: 'Aluno não encontrado' });
       return;
     }
 
@@ -1135,11 +1135,11 @@ router.delete('/aluno/:id', async (req: AuthRequest, res: Response): Promise<voi
 router.put('/aluno/:id/foto', uploadAvatar.single('foto'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const alunoId = readString(req.params.id);
-    if (!alunoId) { res.status(400).json({ error: 'ID invalido' }); return; }
+    if (!alunoId) { res.status(400).json({ error: 'ID inválido' }); return; }
     if (!req.file) { res.status(400).json({ error: 'Nenhum arquivo enviado.' }); return; }
 
     const user = await prisma.user.findUnique({ where: { id: alunoId }, select: { foto: true } });
-    if (!user) { res.status(404).json({ error: 'Aluno nao encontrado.' }); return; }
+    if (!user) { res.status(404).json({ error: 'Aluno não encontrado.' }); return; }
 
     if (user.foto) {
       const oldPath = path.resolve(user.foto.replace(/^\//, ''));
@@ -1196,7 +1196,7 @@ router.get('/aula/:id', async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const aulaId = readString(req.params.id);
     if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida' });
+      res.status(400).json({ error: 'Aula inválida' });
       return;
     }
 
@@ -1234,17 +1234,17 @@ router.post('/aula', uploadVideo.single('video'), async (req: AuthRequest, res: 
     const youtubeUrl = normalizeLessonVideoUrl(readString(req.body.youtubeUrl));
 
     if (!titulo || !moduloId) {
-      res.status(400).json({ error: 'Titulo e modulo sao obrigatorios.' });
+      res.status(400).json({ error: 'Título e módulo são obrigatórios.' });
       return;
     }
 
     if (videoFile && youtubeUrl) {
-      res.status(400).json({ error: 'Escolha upload de arquivo ou link do YouTube, nao os dois.' });
+      res.status(400).json({ error: 'Escolha upload de arquivo ou link do YouTube, não os dois.' });
       return;
     }
 
     if (readString(req.body.youtubeUrl) && !youtubeUrl) {
-      res.status(400).json({ error: 'O link do YouTube informado e invalido.' });
+      res.status(400).json({ error: 'O link do YouTube informado é inválido.' });
       return;
     }
 
@@ -1336,7 +1336,7 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
   try {
     const aulaId = readString(req.params.id);
     if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida' });
+      res.status(400).json({ error: 'Aula inválida' });
       return;
     }
 
@@ -1350,17 +1350,17 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
     const youtubeUrl = youtubeUrlInput ? normalizeLessonVideoUrl(youtubeUrlInput) : null;
 
     if (!titulo || !moduloId) {
-      res.status(400).json({ error: 'Titulo e modulo sao obrigatorios.' });
+      res.status(400).json({ error: 'Título e módulo são obrigatórios.' });
       return;
     }
 
     if (videoFile && youtubeUrl) {
-      res.status(400).json({ error: 'Escolha upload de arquivo ou link do YouTube, nao os dois.' });
+      res.status(400).json({ error: 'Escolha upload de arquivo ou link do YouTube, não os dois.' });
       return;
     }
 
     if (youtubeUrlInput && !youtubeUrl) {
-      res.status(400).json({ error: 'O link do YouTube informado e invalido.' });
+      res.status(400).json({ error: 'O link do YouTube informado é inválido.' });
       return;
     }
 
@@ -1376,7 +1376,7 @@ router.put('/aula/:id', uploadVideo.single('video'), async (req: AuthRequest, re
     });
 
     if (!aulaAtual) {
-      res.status(404).json({ error: 'Aula nao encontrada' });
+      res.status(404).json({ error: 'Aula não encontrada' });
       return;
     }
 
@@ -1447,7 +1447,7 @@ router.delete('/aula/:id', async (req: AuthRequest, res: Response): Promise<void
   try {
     const aulaId = readString(req.params.id);
     if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida' });
+      res.status(400).json({ error: 'Aula inválida' });
       return;
     }
 
@@ -1462,7 +1462,7 @@ router.delete('/aula/:id', async (req: AuthRequest, res: Response): Promise<void
     });
 
     if (!aulaAtual) {
-      res.status(404).json({ error: 'Aula nao encontrada' });
+      res.status(404).json({ error: 'Aula não encontrada' });
       return;
     }
 
@@ -1499,12 +1499,12 @@ router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> =>
     const obrigatorio = readBoolean(req.body.obrigatorio, true);
 
     if (!titulo) {
-      res.status(400).json({ error: 'Informe o titulo do modulo.' });
+      res.status(400).json({ error: 'Informe o título do módulo.' });
       return;
     }
 
     if (ordem === null) {
-      res.status(400).json({ error: 'Informe uma ordem valida para o modulo.' });
+      res.status(400).json({ error: 'Informe uma ordem válida para o módulo.' });
       return;
     }
 
@@ -1534,7 +1534,7 @@ router.post('/modulo', async (req: AuthRequest, res: Response): Promise<void> =>
     res.json(modulo);
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao criar modulo' });
+    res.status(500).json({ error: 'Erro ao criar módulo' });
   }
 });
 
@@ -1559,17 +1559,17 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
       ? undefined
       : readBoolean(req.body.obrigatorio, true);
     if (!moduloId) {
-      res.status(400).json({ error: 'Modulo invalido' });
+      res.status(400).json({ error: 'Módulo inválido' });
       return;
     }
 
     if (!titulo) {
-      res.status(400).json({ error: 'Informe o titulo do modulo.' });
+      res.status(400).json({ error: 'Informe o título do módulo.' });
       return;
     }
 
     if (ordem === null) {
-      res.status(400).json({ error: 'Informe uma ordem valida para o modulo.' });
+      res.status(400).json({ error: 'Informe uma ordem válida para o módulo.' });
       return;
     }
 
@@ -1585,7 +1585,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
     });
 
     if (!moduloAtual) {
-      res.status(404).json({ error: 'Modulo nao encontrado' });
+      res.status(404).json({ error: 'Módulo não encontrado' });
       return;
     }
 
@@ -1624,7 +1624,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
     res.json(modulo);
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao atualizar modulo' });
+    res.status(500).json({ error: 'Erro ao atualizar módulo' });
   }
 });
 
@@ -1632,7 +1632,7 @@ router.put('/modulo/:id', async (req: AuthRequest, res: Response): Promise<void>
 router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const moduloId = readString(req.params.id);
-    if (!moduloId) { res.status(400).json({ error: 'ID invalido' }); return; }
+    if (!moduloId) { res.status(400).json({ error: 'ID inválido' }); return; }
     if (!req.file) { res.status(400).json({ error: 'Nenhum arquivo enviado.' }); return; }
 
     const modulo = await prisma.modulo.findUnique({
@@ -1645,7 +1645,7 @@ router.put('/modulo/:id/capa', uploadThumbnail.single('capa'), async (req: AuthR
         obrigatorio: true
       }
     });
-    if (!modulo) { res.status(404).json({ error: 'Modulo nao encontrado.' }); return; }
+    if (!modulo) { res.status(404).json({ error: 'Módulo não encontrado.' }); return; }
 
     removeUploadedFile(modulo.capaUrl);
 
@@ -1687,7 +1687,7 @@ router.delete('/modulo/:id', async (req: AuthRequest, res: Response): Promise<vo
   try {
     const moduloId = readString(req.params.id);
     if (!moduloId) {
-      res.status(400).json({ error: 'Modulo invalido' });
+      res.status(400).json({ error: 'Módulo inválido' });
       return;
     }
 
@@ -1702,7 +1702,7 @@ router.delete('/modulo/:id', async (req: AuthRequest, res: Response): Promise<vo
     });
 
     if (!moduloAtual) {
-      res.status(404).json({ error: 'Modulo nao encontrado' });
+      res.status(404).json({ error: 'Módulo não encontrado' });
       return;
     }
 
@@ -1722,7 +1722,7 @@ router.delete('/modulo/:id', async (req: AuthRequest, res: Response): Promise<vo
     res.json({ ok: true });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao excluir modulo' });
+    res.status(500).json({ error: 'Erro ao excluir módulo' });
   }
 });
 
@@ -1756,7 +1756,7 @@ router.get('/conteudo-historico', async (req: AuthRequest, res: Response): Promi
     })));
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao carregar historico de conteudo' });
+    res.status(500).json({ error: 'Erro ao carregar histórico de conteúdo' });
   }
 });
 
@@ -1845,7 +1845,7 @@ router.post('/material', uploadMaterial.single('arquivo'), async (req: AuthReque
 router.delete('/material/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const material = await prisma.material.findUnique({ where: { id: String(req.params.id) } });
-    if (!material) { res.status(404).json({ error: 'Material nao encontrado' }); return; }
+    if (!material) { res.status(404).json({ error: 'Material não encontrado' }); return; }
     if (material.urlArquivo) {
       const filePath = path.resolve(material.urlArquivo.replace(/^\//, ''));
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -2046,7 +2046,7 @@ router.get('/avaliacoes', async (req: AuthRequest, res: Response): Promise<void>
     });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao carregar avaliacoes' });
+    res.status(500).json({ error: 'Erro ao carregar avaliações' });
   }
 });
 
@@ -2069,12 +2069,12 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
     const questoesObjetivas = parseObjectiveQuestions(req.body.questoesObjetivas);
 
     if (!titulo) {
-      res.status(400).json({ error: 'Titulo obrigatorio.' });
+      res.status(400).json({ error: 'Título obrigatório.' });
       return;
     }
 
     if (formato === 'objetiva' && !questoesObjetivas.length) {
-      res.status(400).json({ error: 'Cadastre pelo menos uma questao objetiva valida.' });
+      res.status(400).json({ error: 'Cadastre pelo menos uma questão objetiva válida.' });
       return;
     }
 
@@ -2126,7 +2126,7 @@ router.post('/avaliacao', async (req: AuthRequest, res: Response): Promise<void>
     res.json(avaliacao);
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao criar avaliacao' });
+    res.status(500).json({ error: 'Erro ao criar avaliação' });
   }
 });
 
@@ -2135,7 +2135,7 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
   try {
     const avaliacaoId = readString(req.params.id);
     if (!avaliacaoId) {
-      res.status(400).json({ error: 'Avaliacao invalida.' });
+      res.status(400).json({ error: 'Avaliação inválida.' });
       return;
     }
 
@@ -2155,12 +2155,12 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     const questoesObjetivas = parseObjectiveQuestions(req.body.questoesObjetivas);
 
     if (!titulo) {
-      res.status(400).json({ error: 'Titulo obrigatorio.' });
+      res.status(400).json({ error: 'Título obrigatório.' });
       return;
     }
 
     if (formato === 'objetiva' && !questoesObjetivas.length) {
-      res.status(400).json({ error: 'Cadastre pelo menos uma questao objetiva valida.' });
+      res.status(400).json({ error: 'Cadastre pelo menos uma questão objetiva válida.' });
       return;
     }
 
@@ -2213,7 +2213,7 @@ router.put('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     res.json(avaliacao);
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao atualizar avaliacao' });
+    res.status(500).json({ error: 'Erro ao atualizar avaliação' });
   }
 });
 
@@ -2222,7 +2222,7 @@ router.delete('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise
   try {
     const avaliacaoId = readString(req.params.id);
     if (!avaliacaoId) {
-      res.status(400).json({ error: 'Avaliacao invalida.' });
+      res.status(400).json({ error: 'Avaliação inválida.' });
       return;
     }
 
@@ -2249,7 +2249,7 @@ router.delete('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise
     res.json({ ok: true });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao excluir avaliacao' });
+    res.status(500).json({ error: 'Erro ao excluir avaliação' });
   }
 });
 
@@ -2258,7 +2258,7 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
   try {
     const avaliacaoId = readString(req.params.id);
     if (!avaliacaoId) {
-      res.status(400).json({ error: 'Avaliacao invalida.' });
+      res.status(400).json({ error: 'Avaliação inválida.' });
       return;
     }
 
@@ -2292,7 +2292,7 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     });
 
     if (!avaliacao) {
-      res.status(404).json({ error: 'Avaliacao nao encontrada.' });
+      res.status(404).json({ error: 'Avaliação não encontrada.' });
       return;
     }
 
@@ -2305,7 +2305,7 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao carregar avaliacao' });
+    res.status(500).json({ error: 'Erro ao carregar avaliação' });
   }
 });
 
@@ -2318,12 +2318,12 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
     const nota = Number(readString(req.body.nota));
 
     if (!entregaId) {
-      res.status(400).json({ error: 'Entrega invalida.' });
+      res.status(400).json({ error: 'Entrega inválida.' });
       return;
     }
 
     if (!Number.isFinite(nota)) {
-      res.status(400).json({ error: 'Informe uma nota valida.' });
+      res.status(400).json({ error: 'Informe uma nota válida.' });
       return;
     }
 
@@ -2339,7 +2339,7 @@ router.put('/entrega-avaliacao/:id/correcao', async (req: AuthRequest, res: Resp
     });
 
     if (!entregaAtual) {
-      res.status(404).json({ error: 'Entrega nao encontrada.' });
+      res.status(404).json({ error: 'Entrega não encontrada.' });
       return;
     }
 
@@ -2395,7 +2395,7 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
   try {
     const entregaId = readString(req.params.id);
     if (!entregaId) {
-      res.status(400).json({ error: 'Entrega invalida.' });
+      res.status(400).json({ error: 'Entrega inválida.' });
       return;
     }
 
@@ -2405,7 +2405,7 @@ router.get('/entrega-avaliacao/:id/arquivo', async (req: AuthRequest, res: Respo
     });
 
     if (!entrega?.arquivoUrl) {
-      res.status(404).json({ error: 'Arquivo da entrega nao encontrado.' });
+      res.status(404).json({ error: 'Arquivo da entrega não encontrado.' });
       return;
     }
 
@@ -2465,7 +2465,7 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
   try {
     const { aulaId, presencas } = req.body; // Array of { alunoId, status, metodo }
     if (!aulaId || !Array.isArray(presencas)) {
-      res.status(400).json({ error: 'Dados invalidos' });
+      res.status(400).json({ error: 'Dados inválidos' });
       return;
     }
 
@@ -2555,7 +2555,7 @@ router.post('/notificacao', async (req: AuthRequest, res: Response): Promise<voi
   try {
     const { titulo, mensagem, alunoId } = req.body;
     if (!titulo || !mensagem) {
-      res.status(400).json({ error: 'Titulo e mensagem obrigatorios' });
+      res.status(400).json({ error: 'Título e mensagem obrigatórios' });
       return;
     }
 
@@ -2574,7 +2574,7 @@ router.post('/notificacao', async (req: AuthRequest, res: Response): Promise<voi
     res.json({ ok: true });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao enviar notificacao' });
+    res.status(500).json({ error: 'Erro ao enviar notificação' });
   }
 });
 
@@ -2762,7 +2762,7 @@ router.get('/aula/:id/status-ia', async (req: AuthRequest, res: Response): Promi
   try {
     const aulaId = readString(req.params.id);
     if (!aulaId) {
-      res.status(400).json({ error: 'Aula invalida' });
+      res.status(400).json({ error: 'Aula inválida' });
       return;
     }
 
@@ -2791,7 +2791,7 @@ async function splitAudioIntoChunks(audioFile: string, tempDir: string, chunkSec
     '-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', audioFile
   ]);
   const totalSecs = parseFloat(stdout.trim());
-  if (!totalSecs || Number.isNaN(totalSecs)) throw new Error('Nao foi possivel determinar a duracao do audio.');
+  if (!totalSecs || Number.isNaN(totalSecs)) throw new Error('Não foi possível determinar a duração do áudio.');
 
   const numChunks = Math.ceil(totalSecs / chunkSecs);
   const chunks: string[] = [];
@@ -2860,16 +2860,16 @@ async function transcribeChunk(chunkFile: string, provider: NonNullable<ReturnTy
 router.post('/aula/:id/processar-ia', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const aulaId = readString(req.params.id);
-    if (!aulaId) { res.status(400).json({ error: 'ID invalido' }); return; }
+    if (!aulaId) { res.status(400).json({ error: 'ID inválido' }); return; }
 
     const transcricao = (req.body?.transcricao ?? '').toString().trim();
-    if (!transcricao) { res.status(400).json({ error: 'Transcricao e obrigatoria.' }); return; }
+    if (!transcricao) { res.status(400).json({ error: 'Transcrição é obrigatória.' }); return; }
 
     const aula = await prisma.aula.findUnique({
       where: { id: aulaId },
       include: { modulo: true }
     });
-    if (!aula) { res.status(404).json({ error: 'Aula nao encontrada' }); return; }
+    if (!aula) { res.status(404).json({ error: 'Aula não encontrada' }); return; }
 
     // Save transcript and mark as processing
     await prisma.aula.update({ where: { id: aulaId }, data: { transcricao, statusIA: 'processando' } });
@@ -2907,7 +2907,7 @@ router.post('/aula/:id/processar-ia', authMiddleware, adminMiddleware, async (re
 router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   const aulaId = readString(req.params.id);
   if (!aulaId) {
-    res.status(400).json({ error: 'ID invalido' });
+    res.status(400).json({ error: 'ID inválido' });
     return;
   }
 
@@ -2917,13 +2917,13 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
   });
 
   if (!aula) {
-    res.status(404).json({ error: 'Aula nao encontrada' });
+    res.status(404).json({ error: 'Aula não encontrada' });
     return;
   }
 
   const videoId = extractYouTubeVideoId(aula.urlVideo);
   if (!videoId) {
-    res.status(400).json({ error: 'Esta aula nao tem video do YouTube' });
+    res.status(400).json({ error: 'Esta aula não tem vídeo do YouTube' });
     return;
   }
 
@@ -2941,7 +2941,7 @@ router.post('/aula/:id/gerar-transcricao', authMiddleware, adminMiddleware, asyn
     const rawAudio = path.join(tempDir, 'audio.mp3');
 
     try {
-      if (!isValidYouTubeId(videoId)) throw new Error('ID de video invalido.');
+      if (!isValidYouTubeId(videoId)) throw new Error('ID de vídeo inválido.');
       await execFileAsync('yt-dlp', [
         '-x', '--audio-format', 'mp3', '--audio-quality', '0', '--no-playlist',
         '--extractor-args', 'youtube:player_client=ios,mweb',

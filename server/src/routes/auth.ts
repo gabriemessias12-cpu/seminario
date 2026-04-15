@@ -35,15 +35,15 @@ const cadastroLimiter = rateLimit({
 
 // --- Zod schemas ---
 const loginSchema = z.object({
-  email: z.string().email('Email invalido').max(255),
-  senha: z.string().min(1, 'Senha obrigatoria').max(128)
+  email: z.string().email('Email inválido').max(255),
+  senha: z.string().min(1, 'Senha obrigatória').max(128)
 });
 
 const cadastroSchema = z.object({
   nome: z.string().min(3, 'Nome completo deve ter pelo menos 3 caracteres').max(255).trim(),
-  email: z.string().email('Email invalido').max(255),
-  senha: z.string().min(6, 'Senha deve ter no minimo 6 caracteres').max(128),
-  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento invalida'),
+  email: z.string().email('Email inválido').max(255),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres').max(128),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento inválida'),
   membroVinha: z.boolean(),
   batizado: z.boolean()
 });
@@ -98,7 +98,7 @@ router.post('/cadastro', cadastroLimiter, async (req: Request, res: Response): P
 
     const birthDate = parseBirthDateToUtcMidday(dataNascimento);
     if (!birthDate) {
-      res.status(400).json({ error: 'Data de nascimento invalida' });
+      res.status(400).json({ error: 'Data de nascimento inválida' });
       return;
     }
 
@@ -119,7 +119,7 @@ router.post('/cadastro', cadastroLimiter, async (req: Request, res: Response): P
 
     res.status(201).json({
       ok: true,
-      message: 'Cadastro enviado com sucesso. Aguarde a aprovacao do administrador.'
+      message: 'Cadastro enviado com sucesso. Aguarde a aprovação do administrador.'
     });
   } catch {
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -144,12 +144,12 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
 
     const user = await prisma.user.findUnique({ where: { email: emailNormalizado } });
     if (!user) {
-      res.status(401).json({ error: 'Credenciais invalidas' });
+      res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
 
     if (user.statusCadastro === 'pendente') {
-      res.status(403).json({ error: 'Seu cadastro esta em analise. Aguarde aprovacao do administrador.' });
+      res.status(403).json({ error: 'Seu cadastro está em análise. Aguarde aprovação do administrador.' });
       return;
     }
 
@@ -169,7 +169,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
     if (!senhaValida) {
       await prisma.loginHistorico.create({ data: { usuarioId: user.id, ip: realIp, dispositivo, sucesso: false } }).catch(() => {});
       await prisma.alertaSeguranca.create({ data: { usuarioId: user.id, tipo: 'login_falho', mensagem: `Tentativa de login com senha incorreta para ${user.email}. IP: ${realIp} - ${dispositivo}`, ip: realIp, dispositivo } }).catch(() => {});
-      res.status(401).json({ error: 'Credenciais invalidas' });
+      res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
 
@@ -239,7 +239,7 @@ router.post('/refresh', refreshLimiter, async (req: Request, res: Response): Pro
   try {
     const { refreshToken } = req.body;
     if (!refreshToken || typeof refreshToken !== 'string') {
-      res.status(400).json({ error: 'Refresh token obrigatorio' });
+      res.status(400).json({ error: 'Refresh token obrigatório' });
       return;
     }
 
@@ -247,13 +247,13 @@ router.post('/refresh', refreshLimiter, async (req: Request, res: Response): Pro
 
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user || !user.ativo) {
-      res.status(401).json({ error: 'Usuario invalido' });
+      res.status(401).json({ error: 'Usuário inválido' });
       return;
     }
 
     res.json(newTokens);
   } catch {
-    res.status(401).json({ error: 'Refresh token invalido ou expirado' });
+    res.status(401).json({ error: 'Refresh token inválido ou expirado' });
   }
 });
 
@@ -288,7 +288,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response): Promi
     });
 
     if (!user) {
-      res.status(404).json({ error: 'Usuario nao encontrado' });
+      res.status(404).json({ error: 'Usuário não encontrado' });
       return;
     }
 

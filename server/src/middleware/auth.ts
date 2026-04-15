@@ -52,7 +52,7 @@ export function verifyAndRotateRefreshToken(token: string): { payload: AuthPaylo
   const jti = decoded.jti;
 
   if (!jti || !validRefreshTokens.has(jti)) {
-    throw new Error('Refresh token invalido ou ja utilizado');
+    throw new Error('Refresh token inválido ou já utilizado');
   }
 
   // Invalidate the old token (rotation)
@@ -81,7 +81,7 @@ export function generateVideoToken(payload: Omit<VideoTokenPayload, 'type'>) {
 export function verifyVideoToken(token: string): VideoTokenPayload {
   const payload = jwt.verify(token, JWT_SECRET!) as VideoTokenPayload;
   if (payload.type !== 'video') {
-    throw new Error('Tipo de token invalido');
+    throw new Error('Tipo de token inválido');
   }
   return payload;
 }
