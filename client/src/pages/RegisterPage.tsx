@@ -33,7 +33,7 @@ export default function RegisterPage() {
         batizado
       });
 
-      setSuccess(data.message || 'Cadastro enviado com sucesso. Aguarde aprovacao do administrador.');
+      setSuccess(data.message || 'Cadastro enviado com sucesso. Aguarde aprovação do administrador.');
       setNome('');
       setEmail('');
       setSenha('');
@@ -41,7 +41,7 @@ export default function RegisterPage() {
       setMembroVinha(false);
       setBatizado(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nao foi possivel enviar seu cadastro agora.');
+      setError(err instanceof Error ? err.message : 'Não foi possível enviar seu cadastro agora.');
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function RegisterPage() {
             <BrandMark className="brand-mark brand-mark-login" />
           </div>
           <h1>Cadastro de Aluno</h1>
-          <p>Crie sua conta e aguarde aprovacao da administracao do seminario.</p>
+          <p>Crie sua conta e aguarde aprovação da administração do seminário.</p>
         </div>
 
         {error && <div className="login-error" role="alert">{error}</div>}
@@ -87,14 +87,14 @@ export default function RegisterPage() {
             <div className="form-group">
               <label className="form-label">Membro da Vinha Nova?</label>
               <select className="form-input" value={membroVinha ? 'sim' : 'nao'} onChange={(event) => setMembroVinha(event.target.value === 'sim')}>
-                <option value="nao">Nao</option>
+                <option value="nao">Não</option>
                 <option value="sim">Sim</option>
               </select>
             </div>
             <div className="form-group">
               <label className="form-label">Batizado?</label>
               <select className="form-input" value={batizado ? 'sim' : 'nao'} onChange={(event) => setBatizado(event.target.value === 'sim')}>
-                <option value="nao">Nao</option>
+                <option value="nao">Não</option>
                 <option value="sim">Sim</option>
               </select>
             </div>
