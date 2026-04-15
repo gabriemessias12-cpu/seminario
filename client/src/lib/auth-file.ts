@@ -5,7 +5,7 @@ export async function downloadAuthenticatedFile(path: string) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new Error(data?.error || 'Nao foi possivel baixar o arquivo.');
+    throw new Error(data?.error || 'Não foi possível baixar o arquivo.');
   }
 
   const blob = await response.blob();

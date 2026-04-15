@@ -131,7 +131,7 @@ export default function AdminAlunoDetalhes() {
         setEditEmail(data.email || '');
         setEditTelefone(data.telefone || '');
       })
-      .catch(() => setLoadError('Nao foi possivel carregar o relatorio do aluno.'))
+      .catch(() => setLoadError('Não foi possível carregar o relatório do aluno.'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -319,12 +319,12 @@ export default function AdminAlunoDetalhes() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
           { icon: 'library' as const, className: 'purple', value: `${painel?.progressoAulas.percentual || 0}%`, label: 'Progresso em aulas' },
-          { icon: 'quiz' as const, className: 'orange', value: `${painel?.progressoAvaliacoes.percentual || 0}%`, label: 'Progresso em avaliacoes' },
+          { icon: 'quiz' as const, className: 'orange', value: `${painel?.progressoAvaliacoes.percentual || 0}%`, label: 'Progresso em avaliações' },
           { icon: 'reports' as const, className: 'green', value: `${painel?.progressoGeral || 0}%`, label: 'Progresso geral' },
           { icon: 'alert-triangle' as const, className: 'blue', value: painel?.aulasAtrasadas.length || 0, label: 'Aulas atrasadas' },
-          { icon: 'clock' as const, className: 'blue', value: painel?.avaliacoesPendentesAtrasadas.length || 0, label: 'Avaliacoes atrasadas' },
+          { icon: 'clock' as const, className: 'blue', value: painel?.avaliacoesPendentesAtrasadas.length || 0, label: 'Avaliações atrasadas' },
           { icon: 'target' as const, className: 'purple', value: mediaQuiz, label: 'Media quizzes' },
-          { icon: 'quiz' as const, className: 'purple', value: avgAcademic, label: 'Media avaliacoes' }
+          { icon: 'quiz' as const, className: 'purple', value: avgAcademic, label: 'Média avaliações' }
         ].map((item) => (
           <div className="stat-card" key={item.label}>
             <div className={`stat-icon ${item.className}`}><AppIcon name={item.icon} size={18} /></div>
@@ -418,7 +418,7 @@ export default function AdminAlunoDetalhes() {
                     <td>
                       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                         <span className={`badge ${aula.concluido ? 'badge-success' : aula.percentualAssistido > 0 ? 'badge-warning' : 'badge-info'}`}>
-                          {aula.concluido ? 'Concluida' : aula.percentualAssistido > 0 ? 'Em progresso' : 'Nao iniciada'}
+                          {aula.concluido ? 'Concluída' : aula.percentualAssistido > 0 ? 'Em progresso' : 'Não iniciada'}
                         </span>
                         {aula.atrasada && <span className="badge badge-error">{formatDelay(aula.diasAtraso)}</span>}
                       </div>
@@ -600,7 +600,7 @@ export default function AdminAlunoDetalhes() {
                         className="text-link-button"
                         onClick={() => {
                           void downloadAuthenticatedFile(`/api/admin/entrega-avaliacao/${entrega.id}/arquivo`).catch((error) => {
-                            setFeedback(error instanceof Error ? error.message : 'Nao foi possivel baixar o arquivo.');
+                            setFeedback(error instanceof Error ? error.message : 'Não foi possível baixar o arquivo.');
                           });
                         }}
                         type="button"

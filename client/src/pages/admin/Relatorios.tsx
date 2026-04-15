@@ -14,7 +14,7 @@ export default function AdminRelatorios() {
   useEffect(() => {
     apiGet('/api/admin/relatorios')
       .then(setData)
-      .catch(() => setError('Nao foi possivel carregar os relatorios agora.'))
+      .catch(() => setError('Não foi possível carregar os relatórios agora.'))
       .finally(() => setLoading(false));
   }, []);
 
