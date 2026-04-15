@@ -189,7 +189,7 @@ export default function AdminRelatorios() {
                 className="btn btn-outline btn-sm print-hide"
                 onClick={() => {
                   const rows = [
-                    ['Usuario', 'Email', 'Data/Hora', 'IP', 'Dispositivo'],
+                    ['Usuário', 'Email', 'Data/Hora', 'IP', 'Dispositivo'],
                     ...(data.logins || []).map((login: any) => [
                       login.usuario?.nome,
                       login.usuario?.email,
@@ -248,7 +248,7 @@ export default function AdminRelatorios() {
                 className="btn btn-outline btn-sm print-hide"
                 onClick={() => {
                   const rows = [
-                    ['Aluno', 'Email', 'Aulas', 'Avaliacoes', 'Geral', 'Aulas atrasadas', 'Avaliacoes atrasadas', 'Frequencia', 'Entregas', 'Corrigidas', 'Media notas'],
+                    ['Aluno', 'Email', 'Aulas', 'Avaliações', 'Geral', 'Aulas atrasadas', 'Avaliações atrasadas', 'Frequência', 'Entregas', 'Corrigidas', 'Média notas'],
                     ...academicByStudent.map((item: any) => [
                       item.nome,
                       item.email,
@@ -326,12 +326,12 @@ export default function AdminRelatorios() {
 
           <div className="card mt-3">
             <div className="content-panel-toolbar admin-toolbar-compact">
-              <h3 className="section-title" style={{ marginBottom: 0 }}>Desempenho por avaliacao</h3>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>Desempenho por avaliação</h3>
               <button
                 className="btn btn-outline btn-sm print-hide"
                 onClick={() => {
                   const rows = [
-                    ['Avaliacao', 'Tipo', 'Formato', 'Vinculo', 'Entregas', 'Corrigidas', 'Media notas', 'Media acerto objetivo'],
+                    ['Avaliação', 'Tipo', 'Formato', 'Vínculo', 'Entregas', 'Corrigidas', 'Média notas', 'Média acerto objetivo'],
                     ...performanceByAssessment.map((item: any) => [
                       item.titulo,
                       item.tipo,

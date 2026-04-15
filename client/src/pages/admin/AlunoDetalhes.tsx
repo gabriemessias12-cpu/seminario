@@ -432,7 +432,7 @@ export default function AdminAlunoDetalhes() {
       </div>
 
       <div className="card mb-3">
-        <h3 className="section-title">Progresso por avaliacao</h3>
+        <h3 className="section-title">Progresso por avaliação</h3>
         <div className="table-container">
           <table>
             <thead>

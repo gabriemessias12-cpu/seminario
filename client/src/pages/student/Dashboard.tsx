@@ -119,7 +119,7 @@ export default function StudentDashboard() {
             <button aria-label="Abrir conteudos" className="icon-button" type="button" onClick={() => navigate('/aulas')}>
               <AppIcon name="search" size={18} />
             </button>
-            <button aria-label="Abrir perfil e notificacoes" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
+            <button aria-label="Abrir perfil e notificações" className="icon-button" type="button" onClick={() => navigate('/perfil')}>
               <AppIcon name="bell" size={18} />
             </button>
             <button aria-label="Abrir perfil" className="profile-chip" type="button" onClick={() => navigate('/perfil')}>
@@ -165,12 +165,12 @@ export default function StudentDashboard() {
           <div className="student-hero-side">
             <div className="hero-course-card">
               <div className="hero-course-card-header">
-                <span className="pill">Proxima aula</span>
-                <span className="pill subtle">{data?.proximaAula ? 'Liberada' : 'Concluida'}</span>
+                <span className="pill">Próxima aula</span>
+                <span className="pill subtle">{data?.proximaAula ? 'Liberada' : 'Concluída'}</span>
               </div>
-              <h3>{data?.proximaAula?.titulo || 'Curso concluido'}</h3>
+              <h3>{data?.proximaAula?.titulo || 'Curso concluído'}</h3>
               <p>
-                {data?.proximaAula?.descricao || 'Voce terminou todas as aulas publicadas. Revise materiais e resultados.'}
+                {data?.proximaAula?.descricao || 'Você terminou todas as aulas publicadas. Revise materiais e resultados.'}
               </p>
               {data?.proximaAula && (
                 <button className="btn btn-accent" type="button" onClick={() => navigate(`/aula/${data.proximaAula?.id}`)}>
@@ -201,7 +201,7 @@ export default function StudentDashboard() {
                     </div>
                     <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>{aula.titulo}</h3>
                     <p className="text-muted text-sm" style={{ marginBottom: '1rem' }}>
-                      Publicada em {formatDate(aula.dataPublicacao)} · {aula.percentualAssistido}% concluido
+                      Publicada em {formatDate(aula.dataPublicacao)} · {aula.percentualAssistido}% concluído
                     </p>
                     <button className="btn btn-outline btn-sm" onClick={() => navigate(`/aula/${aula.aulaId}`)} type="button">
                       Assistir aula
@@ -220,10 +220,10 @@ export default function StudentDashboard() {
               <div>
                 <span className="section-kicker" style={{ color: 'var(--color-warning)' }}>Prazos</span>
                 <h2>Trabalhos e provas pendentes</h2>
-                <p className="text-muted text-sm">Estas avaliacoes estao vencidas e ainda aguardam sua entrega.</p>
+                <p className="text-muted text-sm">Estas avaliações estão vencidas e ainda aguardam sua entrega.</p>
               </div>
               <button className="text-link-button" type="button" onClick={() => navigate('/avaliacoes')}>
-                Abrir avaliacoes
+                Abrir avaliações
                 <AppIcon name="chevron-right" size={16} />
               </button>
             </div>
@@ -322,9 +322,9 @@ export default function StudentDashboard() {
                       <div className="progress-bar">
                         <div className="progress-bar-fill" style={{ width: `${progresso}%` }} />
                       </div>
-                      <span>{progresso}% concluido</span>
+                      <span>{progresso}% concluído</span>
                     </div>
-                    {destaque && <small>Proximo conteudo: {destaque.titulo}</small>}
+                    {destaque && <small>Próximo conteúdo: {destaque.titulo}</small>}
                   </div>
                 </article>
               );

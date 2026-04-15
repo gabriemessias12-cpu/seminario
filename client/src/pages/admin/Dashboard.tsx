@@ -149,7 +149,7 @@ export default function AdminDashboard() {
             </div>
 
             <div className="card">
-              <h3 className="section-title">Alunos que precisam de atencao</h3>
+              <h3 className="section-title">Alunos que precisam de atenção</h3>
               {data.alunosAtencao?.length ? (
                 <div className="attention-list">
                   {data.alunosAtencao.map((aluno) => (
