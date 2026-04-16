@@ -52,7 +52,7 @@ export default function LandingPage() {
   }, [leadershipSlides.length]);
 
   const mapHref =
-    'https://www.google.com/maps/search/?api=1&query=Igreja+Vinha+Nova+Av.+Conselheiro+Julius+Arp+14+Olaria+Nova+Friburgo+RJ';
+    'https://www.google.com/maps/search/?api=1&query=Av.+J%C3%BAlio+Ant%C3%B4nio+Thurler,+14+-+Olaria,+Nova+Friburgo+-+RJ,+28620-000';
   const instagramHref = 'https://www.instagram.com/igrejavinhanova/';
 
   const channels = [
@@ -485,8 +485,8 @@ export default function LandingPage() {
           <div className="footer-col">
             <h4>Localização</h4>
             <p>Igreja Vinha Nova</p>
-            <p>Av. Conselheiro Julius Arp, 14</p>
-            <p>Olaria, Nova Friburgo - RJ</p>
+            <p>Av. Júlio Antônio Thurler, 14</p>
+            <p>Olaria, Nova Friburgo - RJ, 28620-000</p>
             <p><a href={mapHref} rel="noreferrer" target="_blank">Abrir no Google Maps</a></p>
           </div>
 
