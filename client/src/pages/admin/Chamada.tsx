@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+Ôªøimport { useEffect, useMemo, useState } from 'react';
 
 import { apiGet, apiPost } from '../../lib/apiClient';
 
@@ -25,8 +25,8 @@ export default function AdminChamada() {
   };
 
   useEffect(() => {
-    apiGet<any[]>('/api/admin/modulos').then(setModulos).catch(() => setFeedback('N„o foi possÌvel carregar os mÛdulos.'));
-    apiGet<any[]>('/api/admin/alunos').then(setAlunos).catch(() => setFeedback('N„o foi possÌvel carregar os alunos.'));
+    apiGet<any[]>('/api/admin/modulos').then(setModulos).catch(() => setFeedback('N√£o foi poss√≠vel carregar os m√≥dulos.'));
+    apiGet<any[]>('/api/admin/alunos').then(setAlunos).catch(() => setFeedback('N√£o foi poss√≠vel carregar os alunos.'));
     const params = new URLSearchParams(window.location.search);
     const aulaId = params.get('aulaId');
     if (aulaId) setSelectedAula(aulaId);
@@ -56,7 +56,7 @@ export default function AdminChamada() {
         const modulo = data.find((item: any) => item.id === selectedModulo);
         setAulas(modulo?.aulas || []);
       })
-      .catch(() => setFeedback('N„o foi possÌvel carregar as aulas.'));
+      .catch(() => setFeedback('N√£o foi poss√≠vel carregar as aulas.'));
   }, [selectedModulo]);
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function AdminChamada() {
     if (selectedAula) params.append('aulaId', selectedAula);
     apiGet<any[]>(`/api/admin/chamada?${params.toString()}`)
       .then(setPresencas)
-      .catch(() => setFeedback('N„o foi possÌvel carregar a chamada.'))
+      .catch(() => setFeedback('N√£o foi poss√≠vel carregar a chamada.'))
       .finally(() => setLoading(false));
   }, [selectedModulo, selectedAula]);
 
@@ -105,8 +105,34 @@ export default function AdminChamada() {
     });
   }, [editMode, eligibleAlunos, manualChanges, presencas, searchName, sortOrder]);
 
+  const explainSaveError = (err: unknown) => {
+    if (!(err instanceof Error)) return 'N√£o foi poss√≠vel salvar a chamada.';
+    const message = err.message || '';
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('aula n√£o encontrada')) return 'Faltou selecionar a aula para confirmar a chamada.';
+    if (normalized.includes('dados inv√°lidos')) return 'Dados inv√°lidos na chamada. Revise a marca√ß√£o dos alunos.';
+    if (normalized.includes('nenhuma presen√ßa')) return 'Nenhuma presen√ßa para salvar. Marque ao menos um aluno.';
+    if (normalized.includes('m√©todo inv√°lido')) return 'M√©todo de presen√ßa inv√°lido em algum aluno.';
+    if (normalized.includes('status inv√°lido')) return 'Status de presen√ßa inv√°lido em algum aluno.';
+
+    return message;
+  };
+
   const handleSaveChamada = async () => {
-    if (!selectedAula) return;
+    if (!selectedModulo) {
+      setFeedback('Selecione um m√≥dulo antes de salvar a chamada.');
+      return;
+    }
+    if (!selectedAula) {
+      setFeedback('Faltou selecionar a aula para confirmar a chamada.');
+      return;
+    }
+    if (!editMode) {
+      setFeedback('Ative o modo "Registrar Presen√ßa" antes de salvar.');
+      return;
+    }
+
     setSaving(true);
     try {
       const presencasList = Object.entries(manualChanges).map(([alunoId, data]) => ({
@@ -116,7 +142,7 @@ export default function AdminChamada() {
       }));
 
       if (!presencasList.length) {
-        setFeedback('Nenhuma presenÁa para salvar. Selecione uma aula e registre os alunos.');
+        setFeedback('Nenhuma presen√ßa para salvar. Selecione uma aula e registre os alunos.');
         return;
       }
 
@@ -126,7 +152,7 @@ export default function AdminChamada() {
       reloadChamada(selectedModulo, selectedAula);
       setFeedback('Chamada salva com sucesso.');
     } catch (err) {
-      setFeedback(err instanceof Error ? err.message : 'N„o foi possÌvel salvar a chamada.');
+      setFeedback(explainSaveError(err));
     } finally {
       setSaving(false);
     }
@@ -152,7 +178,7 @@ export default function AdminChamada() {
       <div className="page-header page-header-split">
         <div>
           <h1>Lista de Chamada</h1>
-          <p>Registre a presenÁa manual (Presencial/Meet) ou visualize o engajamento autom·tico.</p>
+          <p>Registre a presen√ßa manual (Presencial/Meet) ou visualize o engajamento autom√°tico.</p>
         </div>
         <div className="page-header-actions">
           {selectedAula && (
@@ -174,7 +200,7 @@ export default function AdminChamada() {
               }}
               type="button"
             >
-              {editMode ? 'Cancelar EdiÁ„o' : 'Registrar PresenÁa'}
+              {editMode ? 'Cancelar Edi√ß√£o' : 'Registrar Presen√ßa'}
             </button>
           )}
           {editMode && (
@@ -193,7 +219,7 @@ export default function AdminChamada() {
 
       <div className="filters">
         <select
-          aria-label="Selecionar mÛdulo"
+          aria-label="Selecionar m√≥dulo"
           className="filter-select"
           value={selectedModulo}
           onChange={(e) => {
@@ -201,7 +227,7 @@ export default function AdminChamada() {
             setSelectedAula('');
           }}
         >
-          <option value="">Selecione um mÛdulo</option>
+          <option value="">Selecione um m√≥dulo</option>
           {modulos.map((modulo) => (
             <option key={modulo.id} value={modulo.id}>
               {modulo.titulo}
@@ -247,7 +273,7 @@ export default function AdminChamada() {
           <button
             className="btn btn-outline btn-sm"
             onClick={() => {
-              alert('RelatÛrio pronto para impress„o via browser (Ctrl+P)');
+              alert('Relat√≥rio pronto para impress√£o via browser (Ctrl+P)');
               window.print();
             }}
             type="button"
@@ -286,8 +312,8 @@ export default function AdminChamada() {
       {!hasSelection ? (
         <div className="empty-state">
           <div className="icon">C</div>
-          <h3>Selecione um mÛdulo</h3>
-          <p>Escolha um mÛdulo para visualizar a chamada.</p>
+          <h3>Selecione um m√≥dulo</h3>
+          <p>Escolha um m√≥dulo para visualizar a chamada.</p>
         </div>
       ) : loading ? (
         <div className="skeleton" style={{ height: 200 }} />
@@ -295,7 +321,7 @@ export default function AdminChamada() {
         <div className="empty-state">
           <div className="icon">0</div>
           <h3>Nenhum registro encontrado</h3>
-          <p>Ainda n„o h· presenÁas registradas para esse filtro.</p>
+          <p>Ainda n√£o h√° presen√ßas registradas para esse filtro.</p>
         </div>
       ) : (
         <div className="table-container">
@@ -304,9 +330,9 @@ export default function AdminChamada() {
               <tr>
                 <th>Aluno</th>
                 <th>Status</th>
-                <th>MÈtodo/Tipo</th>
+                <th>M√©todo/Tipo</th>
                 {!editMode && <th>Percentual</th>}
-                {editMode && <th>MarcaÁ„o R·pida</th>}
+                {editMode && <th>Marca√ß√£o R√°pida</th>}
               </tr>
             </thead>
             <tbody>
@@ -396,3 +422,4 @@ export default function AdminChamada() {
     </>
   );
 }
+

@@ -2469,18 +2469,64 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
+    const allowedStatus = new Set(['presente', 'parcial', 'ausente']);
+    const allowedMetodo = new Set(['digital', 'meet', 'presencial']);
+    const normalizedPresencas = presencas.map((item, index) => {
+      const alunoId = typeof item?.alunoId === 'string' ? item.alunoId.trim() : '';
+      const rawStatus = typeof item?.status === 'string' ? item.status.trim().toLowerCase() : 'ausente';
+      const rawMetodo = typeof item?.metodo === 'string' ? item.metodo.trim().toLowerCase() : 'digital';
+      const status = rawStatus === 'falta' ? 'ausente' : rawStatus;
+      const metodo = rawMetodo === 'manual' ? 'presencial' : rawMetodo;
+
+      if (!alunoId) {
+        throw new Error(`Aluno inválido na posição ${index + 1}`);
+      }
+      if (!allowedStatus.has(status)) {
+        throw new Error(`Status inválido para aluno ${alunoId}: ${status}`);
+      }
+      if (!allowedMetodo.has(metodo)) {
+        throw new Error(`Método inválido para aluno ${alunoId}: ${metodo}`);
+      }
+
+      return { alunoId, status, metodo };
+    });
+
+    if (!normalizedPresencas.length) {
+      res.status(400).json({ error: 'Nenhuma presença foi enviada para salvar.' });
+      return;
+    }
+
     // Fetch lesson duration once (same aulaId for all entries)
     const aulaData = await prisma.aula.findUnique({
       where: { id: aulaId },
       select: { duracaoSegundos: true }
     });
+    if (!aulaData) {
+      res.status(404).json({ error: 'Aula não encontrada.' });
+      return;
+    }
+
+    const idsUnicos = [...new Set(normalizedPresencas.map((item) => item.alunoId))];
+    const alunosValidos = await prisma.user.findMany({
+      where: {
+        id: { in: idsUnicos },
+        papel: 'aluno'
+      },
+      select: { id: true }
+    });
+    const validIds = new Set(alunosValidos.map((aluno) => aluno.id));
+    const presencasValidas = normalizedPresencas.filter((item) => validIds.has(item.alunoId));
+    if (!presencasValidas.length) {
+      res.status(400).json({ error: 'Nenhum aluno válido foi encontrado para registrar chamada.' });
+      return;
+    }
 
     await prisma.$transaction(async (tx) => {
-      for (const item of presencas) {
+      for (const item of presencasValidas) {
         const percentual = item.status === 'presente' ? 100 : item.status === 'parcial' ? 50 : 0;
         const posicaoAtualSegundos = percentual >= 100
-          ? aulaData?.duracaoSegundos || 0
-          : Math.round((aulaData?.duracaoSegundos || 0) * (percentual / 100));
+          ? aulaData.duracaoSegundos || 0
+          : Math.round((aulaData.duracaoSegundos || 0) * (percentual / 100));
         const progressoAtual = await tx.progressoAluno.findUnique({
           where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId } }
         });
@@ -2539,14 +2585,14 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
 
     logger.info('chamada registrada', {
       aulaId,
-      totalPresencas: presencas.length,
+      totalPresencas: presencasValidas.length,
       adminId: req.user?.userId,
     });
 
     res.json({ ok: true });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: 'Erro ao salvar chamada' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao salvar chamada' });
   }
 });
 
