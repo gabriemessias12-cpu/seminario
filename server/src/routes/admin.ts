@@ -1,5 +1,5 @@
 ﻿import { Router, Response } from 'express';
-import { PrismaClient, StatusEntrega } from '@prisma/client';
+import { PrismaClient, MetodoPresenca, StatusEntrega, StatusPresenca } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import fs from 'fs';
@@ -2469,14 +2469,20 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    const allowedStatus = new Set(['presente', 'parcial', 'ausente']);
-    const allowedMetodo = new Set(['digital', 'meet', 'presencial']);
-    const normalizedPresencas = presencas.map((item, index) => {
+    type ChamadaPresencaInput = {
+      alunoId: string;
+      status: StatusPresenca;
+      metodo: MetodoPresenca;
+    };
+
+    const allowedStatus = new Set<StatusPresenca>(['presente', 'parcial', 'ausente']);
+    const allowedMetodo = new Set<MetodoPresenca>(['digital', 'meet', 'presencial']);
+    const normalizedPresencas = presencas.map((item, index): ChamadaPresencaInput => {
       const alunoId = typeof item?.alunoId === 'string' ? item.alunoId.trim() : '';
       const rawStatus = typeof item?.status === 'string' ? item.status.trim().toLowerCase() : 'ausente';
       const rawMetodo = typeof item?.metodo === 'string' ? item.metodo.trim().toLowerCase() : 'digital';
-      const status = rawStatus === 'falta' ? 'ausente' : rawStatus;
-      const metodo = rawMetodo === 'manual' ? 'presencial' : rawMetodo;
+      const status = (rawStatus === 'falta' ? 'ausente' : rawStatus) as StatusPresenca;
+      const metodo = (rawMetodo === 'manual' ? 'presencial' : rawMetodo) as MetodoPresenca;
 
       if (!alunoId) {
         throw new Error(`Aluno inválido na posição ${index + 1}`);
@@ -2491,7 +2497,7 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       return { alunoId, status, metodo };
     });
     // Deduplica por aluno (última marcação vence) para evitar escritas duplicadas e reduzir carga transacional.
-    const uniqueByAluno = new Map<string, { alunoId: string; status: string; metodo: string }>();
+    const uniqueByAluno = new Map<string, ChamadaPresencaInput>();
     for (const item of normalizedPresencas) {
       uniqueByAluno.set(item.alunoId, item);
     }
@@ -2520,7 +2526,7 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       },
       select: { id: true }
     });
-    const validIds = new Set(alunosValidos.map((aluno: any) => aluno.id));
+    const validIds = new Set(alunosValidos.map((aluno: { id: string }) => aluno.id));
     const presencasValidas = normalizedUniquePresencas.filter((item) => validIds.has(item.alunoId));
     if (!presencasValidas.length) {
       res.status(400).json({ error: 'Nenhum aluno válido foi encontrado para registrar chamada.' });
@@ -2534,8 +2540,8 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
         alunoId: { in: presencasValidas.map((item) => item.alunoId) }
       }
     });
-    const progressoByAlunoId = new Map<string, any>(
-      progressosExistentes.map((progresso: any) => [progresso.alunoId, progresso])
+    const progressoByAlunoId = new Map<string, (typeof progressosExistentes)[number]>(
+      progressosExistentes.map((progresso) => [progresso.alunoId, progresso])
     );
 
     await prisma.$transaction(async (tx) => {

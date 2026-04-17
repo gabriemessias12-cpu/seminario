@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "prisma generate --schema prisma/schema.prisma && tsc",
+    "generate": "prisma generate --schema prisma/schema.prisma",
     "start": "node dist/src/index.js",
     "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
