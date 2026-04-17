@@ -43,6 +43,7 @@ export default function AdminAlunos() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showForm, setShowForm] = useState(false);
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -74,13 +75,18 @@ export default function AdminAlunos() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const filtered = useMemo(
-    () => alunos.filter((aluno) => (
-      aluno.nome.toLowerCase().includes(debouncedSearch.toLowerCase())
-      || aluno.email.toLowerCase().includes(debouncedSearch.toLowerCase())
-    )),
-    [alunos, debouncedSearch]
-  );
+  const filtered = useMemo(() => {
+    const term = debouncedSearch.toLowerCase();
+    const result = alunos.filter((aluno) => (
+      aluno.nome.toLowerCase().includes(term)
+      || aluno.email.toLowerCase().includes(term)
+    ));
+
+    return result.sort((a, b) => {
+      const compare = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+      return sortOrder === 'asc' ? compare : -compare;
+    });
+  }, [alunos, debouncedSearch, sortOrder]);
 
   const pendentesCount = useMemo(
     () => alunos.filter((aluno) => aluno.statusCadastro === 'pendente').length,
@@ -265,6 +271,15 @@ export default function AdminAlunos() {
           placeholder="Buscar por nome ou email"
           aria-label="Buscar alunos por nome ou email"
         />
+        <select
+          className="filter-select"
+          value={sortOrder}
+          onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
+          aria-label="Ordenar alunos"
+        >
+          <option value="asc">Nome (A-Z)</option>
+          <option value="desc">Nome (Z-A)</option>
+        </select>
       </div>
 
       {loading ? (

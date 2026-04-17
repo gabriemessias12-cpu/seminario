@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import AppIcon from '../../components/AppIcon';
 import { apiGet, apiPost } from '../../lib/apiClient';
@@ -13,13 +13,27 @@ export default function AdminAvisos() {
   const [titulo, setTitulo] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [alunoId, setAlunoId] = useState('');
+  const [searchAluno, setSearchAluno] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     apiGet<AlunoListItem[]>('/api/admin/alunos')
       .then(setAlunos)
-      .catch(() => setFeedback('N√£o foi poss√≠vel carregar a lista de alunos.'))
+      .catch(() => setFeedback('N„o foi possÌvel carregar a lista de alunos.'))
       .finally(() => setLoading(false));
   }, []);
+
+  const alunosFiltrados = useMemo(() => {
+    const term = searchAluno.trim().toLowerCase();
+    const result = term
+      ? alunos.filter((aluno) => aluno.nome.toLowerCase().includes(term))
+      : [...alunos];
+
+    return result.sort((a, b) => {
+      const compare = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+      return sortOrder === 'asc' ? compare : -compare;
+    });
+  }, [alunos, searchAluno, sortOrder]);
 
   const handleSend = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -45,7 +59,7 @@ export default function AdminAvisos() {
     <>
       <div className="page-header">
         <h1>Central de Avisos</h1>
-        <p>Envie comunicados importantes para todos os alunos ou para um espec√≠fico.</p>
+        <p>Envie comunicados importantes para todos os alunos ou para um especÌfico.</p>
       </div>
 
       {feedback && (
@@ -57,7 +71,25 @@ export default function AdminAvisos() {
       <div className="panel-card page-surface-narrow">
         <form onSubmit={handleSend}>
           <div className="form-group">
-            <label className="form-label">Destinat√°rio</label>
+            <label className="form-label">Destinat·rio</label>
+            <div className="filters" style={{ marginBottom: '0.75rem' }}>
+              <input
+                className="form-input"
+                placeholder="Buscar aluno por nome"
+                value={searchAluno}
+                onChange={(event) => setSearchAluno(event.target.value)}
+                aria-label="Buscar aluno por nome"
+              />
+              <select
+                className="filter-select"
+                value={sortOrder}
+                onChange={(event) => setSortOrder(event.target.value as 'asc' | 'desc')}
+                aria-label="Ordenar alunos"
+              >
+                <option value="asc">Nome (A-Z)</option>
+                <option value="desc">Nome (Z-A)</option>
+              </select>
+            </div>
             <select
               className="filter-select"
               value={alunoId}
@@ -65,17 +97,17 @@ export default function AdminAvisos() {
               disabled={loading}
             >
               <option value="">TODOS OS ALUNOS (Geral)</option>
-              {alunos.map((aluno) => (
+              {alunosFiltrados.map((aluno) => (
                 <option key={aluno.id} value={aluno.id}>{aluno.nome} ({aluno.email})</option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label">T√≠tulo do aviso</label>
+            <label className="form-label">TÌtulo do aviso</label>
             <div className="search-field">
               <input
-                placeholder="Ex: Mudan√ßa no hor√°rio da aula de quarta"
+                placeholder="Ex: MudanÁa no hor·rio da aula de quarta"
                 value={titulo}
                 onChange={(event) => setTitulo(event.target.value)}
                 required

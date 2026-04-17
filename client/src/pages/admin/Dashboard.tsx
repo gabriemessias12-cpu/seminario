@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import AppIcon from '../../components/AppIcon';
@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [alertas, setAlertas] = useState<SecurityAlert[]>([]);
+  const [searchAlunoAtencao, setSearchAlunoAtencao] = useState('');
+  const [sortAlunoAtencao, setSortAlunoAtencao] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     Promise.allSettled([
@@ -21,7 +23,7 @@ export default function AdminDashboard() {
         if (dashResult.status === 'fulfilled') {
           setData(dashResult.value);
         } else {
-          setError('Não foi possível carregar o painel administrativo agora.');
+          setError('NÃ£o foi possÃ­vel carregar o painel administrativo agora.');
         }
 
         if (alertasResult.status === 'fulfilled' && Array.isArray(alertasResult.value)) {
@@ -42,12 +44,24 @@ export default function AdminDashboard() {
 
   const naoLidos = alertas.filter((alerta) => !alerta.lido);
   const totalAlertasAcademicos = (data?.alertasAulasAtrasadas || 0) + (data?.alertasAvaliacoesAtrasadas || 0);
+  const alunosAtencaoFiltrados = useMemo(() => {
+    const base = data?.alunosAtencao ? [...data.alunosAtencao] : [];
+    const term = searchAlunoAtencao.trim().toLowerCase();
+    const filtered = term
+      ? base.filter((aluno) => aluno.nome.toLowerCase().includes(term))
+      : base;
+
+    return filtered.sort((a, b) => {
+      const compare = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+      return sortAlunoAtencao === 'asc' ? compare : -compare;
+    });
+  }, [data?.alunosAtencao, searchAlunoAtencao, sortAlunoAtencao]);
 
   return (
     <>
       <div className="page-header">
         <h1>Painel Administrativo</h1>
-        <p>Visão geral do IBVN e do Seminário Teológico.</p>
+        <p>VisÃ£o geral do IBVN e do SeminÃ¡rio TeolÃ³gico.</p>
       </div>
 
       {error && <div className="inline-feedback warning">{error}</div>}
@@ -121,9 +135,9 @@ export default function AdminDashboard() {
           <div className="stat-grid-auto mb-3">
             {[
               { icon: 'library' as const, className: 'purple', value: `${data.progressoMedioAulas}%`, label: 'Progresso medio nas aulas' },
-              { icon: 'quiz' as const, className: 'orange', value: `${data.progressoMedioAvaliacoes}%`, label: 'Progresso médio em avaliações' },
+              { icon: 'quiz' as const, className: 'orange', value: `${data.progressoMedioAvaliacoes}%`, label: 'Progresso mÃ©dio em avaliaÃ§Ãµes' },
               { icon: 'reports' as const, className: 'green', value: `${data.progressoMedioGeral}%`, label: 'Progresso medio geral' },
-              { icon: 'clock' as const, className: 'blue', value: `${data.alertasAvaliacoesAtrasadas}/${data.alertasAulasAtrasadas}`, label: 'Avaliações/Aulas atrasadas' }
+              { icon: 'clock' as const, className: 'blue', value: `${data.alertasAvaliacoesAtrasadas}/${data.alertasAulasAtrasadas}`, label: 'AvaliaÃ§Ãµes/Aulas atrasadas' }
             ].map((item) => (
               <div className="stat-card" key={item.label}>
                 <div className={`stat-icon ${item.className}`}><AppIcon name={item.icon} size={18} /></div>
@@ -149,10 +163,28 @@ export default function AdminDashboard() {
             </div>
 
             <div className="card">
-              <h3 className="section-title">Alunos que precisam de atenção</h3>
-              {data.alunosAtencao?.length ? (
+              <h3 className="section-title">Alunos que precisam de atenÃ§Ã£o</h3>
+              <div className="filters" style={{ marginBottom: '0.75rem' }}>
+                <input
+                  className="form-input"
+                  value={searchAlunoAtencao}
+                  onChange={(event) => setSearchAlunoAtencao(event.target.value)}
+                  placeholder="Buscar aluno por nome"
+                  aria-label="Buscar aluno por nome em atenção"
+                />
+                <select
+                  className="filter-select"
+                  value={sortAlunoAtencao}
+                  onChange={(event) => setSortAlunoAtencao(event.target.value as 'asc' | 'desc')}
+                  aria-label="Ordenar alunos em atenção"
+                >
+                  <option value="asc">Nome (A-Z)</option>
+                  <option value="desc">Nome (Z-A)</option>
+                </select>
+              </div>
+              {alunosAtencaoFiltrados.length ? (
                 <div className="attention-list">
-                  {data.alunosAtencao.map((aluno) => (
+                  {alunosAtencaoFiltrados.map((aluno) => (
                     <div
                       key={aluno.id}
                       aria-label={`Ver detalhes de ${aluno.nome}`}
@@ -175,7 +207,7 @@ export default function AdminDashboard() {
                           <div className="table-entity-copy">{aluno.nome}</div>
                           <div className="text-muted text-sm">{aluno.email}</div>
                           <div className="text-muted text-sm">
-                            Aulas {aluno.progressoAulas}% · Avaliações {aluno.progressoAvaliacoes}% · Geral {aluno.progressoGeral}%
+                            Aulas {aluno.progressoAulas}% Â· AvaliaÃ§Ãµes {aluno.progressoAvaliacoes}% Â· Geral {aluno.progressoGeral}%
                           </div>
                         </div>
                       </div>
@@ -199,8 +231,8 @@ export default function AdminDashboard() {
               <table>
                 <thead>
                   <tr>
-                    <th>Usuário</th>
-                    <th>Ação</th>
+                    <th>UsuÃ¡rio</th>
+                    <th>AÃ§Ã£o</th>
                     <th>Data/Hora</th>
                     <th>Dispositivo</th>
                   </tr>
@@ -228,9 +260,12 @@ export default function AdminDashboard() {
       ) : (
         <div className="empty-panel">
           <AppIcon name="reports" size={20} />
-          <p>Os dados do painel ainda não estão disponíveis.</p>
+          <p>Os dados do painel ainda nÃ£o estÃ£o disponÃ­veis.</p>
         </div>
       )}
     </>
   );
 }
+
+
+
