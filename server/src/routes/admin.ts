@@ -2581,6 +2581,11 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
           }
         });
       }
+    }, {
+      // Chamada pode envolver muitos alunos e várias operações por aluno.
+      // Aumenta timeout para evitar expiração da transação interativa.
+      maxWait: 15_000,
+      timeout: 120_000
     });
 
     logger.info('chamada registrada', {
@@ -2592,7 +2597,17 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
     res.json({ ok: true });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao salvar chamada' });
+    const message = error instanceof Error ? error.message : 'Erro ao salvar chamada';
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('transaction not found') || normalized.includes('old closed transaction')) {
+      res.status(500).json({
+        error: 'A operação demorou mais que o esperado ao salvar a chamada. Tente novamente em alguns segundos.'
+      });
+      return;
+    }
+
+    res.status(500).json({ error: message });
   }
 });
 
