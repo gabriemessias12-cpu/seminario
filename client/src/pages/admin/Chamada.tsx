@@ -110,6 +110,9 @@ export default function AdminChamada() {
     const message = err.message || '';
     const normalized = message.toLowerCase();
 
+    if (normalized.includes('aborted') || normalized.includes('abortado') || normalized.includes('tempo limite')) {
+      return 'A gravação da chamada demorou além do tempo limite. Aguarde alguns segundos e tente novamente.';
+    }
     if (normalized.includes('aula não encontrada')) return 'Faltou selecionar a aula para confirmar a chamada.';
     if (normalized.includes('dados inválidos')) return 'Dados inválidos na chamada. Revise a marcação dos alunos.';
     if (normalized.includes('nenhuma presença')) return 'Nenhuma presença para salvar. Marque ao menos um aluno.';
@@ -146,7 +149,7 @@ export default function AdminChamada() {
         return;
       }
 
-      await apiPost('/api/admin/chamada', { aulaId: selectedAula, presencas: presencasList });
+      await apiPost('/api/admin/chamada', { aulaId: selectedAula, presencas: presencasList }, { timeoutMs: 180000 });
       setEditMode(false);
       setManualChanges({});
       reloadChamada(selectedModulo, selectedAula);

@@ -2490,8 +2490,14 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
 
       return { alunoId, status, metodo };
     });
+    // Deduplica por aluno (última marcação vence) para evitar escritas duplicadas e reduzir carga transacional.
+    const uniqueByAluno = new Map<string, { alunoId: string; status: string; metodo: string }>();
+    for (const item of normalizedPresencas) {
+      uniqueByAluno.set(item.alunoId, item);
+    }
+    const normalizedUniquePresencas = Array.from(uniqueByAluno.values());
 
-    if (!normalizedPresencas.length) {
+    if (!normalizedUniquePresencas.length) {
       res.status(400).json({ error: 'Nenhuma presença foi enviada para salvar.' });
       return;
     }
@@ -2506,7 +2512,7 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    const idsUnicos = [...new Set(normalizedPresencas.map((item) => item.alunoId))];
+    const idsUnicos = [...new Set(normalizedUniquePresencas.map((item) => item.alunoId))];
     const alunosValidos = await prisma.user.findMany({
       where: {
         id: { in: idsUnicos },
@@ -2514,12 +2520,23 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
       },
       select: { id: true }
     });
-    const validIds = new Set(alunosValidos.map((aluno) => aluno.id));
-    const presencasValidas = normalizedPresencas.filter((item) => validIds.has(item.alunoId));
+    const validIds = new Set(alunosValidos.map((aluno: any) => aluno.id));
+    const presencasValidas = normalizedUniquePresencas.filter((item) => validIds.has(item.alunoId));
     if (!presencasValidas.length) {
       res.status(400).json({ error: 'Nenhum aluno válido foi encontrado para registrar chamada.' });
       return;
     }
+
+    // Carrega progressos existentes antes da transação para reduzir round-trips por aluno.
+    const progressosExistentes = await prisma.progressoAluno.findMany({
+      where: {
+        aulaId,
+        alunoId: { in: presencasValidas.map((item) => item.alunoId) }
+      }
+    });
+    const progressoByAlunoId = new Map<string, any>(
+      progressosExistentes.map((progresso: any) => [progresso.alunoId, progresso])
+    );
 
     await prisma.$transaction(async (tx) => {
       for (const item of presencasValidas) {
@@ -2527,9 +2544,7 @@ router.post('/chamada', async (req: AuthRequest, res: Response): Promise<void> =
         const posicaoAtualSegundos = percentual >= 100
           ? aulaData.duracaoSegundos || 0
           : Math.round((aulaData.duracaoSegundos || 0) * (percentual / 100));
-        const progressoAtual = await tx.progressoAluno.findUnique({
-          where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId } }
-        });
+        const progressoAtual = progressoByAlunoId.get(item.alunoId);
 
         await tx.presenca.upsert({
           where: { alunoId_aulaId: { alunoId: item.alunoId, aulaId } },

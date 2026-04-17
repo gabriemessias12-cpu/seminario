@@ -2,6 +2,7 @@ import { apiUrl } from './api';
 
 type TokenRefreshCallback = (newToken: string) => void;
 type LogoutCallback = () => void;
+type ApiRequestOptions = RequestInit & { timeoutMs?: number };
 
 let onTokenRefreshed: TokenRefreshCallback | null = null;
 let onLogout: LogoutCallback | null = null;
@@ -46,7 +47,32 @@ async function attemptRefresh(): Promise<string | null> {
   }
 }
 
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+function withTimeoutSignal(init: ApiRequestOptions, defaultTimeoutMs: number): { signal: AbortSignal; dispose: () => void } {
+  const timeoutMs = Math.max(1, init.timeoutMs ?? defaultTimeoutMs);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error(`Tempo limite de ${timeoutMs}ms excedido ao chamar a API.`));
+  }, timeoutMs);
+
+  const onAbort = () => controller.abort(init.signal?.reason);
+  if (init.signal) {
+    if (init.signal.aborted) {
+      onAbort();
+    } else {
+      init.signal.addEventListener('abort', onAbort, { once: true });
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      clearTimeout(timeoutId);
+      if (init.signal) init.signal.removeEventListener('abort', onAbort);
+    }
+  };
+}
+
+export async function apiFetch(path: string, init: ApiRequestOptions = {}): Promise<Response> {
   const token = localStorage.getItem('accessToken');
 
   const headers = new Headers(init.headers);
@@ -55,15 +81,12 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers.set('Content-Type', 'application/json');
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
-  const signal = init.signal ?? controller.signal;
-
+  const requestSignal = withTimeoutSignal(init, 20000);
   let res: Response;
   try {
-    res = await fetch(apiUrl(path), { ...init, headers, signal });
+    res = await fetch(apiUrl(path), { ...init, headers, signal: requestSignal.signal });
   } finally {
-    clearTimeout(timeoutId);
+    requestSignal.dispose();
   }
 
   if (res.status === 401) {
@@ -76,12 +99,11 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
       retryHeaders.set('Content-Type', 'application/json');
     }
 
-    const retryController = new AbortController();
-    const retryTimeoutId = setTimeout(() => retryController.abort(), 20000);
+    const retrySignal = withTimeoutSignal(init, 20000);
     try {
-      return await fetch(apiUrl(path), { ...init, headers: retryHeaders, signal: retryController.signal });
+      return await fetch(apiUrl(path), { ...init, headers: retryHeaders, signal: retrySignal.signal });
     } finally {
-      clearTimeout(retryTimeoutId);
+      retrySignal.dispose();
     }
   }
 
@@ -97,8 +119,9 @@ export async function apiGet<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function apiPost<T>(path: string, data?: unknown): Promise<T> {
+export async function apiPost<T>(path: string, data?: unknown, options: ApiRequestOptions = {}): Promise<T> {
   const res = await apiFetch(path, {
+    ...options,
     method: 'POST',
     body: data !== undefined ? JSON.stringify(data) : undefined
   });
@@ -109,8 +132,9 @@ export async function apiPost<T>(path: string, data?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function apiPut<T>(path: string, data?: unknown): Promise<T> {
+export async function apiPut<T>(path: string, data?: unknown, options: ApiRequestOptions = {}): Promise<T> {
   const res = await apiFetch(path, {
+    ...options,
     method: 'PUT',
     body: data !== undefined ? JSON.stringify(data) : undefined
   });
@@ -121,8 +145,9 @@ export async function apiPut<T>(path: string, data?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function apiDelete<T>(path: string, data?: unknown): Promise<T> {
+export async function apiDelete<T>(path: string, data?: unknown, options: ApiRequestOptions = {}): Promise<T> {
   const res = await apiFetch(path, {
+    ...options,
     method: 'DELETE',
     body: data !== undefined ? JSON.stringify(data) : undefined
   });
