@@ -29,6 +29,11 @@ enum StatusEntrega {
   corrigido
 }
 
+enum MetodoEntrega {
+  digital
+  presencial
+}
+
 enum StatusPresenca {
   presente
   parcial
@@ -184,6 +189,7 @@ model EntregaAvaliacao {
   arquivoUrl         String?
   respostasObjetivas String?       @db.Text
   status             StatusEntrega @default(pendente)
+  metodoEntrega      MetodoEntrega @default(digital)
   nota               Float?
   totalQuestoes      Int?
   acertosObjetivos   Int?

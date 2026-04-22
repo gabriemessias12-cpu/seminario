@@ -44,6 +44,7 @@ type Avaliacao = {
 type Entrega = {
   id: string;
   status: string;
+  metodoEntrega?: 'digital' | 'presencial';
   nota?: number | null;
   comentarioCorrecao?: string | null;
   respostaTexto?: string | null;
@@ -60,8 +61,15 @@ type Entrega = {
   };
 };
 
+type AlunoResumo = {
+  id: string;
+  nome: string;
+  email: string;
+};
+
 type DetailedAvaliacao = Avaliacao & {
   entregas: Entrega[];
+  alunosSemEntrega?: AlunoResumo[];
 };
 
 type AvaliacaoListResponse = Avaliacao[] | {
@@ -110,6 +118,11 @@ export default function AdminAvaliacoes() {
   const [correcoes, setCorrecoes] = useState<Record<string, { nota: string; comentarioCorrecao: string; status: string }>>({});
   // Per-question manual grading: entregaId -> questaoId -> 'correta' | 'meio-certa' | 'errada' | null
   const [questaoStatus, setQuestaoStatus] = useState<Record<string, Record<string, 'correta' | 'meio-certa' | 'errada'>>>({});
+
+  const [presencialAlunoId, setPresencialAlunoId] = useState('');
+  const [presencialNota, setPresencialNota] = useState('');
+  const [presencialComentario, setPresencialComentario] = useState('');
+  const [savingPresencial, setSavingPresencial] = useState(false);
 
   const loadData = () => {
     setLoading(true);
@@ -329,6 +342,43 @@ export default function AdminAvaliacoes() {
         ...current,
         [entregaId]: { ...current[entregaId], nota: String(Math.round(total * 100) / 100) }
       }));
+    }
+  };
+
+  const handleRegistrarPresencial = async () => {
+    if (!selectedAvaliacao || !selectedId) {
+      setFeedback('Selecione uma avaliação antes de registrar entrega presencial.');
+      return;
+    }
+
+    if (!presencialAlunoId) {
+      setFeedback('Selecione o aluno que entregou presencialmente.');
+      return;
+    }
+
+    const notaInformada = Number(presencialNota);
+    if (!Number.isFinite(notaInformada) || notaInformada < 0 || notaInformada > selectedAvaliacao.notaMaxima) {
+      setFeedback(`A nota precisa ficar entre 0 e ${selectedAvaliacao.notaMaxima}.`);
+      return;
+    }
+
+    setSavingPresencial(true);
+    try {
+      await apiPost(`/api/admin/avaliacao/${selectedId}/entrega-presencial`, {
+        alunoId: presencialAlunoId,
+        nota: presencialNota,
+        comentarioCorrecao: presencialComentario
+      });
+      setPresencialAlunoId('');
+      setPresencialNota('');
+      setPresencialComentario('');
+      await loadAvaliacao(selectedId);
+      loadData();
+      setFeedback('Entrega presencial registrada com sucesso.');
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Erro ao registrar entrega presencial.');
+    } finally {
+      setSavingPresencial(false);
     }
   };
 
@@ -818,6 +868,62 @@ export default function AdminAvaliacoes() {
             </div>
           </div>
 
+          <div className="assessment-text-response mb-3">
+            <strong>Entrega presencial (em mão)</strong>
+            <p className="student-page-subtitle" style={{ marginTop: '0.25rem' }}>
+              Use quando o aluno entregou o trabalho ou prova fisicamente. A entrega será contabilizada e corrigida da mesma forma que as digitais.
+            </p>
+            <div className="form-row form-row-compact" style={{ marginTop: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Aluno</label>
+                <select
+                  className="form-select"
+                  value={presencialAlunoId}
+                  onChange={(event) => setPresencialAlunoId(event.target.value)}
+                >
+                  <option value="">Selecionar aluno sem entrega</option>
+                  {(selectedAvaliacao.alunosSemEntrega ?? []).map((aluno) => (
+                    <option key={aluno.id} value={aluno.id}>{aluno.nome} - {aluno.email}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Nota</label>
+                <input
+                  className="form-input"
+                  max={selectedAvaliacao.notaMaxima}
+                  min={0}
+                  step="0.5"
+                  type="number"
+                  value={presencialNota}
+                  onChange={(event) => setPresencialNota(event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Comentário (opcional)</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                value={presencialComentario}
+                onChange={(event) => setPresencialComentario(event.target.value)}
+              />
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={savingPresencial || !(selectedAvaliacao.alunosSemEntrega ?? []).length}
+              onClick={() => { void handleRegistrarPresencial(); }}
+              type="button"
+            >
+              {savingPresencial ? 'Registrando...' : 'Confirmar entrega presencial'}
+            </button>
+            {!(selectedAvaliacao.alunosSemEntrega ?? []).length && (
+              <p className="student-page-subtitle" style={{ marginTop: '0.5rem' }}>
+                Todos os alunos aprovados já possuem entrega registrada nesta avaliação.
+              </p>
+            )}
+          </div>
+
           {selectedAvaliacao.formato === 'objetiva' && selectedAvaliacao.questoesObjetivas?.length ? (
             <div className="assessment-text-response mb-3">
               <strong>Gabarito cadastrado</strong>
@@ -857,7 +963,12 @@ export default function AdminAvaliacoes() {
                         <h3>{entrega.aluno.nome}</h3>
                         <p>{entrega.aluno.email}</p>
                       </div>
-                      <span className={`badge ${entrega.status === 'corrigido' ? 'badge-success' : 'badge-warning'}`}>{entrega.status}</span>
+                      <div className="assessment-badge-row" style={{ justifyContent: 'flex-end' }}>
+                        {entrega.metodoEntrega === 'presencial' && (
+                          <span className="badge badge-purple">Presencial</span>
+                        )}
+                        <span className={`badge ${entrega.status === 'corrigido' ? 'badge-success' : 'badge-warning'}`}>{entrega.status}</span>
+                      </div>
                     </div>
 
                     <div className="assessment-meta">

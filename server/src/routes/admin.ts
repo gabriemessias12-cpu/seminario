@@ -1,5 +1,5 @@
 ﻿import { Router, Response } from 'express';
-import { PrismaClient, MetodoPresenca, StatusEntrega, StatusPresenca } from '@prisma/client';
+import { PrismaClient, MetodoEntrega, MetodoPresenca, StatusEntrega, StatusPresenca } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import fs from 'fs';
@@ -2297,15 +2297,116 @@ router.get('/avaliacao/:id', async (req: AuthRequest, res: Response): Promise<vo
     }
 
     const questoes = parseObjectiveQuestions(avaliacao.questoesObjetivas);
+
+    const entregasAlunoIds = new Set(avaliacao.entregas.map((entrega) => entrega.alunoId));
+    const alunosAtivos = await prisma.user.findMany({
+      where: { papel: 'aluno', ativo: true, statusCadastro: 'aprovado' },
+      select: { id: true, nome: true, email: true },
+      orderBy: { nome: 'asc' }
+    });
+    const alunosSemEntrega = alunosAtivos.filter((aluno) => !entregasAlunoIds.has(aluno.id));
+
     res.json({
       ...avaliacao,
       questoesObjetivas: questoes,
       quantidadeQuestoes: questoes.length,
-      resumoEntregas: buildDeliverySummary(avaliacao.entregas)
+      resumoEntregas: buildDeliverySummary(avaliacao.entregas),
+      alunosSemEntrega
     });
   } catch (error) {
     logger.error(error);
     res.status(500).json({ error: 'Erro ao carregar avaliação' });
+  }
+});
+
+// POST /api/admin/avaliacao/:id/entrega-presencial
+router.post('/avaliacao/:id/entrega-presencial', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const avaliacaoId = readString(req.params.id);
+    const alunoId = readString(req.body.alunoId);
+    const comentarioCorrecao = readString(req.body.comentarioCorrecao);
+    const nota = Number(readString(req.body.nota));
+
+    if (!avaliacaoId) {
+      res.status(400).json({ error: 'Avaliação inválida.' });
+      return;
+    }
+
+    if (!alunoId) {
+      res.status(400).json({ error: 'Selecione o aluno que entregou presencialmente.' });
+      return;
+    }
+
+    if (!Number.isFinite(nota)) {
+      res.status(400).json({ error: 'Informe uma nota válida.' });
+      return;
+    }
+
+    const avaliacao = await prisma.avaliacao.findUnique({
+      where: { id: avaliacaoId },
+      select: { id: true, titulo: true, notaMaxima: true }
+    });
+
+    if (!avaliacao) {
+      res.status(404).json({ error: 'Avaliação não encontrada.' });
+      return;
+    }
+
+    if (nota < 0 || nota > avaliacao.notaMaxima) {
+      res.status(400).json({ error: `A nota deve estar entre 0 e ${avaliacao.notaMaxima}.` });
+      return;
+    }
+
+    const aluno = await prisma.user.findFirst({
+      where: { id: alunoId, papel: 'aluno' },
+      select: { id: true, nome: true, email: true }
+    });
+
+    if (!aluno) {
+      res.status(404).json({ error: 'Aluno não encontrado.' });
+      return;
+    }
+
+    const agora = new Date();
+
+    const entrega = await prisma.entregaAvaliacao.upsert({
+      where: { avaliacaoId_alunoId: { avaliacaoId, alunoId } },
+      update: {
+        status: 'corrigido' as StatusEntrega,
+        metodoEntrega: 'presencial' as MetodoEntrega,
+        nota,
+        comentarioCorrecao,
+        enviadoEm: agora,
+        corrigidoEm: agora
+      },
+      create: {
+        avaliacaoId,
+        alunoId,
+        status: 'corrigido' as StatusEntrega,
+        metodoEntrega: 'presencial' as MetodoEntrega,
+        nota,
+        comentarioCorrecao,
+        enviadoEm: agora,
+        corrigidoEm: agora
+      },
+      include: {
+        aluno: { select: { id: true, nome: true, email: true } },
+        avaliacao: { select: { id: true, titulo: true, notaMaxima: true } }
+      }
+    });
+
+    await logContentChange(prisma, req, {
+      entity: 'entrega_avaliacao',
+      entityId: entrega.id,
+      title: avaliacao.titulo,
+      action: 'atualizado',
+      details: { alunoId, nota, metodoEntrega: 'presencial' }
+    });
+
+    res.json(entrega);
+  } catch (error) {
+    logger.error(error);
+    res.status(500).json({ error: 'Erro ao registrar entrega presencial.' });
   }
 });
 
